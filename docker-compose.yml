@@ -1,0 +1,20 @@
+# ---------------------------------------------------------------------------
+# Brasil Lens — frontend isolado.
+#
+#   docker compose up --build --wait     → http://localhost:5173
+#
+# Precisa da API no ar (por padrão em http://localhost:8000). Para subir a
+# aplicação completa — banco, API e este frontend — de uma vez, use o
+# docker-compose.yml do repositório brasil-lens-backend.
+# ---------------------------------------------------------------------------
+name: brasil-lens-frontend
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        # É a URL que o *navegador* usa para chamar a API; fica assada no bundle.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "${WEB_PORT:-5173}:80"

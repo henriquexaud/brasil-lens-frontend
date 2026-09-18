@@ -1,0 +1,15 @@
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+
+# Ambiente
+.env
+.env.local
+
+# SO / editor
+.DS_Store
+.idea/
+.vscode/
