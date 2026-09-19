@@ -11,7 +11,7 @@
 import { CircleMarker, Popup } from 'react-leaflet';
 
 import type { WeatherStationCollection, WeatherStationFeature } from '@/api/types';
-import { ScrambleText } from '@/components/ScrambleText';
+import { AnimatedText } from '@/components/AnimatedText';
 import { interpolatePalette, PALETTES } from '@/features/map/colors';
 import { formatRelativeTime } from '@/lib/format';
 
@@ -67,7 +67,7 @@ export function StationLayer({ collection }: Props) {
             }}
           >
             <Popup>
-              <ScrambleText as="strong" text={properties.name} />
+              <AnimatedText as="strong" text={properties.name} />
               <div>{properties.stateAbbreviation ?? ''}</div>
               <div>Temperatura: {formatMeasurement(properties.temperatureC, '°C')}</div>
               <div>Umidade: {formatMeasurement(properties.humidityPct, '%')}</div>

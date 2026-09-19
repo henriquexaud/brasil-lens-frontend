@@ -20,7 +20,8 @@ import {
   colorForClass,
   paletteForIndicator,
 } from './colors';
-import { scrambleReveal } from './scrambleReveal';
+import { revealText, type RevealMode } from '@/lib/revealText';
+import { scopeInsets } from './viewport';
 
 interface Props {
   collection: MapFeatureCollection;
@@ -36,39 +37,42 @@ type Point = { x: number; y: number };
 
 const TOOLTIP_ID = 'map-hover-tooltip';
 /** Não deixa o card colado no cursor nem sair da faixa visível do mapa. */
-const TOOLTIP_MARGIN = 220;
+const TOOLTIP_EDGE = 8;
 
 // textContent keeps API names and units as text, including accents and symbols.
-// `scramble` liga o efeito de decodificação (ver scrambleReveal); o resto do
-// conteúdo troca na hora, sem chamar atenção para si.
+// Animações do tooltip são canceladas quando o território muda.
 function fillTooltipContent(
   el: HTMLElement,
   properties: MapFeatureProperties,
   collection: MapFeatureCollection,
   canDrillDown: boolean,
+  municipal: boolean,
 ) {
+  const cleanups: Array<() => void> = [];
   el.replaceChildren();
-  const add = (className: string, text: string, scramble = false) => {
+  const add = (className: string, text: string, mode?: RevealMode) => {
     const line = document.createElement('span');
     line.className = className;
-    if (scramble) scrambleReveal(line, text);
+    if (mode) cleanups.push(revealText(line, text, mode));
     else line.textContent = text;
     el.append(line);
   };
-  add('tooltip-name', properties.name, true);
+  add('tooltip-name', properties.name, 'text');
   if (properties.parentName) add('tooltip-meta', properties.parentName);
   if (collection.indicator) {
     const { unit, decimalPlaces } = collection.indicator;
     add(
       properties.value === null ? 'tooltip-value is-missing' : 'tooltip-value',
       formatValue(properties.value, unit, decimalPlaces),
-      true,
+      'number',
     );
   }
   // Único jeito de anunciar o gesto: não há espaço fixo na tela para uma dica
   // permanente, e o tooltip já é o lugar que o usuário está olhando quando
   // paira sobre a UF.
   if (canDrillDown) add('tooltip-hint', 'Duplo clique para ver os municípios');
+  else if (municipal) add('tooltip-hint', 'Duplo clique para centralizar e aproximar');
+  return () => cleanups.forEach((cleanup) => cleanup());
 }
 
 function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode }: Props) {
@@ -78,8 +82,6 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
   const selectionOutlineRef = useRef<LeafletGeoJSON>(null);
   const hoveredCode = useRef<string | null>(null);
   const municipal = collection.scope.level === 'municipality';
-  // Município é o nível mais fino que a API oferece — duplo clique só tem
-  // para onde ir quando o recorte atual é de UFs.
   const canDrillDown = collection.scope.level === 'state' && Boolean(onDrillDown);
   const featuresByCode = useMemo(
     () => new Map(collection.features.map((feature) => [feature.properties.ibgeCode, feature])),
@@ -104,10 +106,12 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
   // `transform: translate3d`, no máximo uma vez por frame (rAF), nunca em
   // `top`/`left` (que force layout a cada pixel). O conteúdo só é reescrito
   // quando o território sob o cursor muda de fato, nunca a cada `mousemove`.
+  const tooltipCleanupRef = useRef<(() => void) | null>(null);
   const tooltipElRef = useRef<HTMLDivElement | null>(null);
   const pointerRef = useRef<Point | null>(null);
   const fixedAnchorRef = useRef<Point | null>(null);
   const offsetRef = useRef({ dx: 16, dy: -14 });
+  const tooltipSizeRef = useRef({ width: 0, height: 0 });
   const activeTooltipCodeRef = useRef<string | null>(null);
   const moveFrameRef = useRef<number | null>(null);
   const hideFrameRef = useRef<number | null>(null);
@@ -137,7 +141,11 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
       if (!point || !tooltipElRef.current) return;
       const { dx, dy } = offsetRef.current;
       // translate3d (não top/left) para não disparar layout a cada frame.
-      tooltipElRef.current.style.transform = `translate3d(${Math.round(point.x + dx)}px, ${Math.round(point.y + dy)}px, 0)`;
+      const size = map.getSize();
+      const { width, height } = tooltipSizeRef.current;
+      const x = Math.max(TOOLTIP_EDGE, Math.min(point.x + dx, size.x - width - TOOLTIP_EDGE));
+      const y = Math.max(TOOLTIP_EDGE, Math.min(point.y + dy, size.y - height - TOOLTIP_EDGE));
+      tooltipElRef.current.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
     };
     const scheduleMove = () => {
       if (moveFrameRef.current !== null) return;
@@ -157,6 +165,7 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
       map.off('mousemove', onMouseMove);
       if (moveFrameRef.current !== null) cancelAnimationFrame(moveFrameRef.current);
       if (hideFrameRef.current !== null) cancelAnimationFrame(hideFrameRef.current);
+      tooltipCleanupRef.current?.();
       el.remove();
       tooltipElRef.current = null;
     };
@@ -216,13 +225,21 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
       const el = tooltipElRef.current;
       if (!el) return;
       if (activeTooltipCodeRef.current !== properties.ibgeCode) {
-        fillTooltipContent(el, properties, collection, canDrillDown);
+        tooltipCleanupRef.current?.();
+        tooltipCleanupRef.current = fillTooltipContent(
+          el,
+          properties,
+          collection,
+          canDrillDown,
+          municipal,
+        );
         // Decide o lado uma vez por território, não a cada frame: não vale o
         // custo de medir o layout do card a cada pixel que o mouse anda.
         const size = map.getSize();
         const anchor = fixedPoint ?? pointerRef.current;
+        tooltipSizeRef.current = { width: el.offsetWidth, height: el.offsetHeight };
         offsetRef.current = {
-          dx: anchor && anchor.x > size.x - TOOLTIP_MARGIN ? -16 : 16,
+          dx: anchor && anchor.x + el.offsetWidth + 16 > size.x ? -el.offsetWidth - 16 : 16,
           dy: anchor && anchor.y < 90 ? 20 : -14,
         };
         activeTooltipCodeRef.current = properties.ibgeCode;
@@ -258,7 +275,8 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
         layer.setStyle(style(feature));
         element?.removeAttribute('aria-describedby');
       };
-      const enter = () => {
+      const enter = (event: LeafletMouseEvent) => {
+        pointerRef.current = { x: event.containerPoint.x, y: event.containerPoint.y };
         hoverEnter();
         showTooltipFor(properties);
       };
@@ -269,6 +287,17 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
       const click = () => onSelect(properties.ibgeCode);
       const drill = () => {
         if (canDrillDown) onDrillDown!(properties.ibgeCode, properties.name);
+        else if (municipal && layer instanceof Polygon) {
+          onSelect(properties.ibgeCode);
+          scheduleHideTooltip();
+          map.stop();
+          map.flyToBounds(layer.getBounds(), {
+            ...scopeInsets(map),
+            maxZoom: 12,
+            duration: 0.6,
+            animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+          });
+        }
       };
       const focus = () => {
         hoverEnter();
@@ -281,13 +310,21 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           event.stopPropagation();
-          click();
+          if (event.shiftKey && event.key === 'Enter') drill();
+          else click();
         }
       };
       element?.setAttribute('tabindex', '0');
       element?.setAttribute('role', 'button');
       element?.setAttribute('aria-label', properties.name);
       element?.setAttribute('aria-pressed', String(selected));
+      element?.setAttribute('aria-keyshortcuts', 'Enter Space Shift+Enter');
+      element?.setAttribute(
+        'aria-description',
+        municipal
+          ? 'Enter para selecionar. Shift + Enter para centralizar e aproximar.'
+          : 'Enter para selecionar. Shift + Enter para ver os municípios.',
+      );
       element?.addEventListener('focus', focus);
       element?.addEventListener('blur', leave);
       element?.addEventListener('keydown', keydown as EventListener);

@@ -7,7 +7,6 @@
  * o resto do produto já aplica a indicador sem dado.
  */
 import type { WeatherSourcesResponse, WeatherSourceStatusValue } from '@/api/types';
-import { ScrambleText } from '@/components/ScrambleText';
 import { formatRelativeTime } from '@/lib/format';
 
 const STATUS_LABEL: Record<WeatherSourceStatusValue, string> = {
@@ -44,7 +43,7 @@ export function SourceStatusPanel({ sources }: Props) {
               aria-hidden="true"
             />
             <span className="weather-source-text">
-              <ScrambleText as="span" className="weather-source-name" text={source.name} />
+              <span className="weather-source-name">{source.name}</span>
               <span className="weather-source-meta">
                 {STATUS_LABEL[source.status]}
                 {source.lastUpdatedAt && ` · ${formatRelativeTime(source.lastUpdatedAt)}`}

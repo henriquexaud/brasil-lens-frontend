@@ -18,7 +18,7 @@
 import { useId, useRef, useState } from 'react';
 
 import type { Indicator } from '@/api/types';
-import { ScrambleText } from '@/components/ScrambleText';
+import { AnimatedText } from '@/components/AnimatedText';
 import { Select } from '@/components/Select';
 
 export const LATEST_YEAR = 'latest';
@@ -73,7 +73,9 @@ export function ControlPanel({
       // daquele indicador. Mostrar qual ano respondeu evita a ambiguidade.
       label: latestYear != null ? `Último · ${latestYear}` : 'Último disponível',
     },
-    ...[...years].reverse().map((year) => ({ value: String(year), label: String(year) })),
+    ...[...years]
+      .sort((a, b) => b - a)
+      .map((year) => ({ value: String(year), label: String(year) })),
   ];
 
   return (
@@ -86,7 +88,11 @@ export function ControlPanel({
       <header className="scope">
         <div className="scope-text">
           <p className="scope-kicker">{scopeSubtitle}</p>
-          <ScrambleText key={scopeTitle} as="h1" className="scope-title" text={scopeTitle} />
+          {onResetScope ? (
+            <AnimatedText key={scopeTitle} as="h1" className="scope-title" text={scopeTitle} />
+          ) : (
+            <h1 className="scope-title">{scopeTitle}</h1>
+          )}
         </div>
         {onResetScope && (
           <button
@@ -94,8 +100,9 @@ export function ControlPanel({
             className="ghost-button"
             onClick={onResetScope}
             title="Voltar para o mapa do Brasil"
+            aria-label="Voltar para o mapa do Brasil"
           >
-            Brasil
+            <span aria-hidden="true">←</span> Brasil
           </button>
         )}
       </header>
@@ -103,7 +110,6 @@ export function ControlPanel({
       <Select
         id="indicator"
         label="Indicador"
-        hideLabel
         value={selectedIndicatorKey}
         options={indicators.map((indicator) => ({
           value: indicator.key,
@@ -114,6 +120,12 @@ export function ControlPanel({
           onIndicatorChange(key);
         }}
       />
+
+      <p className="navigation-hint">
+        {onResetScope
+          ? 'Clique para ver dados. Duplo clique para aproximar.'
+          : 'Clique para ver dados. Duplo clique para ver municípios.'}
+      </p>
 
       <div className="control-actions">
         <button
@@ -126,7 +138,7 @@ export function ControlPanel({
           disabled={!hasCoverage}
           onClick={() => setExpandedControl(expandedControl === 'year' ? null : 'year')}
         >
-          {hasCoverage ? yearLabel : 'Sem dados'}
+          {hasCoverage ? `Ano: ${yearLabel}` : 'Sem dados'}
           <span className="disclosure-chevron" aria-hidden="true" />
         </button>
         {current?.description && (

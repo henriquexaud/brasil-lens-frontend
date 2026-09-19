@@ -402,6 +402,13 @@ body {
   overflow-wrap: anywhere;
 }
 
+.navigation-hint {
+  margin: 8px 0 0;
+  color: var(--text-soft);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
 .control-actions {
   display: flex;
   align-items: center;

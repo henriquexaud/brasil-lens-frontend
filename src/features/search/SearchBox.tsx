@@ -14,7 +14,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useSearchIndex } from '@/api/queries';
-import { ScrambleText } from '@/components/ScrambleText';
+import { AnimatedText } from '@/components/AnimatedText';
 import { searchTerritories, type SearchResult } from '@/lib/searchIndex';
 
 const MIN_QUERY_LENGTH = 2;
@@ -53,6 +53,11 @@ export function SearchBox({ onSelect }: Props) {
   useEffect(() => {
     setActiveIndex(0);
   }, [query]);
+
+  useEffect(() => {
+    if (showDropdown)
+      document.getElementById(`${listId}-${activeIndex}`)?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, showDropdown, listId]);
 
   function selectResult(result: SearchResult) {
     onSelect(result);
@@ -106,6 +111,7 @@ export function SearchBox({ onSelect }: Props) {
           type="text"
           className="search-input"
           placeholder="Buscar estado ou município"
+          aria-label="Buscar estado ou município"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setFocused(true)}
@@ -156,7 +162,7 @@ export function SearchBox({ onSelect }: Props) {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectResult(result)}
               >
-                <ScrambleText as="span" className="search-result-name" text={result.name} />
+                <AnimatedText as="span" className="search-result-name" text={result.name} />
                 <span className="search-result-meta">
                   {result.level === 'state' ? 'Estado' : (result.parentName ?? 'Município')}
                 </span>
@@ -166,7 +172,17 @@ export function SearchBox({ onSelect }: Props) {
         </ul>
       )}
 
-      {showDropdown && results.length === 0 && !index.isLoading && (
+      {showDropdown && index.isLoading && (
+        <p className="search-empty" role="status">
+          Carregando lugares…
+        </p>
+      )}
+      {showDropdown && index.isError && (
+        <p className="search-empty" role="status">
+          Não foi possível carregar a busca.
+        </p>
+      )}
+      {showDropdown && results.length === 0 && !index.isLoading && !index.isError && (
         <p className="search-empty">Nada encontrado</p>
       )}
     </div>

@@ -11,7 +11,7 @@
  */
 import type { TerritoryOverview } from '@/api/types';
 import { ErrorMessage } from '@/components/Feedback';
-import { ScrambleText } from '@/components/ScrambleText';
+import { AnimatedText } from '@/components/AnimatedText';
 import { childrenLabel, formatValue, levelLabel } from '@/lib/format';
 
 interface Props {
@@ -86,7 +86,7 @@ export function TerritoryDetailPanel({
             {levelLabel(overview.level)}
             {overview.parent && ` · ${overview.parent.name}`}
           </p>
-          <ScrambleText as="h2" className="detail-title" text={overview.name} />
+          <AnimatedText as="h2" className="detail-title" text={overview.name} />
           {/* Só estados (e o país) têm capital — municípios e regiões não. */}
           {overview.capital && <p className="detail-capital">Capital: {overview.capital.name}</p>}
         </div>
@@ -109,13 +109,14 @@ export function TerritoryDetailPanel({
           className="featured-indicator"
         >
           <dt className="indicator-label">
-            <ScrambleText text={featuredIndicator.name} />
+            <AnimatedText text={featuredIndicator.name} />
             {featuredIndicator.year !== null && (
               <span className="indicator-year">{featuredIndicator.year}</span>
             )}
           </dt>
-          <ScrambleText
+          <AnimatedText
             as="dd"
+            mode="number"
             className={
               featuredIndicator.value === null ? 'featured-value is-missing' : 'featured-value'
             }
@@ -166,15 +167,16 @@ export function TerritoryDetailPanel({
             {otherIndicators.map((indicator) => (
               <div key={indicator.key} className="indicator-row">
                 <dt className="indicator-label">
-                  <ScrambleText text={indicator.name} />
+                  <span>{indicator.name}</span>
                   {/* Cada indicador carrega o seu próprio ano: a API resolve
                   "último disponível" por indicador, não por tela. */}
                   {indicator.year !== null && (
                     <span className="indicator-year">{indicator.year}</span>
                   )}
                 </dt>
-                <ScrambleText
+                <AnimatedText
                   as="dd"
+                  mode="number"
                   className={
                     indicator.value === null ? 'indicator-value is-missing' : 'indicator-value'
                   }

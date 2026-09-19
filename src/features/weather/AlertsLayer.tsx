@@ -10,7 +10,7 @@ import type { PathOptions } from 'leaflet';
 import { GeoJSON, Popup } from 'react-leaflet';
 
 import type { WeatherAlertCollection, WeatherAlertFeature } from '@/api/types';
-import { ScrambleText } from '@/components/ScrambleText';
+import { AnimatedText } from '@/components/AnimatedText';
 import { formatRelativeTime } from '@/lib/format';
 
 /** Só usada se a fonte não mandar `color` — não deveria acontecer com o INMET. */
@@ -48,7 +48,7 @@ export function AlertsLayer({ collection }: Props) {
       {collection.features.map((feature) => (
         <GeoJSON key={feature.id} data={feature} style={() => styleFor(feature)}>
           <Popup>
-            <ScrambleText as="strong" text={feature.properties.event} />
+            <AnimatedText as="strong" text={feature.properties.event} />
             <div>{feature.properties.severity}</div>
             <div>Válido: {formatWindow(feature.properties.onset, feature.properties.expires)}</div>
             {feature.properties.risks.map((risk, index) => (
