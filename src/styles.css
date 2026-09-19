@@ -1326,3 +1326,45 @@ body {
     background-size: 100% 100%;
   }
 }
+
+/* -------------------------------------------------------- contexto clima --
+ * Painel de frescor por fonte (ver features/weather/SourceStatusPanel.tsx).
+ * Mesma linguagem visual de .indicator-row, adaptada para "fonte" em vez de
+ * "indicador": um ponto de status no lugar do valor numérico.
+ */
+.weather-source-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.weather-source-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.weather-source-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 50%;
+}
+
+.weather-source-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.weather-source-name {
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.weather-source-meta {
+  color: var(--text-faint);
+  font-size: 11px;
+}

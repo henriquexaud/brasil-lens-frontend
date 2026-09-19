@@ -27,6 +27,7 @@ import {
 } from '@/api/queries';
 import type { Indicator, MapScopeInput, SavedView } from '@/api/types';
 import { ErrorMessage } from '@/components/Feedback';
+import { ScrambleText } from '@/components/ScrambleText';
 import { levelPluralLabel } from '@/lib/format';
 
 const NAME_MAX_LENGTH = 80;
@@ -270,7 +271,7 @@ export function SavedViewsPanel({ current, currentParentName, indicators, onAppl
                     onClick={() => onApply(view, stateName(view.parentCode))}
                     title="Abrir esta visualização no mapa"
                   >
-                    <span className="views-name">{view.name}</span>
+                    <ScrambleText as="span" className="views-name" text={view.name} />
                     <span className="views-meta">
                       {scopeLabel(view, stateName(view.parentCode))}
                       {' · '}

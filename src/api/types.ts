@@ -6,7 +6,7 @@
  * membros extras (`scope`, `indicator`, `statistics`, `classification`), o que
  * permite entregá-la ao react-leaflet sem transformação nenhuma.
  */
-import type { MultiPolygon } from 'geojson';
+import type { MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 export type GeometryLod = 'canonical' | 'overview' | 'detail';
@@ -226,4 +226,78 @@ export interface SavedViewListResponse {
 export interface TerritoryListResponse {
   territories: TerritorySummary[];
   pagination: Pagination;
+}
+
+/**
+ * Contexto Clima — painel meteorológico, não coropleta.
+ *
+ * Sem `scope`/`indicator`/`classification`: uma estação ou um alerta não tem
+ * recorte territorial nem classe de quantil. Ver GET /weather/stations,
+ * /weather/alerts, /weather/sources e `docs/ARCHITECTURE.md` (contexto Clima).
+ */
+export type WeatherStationType = 'automatic_weather' | 'rain_gauge';
+
+export interface WeatherStationProperties {
+  provider: string;
+  externalCode: string;
+  name: string;
+  stationType: WeatherStationType;
+  stateAbbreviation: string | null;
+  /** ISO 8601, UTC — horário da leitura na fonte, não da ingestão. */
+  observedAt: string;
+  temperatureC: number | null;
+  humidityPct: number | null;
+  pressureHpa: number | null;
+  precipitationMm: number | null;
+}
+
+export interface WeatherStationFeature {
+  type: 'Feature';
+  id: string;
+  properties: WeatherStationProperties;
+  geometry: Point;
+}
+
+export interface WeatherStationCollection {
+  type: 'FeatureCollection';
+  features: WeatherStationFeature[];
+}
+
+export interface WeatherAlertProperties {
+  provider: string;
+  event: string;
+  severity: string;
+  /** Cor oficial da fonte (ex.: INMET) — exibida como está, nunca trocada. */
+  color: string | null;
+  onset: string;
+  expires: string;
+  affectedIbgeCodes: string[];
+  risks: string[];
+  instructions: string[];
+}
+
+export interface WeatherAlertFeature {
+  type: 'Feature';
+  id: string;
+  properties: WeatherAlertProperties;
+  geometry: MultiPolygon;
+}
+
+export interface WeatherAlertCollection {
+  type: 'FeatureCollection';
+  features: WeatherAlertFeature[];
+}
+
+export type WeatherSourceStatusValue = 'ok' | 'stale' | 'unavailable';
+
+export interface WeatherSourceStatus {
+  key: string;
+  name: string;
+  lastUpdatedAt: string | null;
+  status: WeatherSourceStatusValue;
+  updateFrequencySeconds: number;
+}
+
+export interface WeatherSourcesResponse {
+  sources: WeatherSourceStatus[];
 }

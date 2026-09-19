@@ -11,6 +11,7 @@
  */
 import type { TerritoryOverview } from '@/api/types';
 import { ErrorMessage } from '@/components/Feedback';
+import { ScrambleText } from '@/components/ScrambleText';
 import { childrenLabel, formatValue, levelLabel } from '@/lib/format';
 
 interface Props {
@@ -85,7 +86,7 @@ export function TerritoryDetailPanel({
             {levelLabel(overview.level)}
             {overview.parent && ` · ${overview.parent.name}`}
           </p>
-          <h2 className="detail-title">{overview.name}</h2>
+          <ScrambleText as="h2" className="detail-title" text={overview.name} />
           {/* Só estados (e o país) têm capital — municípios e regiões não. */}
           {overview.capital && <p className="detail-capital">Capital: {overview.capital.name}</p>}
         </div>
@@ -108,22 +109,22 @@ export function TerritoryDetailPanel({
           className="featured-indicator"
         >
           <dt className="indicator-label">
-            {featuredIndicator.name}
+            <ScrambleText text={featuredIndicator.name} />
             {featuredIndicator.year !== null && (
               <span className="indicator-year">{featuredIndicator.year}</span>
             )}
           </dt>
-          <dd
+          <ScrambleText
+            as="dd"
             className={
               featuredIndicator.value === null ? 'featured-value is-missing' : 'featured-value'
             }
-          >
-            {formatValue(
+            text={formatValue(
               featuredIndicator.value,
               featuredIndicator.unit,
               featuredIndicator.decimalPlaces,
             )}
-          </dd>
+          />
         </dl>
       )}
 
@@ -165,21 +166,21 @@ export function TerritoryDetailPanel({
             {otherIndicators.map((indicator) => (
               <div key={indicator.key} className="indicator-row">
                 <dt className="indicator-label">
-                  {indicator.name}
+                  <ScrambleText text={indicator.name} />
                   {/* Cada indicador carrega o seu próprio ano: a API resolve
                   "último disponível" por indicador, não por tela. */}
                   {indicator.year !== null && (
                     <span className="indicator-year">{indicator.year}</span>
                   )}
                 </dt>
-                <dd
+                <ScrambleText
+                  as="dd"
                   className={
                     indicator.value === null ? 'indicator-value is-missing' : 'indicator-value'
                   }
                   title={indicator.source ?? undefined}
-                >
-                  {formatValue(indicator.value, indicator.unit, indicator.decimalPlaces)}
-                </dd>
+                  text={formatValue(indicator.value, indicator.unit, indicator.decimalPlaces)}
+                />
               </div>
             ))}
           </dl>

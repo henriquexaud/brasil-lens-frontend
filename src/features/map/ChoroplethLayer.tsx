@@ -13,7 +13,13 @@ import { GeoJSON, useMap } from 'react-leaflet';
 import type { MapFeatureCollection, MapFeatureProperties } from '@/api/types';
 import { formatValue } from '@/lib/format';
 
-import { BORDER_COLOR, HOVER_COLOR, SELECTED_COLOR, colorForClass } from './colors';
+import {
+  BORDER_COLOR,
+  HOVER_COLOR,
+  SELECTED_COLOR,
+  colorForClass,
+  paletteForIndicator,
+} from './colors';
 import { scrambleReveal } from './scrambleReveal';
 
 interface Props {
@@ -168,11 +174,15 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
         weight: hovered ? (municipal ? 1.2 : 1.5) : municipal ? 0.4 : 0.75,
         opacity: hovered ? 0.9 : municipal ? 0.55 : 0.8,
         fillOpacity: properties?.classIndex == null ? 0.35 : 0.68,
-        fillColor: colorForClass(properties?.classIndex ?? null, collection.classification),
+        fillColor: colorForClass(
+          properties?.classIndex ?? null,
+          collection.classification,
+          paletteForIndicator(collection.indicator?.key),
+        ),
         className: 'territory-shape',
       };
     },
-    [collection.classification, featuresByCode, municipal, selectedCode],
+    [collection.classification, collection.indicator?.key, featuresByCode, municipal, selectedCode],
   );
 
   // Rebind interactions to current data without replacing focused paths or

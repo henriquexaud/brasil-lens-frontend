@@ -17,6 +17,9 @@ import {
   useMapLayer,
   usePrefetchOverview,
   useTerritoryOverview,
+  useWeatherAlerts,
+  useWeatherSources,
+  useWeatherStations,
 } from '@/api/queries';
 import type { DataContext, MapQuery, MapScopeInput, SavedView } from '@/api/types';
 import { Select } from '@/components/Select';
@@ -28,6 +31,9 @@ import { MapView } from '@/features/map/MapView';
 import { useMapScope } from '@/features/map/useMapScope';
 import { SearchBox } from '@/features/search/SearchBox';
 import { SavedViewsPanel } from '@/features/views/SavedViewsPanel';
+import { AlertsLayer } from '@/features/weather/AlertsLayer';
+import { SourceStatusPanel } from '@/features/weather/SourceStatusPanel';
+import { StationLayer } from '@/features/weather/StationLayer';
 import type { SearchResult } from '@/lib/searchIndex';
 
 const DEFAULT_INDICATOR = 'population';
@@ -47,6 +53,14 @@ export default function App() {
   const [indicatorKey, setIndicatorKey] = useState(DEFAULT_INDICATOR);
   const [year, setYear] = useState<string>(LATEST_YEAR);
   const [context, setContext] = useState<DataContext>(DEFAULT_CONTEXT);
+
+  /**
+   * Clima não é "mais um indicador" — é um painel diferente (estações e
+   * alertas em vez de coroplética territorial). Em vez de espalhar `if
+   * (context === 'climate_environmental')` pelo componente inteiro, esta
+   * única flag decide o que fica ligado/desligado abaixo.
+   */
+  const isClimate = context === 'climate_environmental';
 
   /**
    * Esc como "voltar" a partir do mapa: fecha o detalhe aberto ou, sem
@@ -98,8 +112,16 @@ export default function App() {
   // para o nível atual: o seletor de ano nunca oferece um ano sem dado.
   // `context` restringe ao contexto ativo — os demais ainda não têm provider
   // registrado, então o catálogo vem vazio até um ser adicionado.
-  const indicatorsQuery = useIndicators(scope.level, context);
+  const indicatorsQuery = useIndicators(scope.level, context, !isClimate);
   const indicators = indicatorsQuery.data?.indicators ?? [];
+
+  // Clima: três consultas independentes, cada uma sua própria cadência —
+  // nenhuma delas depende de nível/pai/ano (ver docs/ARCHITECTURE.md, o
+  // contexto Clima não é territorial). Desligadas fora deste contexto para
+  // não fazer polling à toa.
+  const stationsQuery = useWeatherStations(isClimate);
+  const alertsQuery = useWeatherAlerts(isClimate);
+  const sourcesQuery = useWeatherSources(isClimate);
   const currentIndicator = indicators.find((indicator) => indicator.key === indicatorKey);
 
   /**
@@ -130,7 +152,7 @@ export default function App() {
     [scope.level, scope.parent, indicatorKey, effectiveYear],
   );
 
-  const mapLayer = useMapLayer(mapQuery, indicators.length > 0);
+  const mapLayer = useMapLayer(mapQuery, indicators.length > 0 && !isClimate);
   const overview = useTerritoryOverview(selectedCode);
   const prefetchOverview = usePrefetchOverview();
 
@@ -159,21 +181,33 @@ export default function App() {
   const showsCurrentScope =
     collection?.scope.level === scope.level && (collection?.scope.parent ?? null) === scope.parent;
   const isEmptyScope = Boolean(collection && showsCurrentScope && collection.features.length === 0);
-  const failure = indicatorsQuery.error ?? mapLayer.error;
+  const failure = isClimate
+    ? (stationsQuery.error ?? alertsQuery.error ?? sourcesQuery.error)
+    : (indicatorsQuery.error ?? mapLayer.error);
+  const isFetching = isClimate
+    ? stationsQuery.isFetching || alertsQuery.isFetching
+    : mapLayer.isFetching || indicatorsQuery.isFetching;
 
   return (
     <div className="app">
-      {(mapLayer.isFetching || indicatorsQuery.isFetching) && <TopProgress />}
+      {isFetching && <TopProgress />}
 
-      <MapView
-        collection={collection}
-        selectedCode={selectedCode}
-        onSelect={setSelectedCode}
-        onHover={prefetchOverview}
-        onDrillDown={drillIntoState}
-      />
+      {isClimate ? (
+        <MapView>
+          <StationLayer collection={stationsQuery.data} />
+          <AlertsLayer collection={alertsQuery.data} />
+        </MapView>
+      ) : (
+        <MapView
+          collection={collection}
+          selectedCode={selectedCode}
+          onSelect={setSelectedCode}
+          onHover={prefetchOverview}
+          onDrillDown={drillIntoState}
+        />
+      )}
 
-      <SearchBox onSelect={handleSearchSelect} />
+      {!isClimate && <SearchBox onSelect={handleSearchSelect} />}
 
       <div className="panel-slot">
         <aside className="panel">
@@ -194,8 +228,13 @@ export default function App() {
             </div>
           )}
 
+          {/* Clima substitui indicador/ano por frescor de fonte — não há
+              coroplética nem recorte territorial neste contexto (ver
+              docs/ARCHITECTURE.md). */}
+          {isClimate && <SourceStatusPanel sources={sourcesQuery.data} />}
+
           {/* Os controles dependem do catálogo para exibir os indicadores. */}
-          {indicators.length > 0 && (
+          {!isClimate && indicators.length > 0 && (
             <ControlPanel
               indicators={indicators}
               selectedIndicatorKey={indicatorKey}
@@ -215,7 +254,7 @@ export default function App() {
             </div>
           )}
 
-          {!failure && !indicatorsQuery.isFetching && indicators.length === 0 && (
+          {!isClimate && !failure && !indicatorsQuery.isFetching && indicators.length === 0 && (
             <div className="panel-section">
               <EmptyState
                 title="Nenhum indicador neste contexto"
@@ -224,7 +263,7 @@ export default function App() {
             </div>
           )}
 
-          {!failure && indicators.length > 0 && isEmptyScope && (
+          {!isClimate && !failure && indicators.length > 0 && isEmptyScope && (
             <div className="panel-section">
               <EmptyState
                 title="Nenhum território para este recorte"
@@ -233,7 +272,19 @@ export default function App() {
             </div>
           )}
 
-          {selectedCode && (
+          {isClimate &&
+            !failure &&
+            !stationsQuery.isFetching &&
+            (stationsQuery.data?.features.length ?? 0) === 0 && (
+              <div className="panel-section">
+                <EmptyState
+                  title="Nenhuma estação com leitura no momento"
+                  hint="As fontes ainda não publicaram uma leitura recente — ver frescor por fonte acima."
+                />
+              </div>
+            )}
+
+          {!isClimate && selectedCode && (
             <TerritoryDetailPanel
               overview={overview.data}
               isLoading={overview.isPending}
@@ -244,7 +295,7 @@ export default function App() {
             />
           )}
 
-          {indicators.length > 0 && (
+          {!isClimate && indicators.length > 0 && (
             <SavedViewsPanel
               current={currentView}
               currentParentName={scope.parentName}
@@ -255,7 +306,7 @@ export default function App() {
         </aside>
       </div>
 
-      {!failure && (
+      {!isClimate && !failure && (
         <div className="legend-slot">
           <Legend
             indicator={collection?.indicator ?? null}

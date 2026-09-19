@@ -1,14 +1,20 @@
 /**
  * O mapa.
  *
- * Responsabilidade estreita de propósito: renderizar a camada que veio da API e
- * ajustar o enquadramento. Nenhum cálculo geográfico acontece no browser — o
- * `bbox` usado no `fitBounds` é gravado durante a ingestão e entregue pronto na
- * resposta, justamente para não iterar coordenadas no cliente.
+ * Responsabilidade estreita de propósito: a base cartográfica (tiles, panes,
+ * enquadramento) mais um slot para a camada de dado — `children`. A
+ * coroplética (`collection`) é uma dessas camadas, não a única: o contexto
+ * Clima usa o mesmo shell com `StationLayer`/`AlertsLayer` no lugar de
+ * `ChoroplethLayer`, sem `collection` nenhuma (não há coroplética, nem
+ * `bbox` para `fitBounds` — ver `features/weather/WeatherDashboard.tsx`).
+ * Nenhum cálculo geográfico acontece no browser — o `bbox` usado no
+ * `fitBounds` é gravado durante a ingestão e entregue pronto na resposta,
+ * justamente para não iterar coordenadas no cliente.
  */
 import 'leaflet/dist/leaflet.css';
 
 import { latLngBounds } from 'leaflet';
+import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { MapContainer, Pane, TileLayer, useMap } from 'react-leaflet';
 
@@ -38,12 +44,15 @@ const BOTTOM_PANEL_HEIGHT = 200;
 const MAX_INSET_RATIO = 0.4;
 
 interface Props {
-  collection: MapFeatureCollection | undefined;
-  selectedCode: string | null;
-  onSelect: (ibgeCode: string) => void;
+  /** Ausente para contextos sem coroplética (ex.: Clima) — ver `children`. */
+  collection?: MapFeatureCollection;
+  selectedCode?: string | null;
+  onSelect?: (ibgeCode: string) => void;
   onHover?: (ibgeCode: string) => void;
   /** Duplo clique em uma UF pula direto para os seus municípios. */
   onDrillDown?: (ibgeCode: string, name: string) => void;
+  /** Camadas de dado que não são a coroplética territorial (ex.: estações e alertas). */
+  children?: ReactNode;
 }
 
 /** Insets atuais do enquadramento: a folga reservada para o painel flutuante. */
@@ -111,7 +120,14 @@ function FitToScope({ bbox, scopeKey }: { bbox: BoundingBox | undefined; scopeKe
   return null;
 }
 
-export function MapView({ collection, selectedCode, onSelect, onHover, onDrillDown }: Props) {
+export function MapView({
+  collection,
+  selectedCode = null,
+  onSelect = () => {},
+  onHover,
+  onDrillDown,
+  children,
+}: Props) {
   const scopeKey = collection
     ? `${collection.scope.level}:${collection.scope.parent ?? 'root'}`
     : 'initial';
@@ -178,6 +194,7 @@ export function MapView({ collection, selectedCode, onSelect, onHover, onDrillDo
           <FitToScope bbox={collection.bbox} scopeKey={scopeKey} />
         </>
       )}
+      {children}
     </MapContainer>
   );
 }

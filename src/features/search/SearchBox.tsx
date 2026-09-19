@@ -14,6 +14,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useSearchIndex } from '@/api/queries';
+import { ScrambleText } from '@/components/ScrambleText';
 import { searchTerritories, type SearchResult } from '@/lib/searchIndex';
 
 const MIN_QUERY_LENGTH = 2;
@@ -155,7 +156,7 @@ export function SearchBox({ onSelect }: Props) {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectResult(result)}
               >
-                <span className="search-result-name">{result.name}</span>
+                <ScrambleText as="span" className="search-result-name" text={result.name} />
                 <span className="search-result-meta">
                   {result.level === 'state' ? 'Estado' : (result.parentName ?? 'Município')}
                 </span>

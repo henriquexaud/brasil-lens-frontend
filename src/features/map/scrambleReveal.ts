@@ -11,17 +11,40 @@
  * rápida do cursor parecer ruído fluido em vez de texto piscando, e só quem
  * para o cursor por tempo suficiente sobre um território vê o nome se formar.
  */
-const SCRAMBLE_CHARS = '!<>-_\\/[]{}—=+*^?#$%&';
+// Cada posição embaralha dentro da própria classe do caractere final: letra
+// maiúscula mostra letra maiúscula aleatória, minúscula mostra minúscula,
+// dígito mostra dígito. Símbolo e espaço não embaralham — não há "ruído" de
+// pontuação, então essas posições aparecem direto (mesmo tratamento que
+// espaço já tinha).
+const SCRAMBLE_UPPER = 'AÁÂÃBCÇDEÉÊFGHIÍJKLMNOÓÔÕPQRSTUÚVWXYZ';
+const SCRAMBLE_LOWER = SCRAMBLE_UPPER.toLowerCase();
+const SCRAMBLE_DIGITS = '0123456789';
 const DURATION_MS = 720;
-// Símbolos não revelados trocam nesse ritmo, não a cada frame — a 60fps o
+// Caracteres não revelados trocam nesse ritmo, não a cada frame — a 60fps o
 // ruído fica agitado demais; mais devagar lê como um "rádio fora de
 // sintonia" em vez de estática.
 const CHAR_UPDATE_INTERVAL_MS = 55;
 
+const UPPER_LETTER_PATTERN = /\p{Lu}/u;
+const LOWER_LETTER_PATTERN = /\p{Ll}/u;
+const DIGIT_PATTERN = /[0-9]/;
+
 const activeFrames = new WeakMap<HTMLElement, number>();
 
-function randomChar() {
-  return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+function randomFrom(pool: string) {
+  return pool[Math.floor(Math.random() * pool.length)] ?? '';
+}
+
+/**
+ * Ruído para uma posição, na classe do caractere final — mesma capitalização
+ * inclusive. `null` quando a posição não embaralha (símbolo, espaço): o
+ * chamador mostra o caractere real direto nesse caso.
+ */
+function randomCharFor(target: string): string | null {
+  if (UPPER_LETTER_PATTERN.test(target)) return randomFrom(SCRAMBLE_UPPER);
+  if (LOWER_LETTER_PATTERN.test(target)) return randomFrom(SCRAMBLE_LOWER);
+  if (DIGIT_PATTERN.test(target)) return randomFrom(SCRAMBLE_DIGITS);
+  return null;
 }
 
 export function scrambleReveal(el: HTMLElement, target: string) {
@@ -43,21 +66,23 @@ export function scrambleReveal(el: HTMLElement, target: string) {
 
   let start: number | null = null;
   let lastCharUpdate = 0;
-  let scrambled = target.split('').map(() => randomChar());
+  let scrambled = target.split('').map((char) => randomCharFor(char));
 
   const step = (timestamp: number) => {
     if (start === null) start = timestamp;
     const progress = Math.min((timestamp - start) / DURATION_MS, 1);
 
     if (timestamp - lastCharUpdate >= CHAR_UPDATE_INTERVAL_MS) {
-      scrambled = scrambled.map(() => randomChar());
+      scrambled = scrambled.map((_, i) => randomCharFor(target[i] ?? ''));
       lastCharUpdate = timestamp;
     }
 
     let output = '';
     for (let i = 0; i < target.length; i++) {
       const char = target[i] ?? '';
-      output += char === ' ' || progress >= (revealAt[i] ?? 0) ? char : (scrambled[i] ?? char);
+      const noise = scrambled[i];
+      output +=
+        noise === null || noise === undefined || progress >= (revealAt[i] ?? 0) ? char : noise;
     }
     el.textContent = output;
 

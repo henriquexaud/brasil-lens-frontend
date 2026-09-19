@@ -125,3 +125,24 @@ export function levelPluralLabel(level: TerritoryLevel): string {
   const plural = CHILDREN_LABEL[level][1];
   return plural.charAt(0).toUpperCase() + plural.slice(1);
 }
+
+/**
+ * Tempo relativo curto ("há 5 min", "há 2 h") — só faz sentido onde o dado
+ * muda sozinho, sem ação do usuário (estações, alertas, frescor de fonte no
+ * contexto Clima). No resto do produto o ano de referência já diz "quando" o
+ * valor vale, então esta função não tem uso lá.
+ */
+export function formatRelativeTime(isoTimestamp: string): string {
+  const diffSeconds = Math.max(
+    0,
+    Math.round((Date.now() - new Date(isoTimestamp).getTime()) / 1000),
+  );
+
+  if (diffSeconds < 60) return 'agora mesmo';
+  const minutes = Math.round(diffSeconds / 60);
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.round(hours / 24);
+  return `há ${days} d`;
+}

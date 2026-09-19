@@ -10,9 +10,10 @@
  * acessível ao passar o cursor sobre a amostra.
  */
 import type { MapClassification, MapIndicatorMeta, MapStatistics } from '@/api/types';
+import { ScrambleText } from '@/components/ScrambleText';
 import { formatCompact, unitLabel } from '@/lib/format';
 
-import { NO_DATA_COLOR, classColors } from './colors';
+import { NO_DATA_COLOR, classColors, paletteForIndicator } from './colors';
 
 interface Props {
   indicator: MapIndicatorMeta | null;
@@ -27,7 +28,7 @@ export function Legend({ indicator, classification, statistics }: Props) {
     return (
       <figure className="legend" aria-label={`Legenda de ${indicator.name}`}>
         <figcaption key={contentKey} className="legend-title">
-          {indicator.name}
+          <ScrambleText text={indicator.name} />
         </figcaption>
         <div className="legend-missing">
           <span className="legend-step" style={{ background: NO_DATA_COLOR }} />
@@ -37,14 +38,14 @@ export function Legend({ indicator, classification, statistics }: Props) {
     );
   }
 
-  const colors = classColors(classification.classes);
+  const colors = classColors(classification.classes, paletteForIndicator(indicator.key));
   const lowerBounds = [statistics.min, ...classification.breaks.slice(0, -1)];
   const unit = unitLabel(indicator.unit);
 
   return (
     <figure className="legend" aria-label={`Legenda de ${indicator.name}`}>
       <figcaption key={contentKey} className="legend-title">
-        {indicator.name}
+        <ScrambleText text={indicator.name} />
         <span className="legend-meta">
           {indicator.year !== null && indicator.year}
           {indicator.year !== null && unit && ' · '}

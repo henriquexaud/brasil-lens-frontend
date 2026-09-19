@@ -29,6 +29,9 @@ import type {
   TerritoryListResponse,
   TerritoryOverview,
   TerritorySummary,
+  WeatherAlertCollection,
+  WeatherSourcesResponse,
+  WeatherStationCollection,
 } from './types';
 
 /** Dados mudam só quando a ingestão roda: cache longo é correto, não preguiça. */
@@ -50,6 +53,9 @@ export const queryKeys = {
   territories: (level: TerritoryLevel) => ['territories', level] as const,
   searchIndex: () => ['search-index'] as const,
   savedViews: () => ['saved-views'] as const,
+  weatherStations: () => ['weather', 'stations'] as const,
+  weatherAlerts: () => ['weather', 'alerts'] as const,
+  weatherSources: () => ['weather', 'sources'] as const,
 };
 
 /**
@@ -65,11 +71,12 @@ export function useContexts() {
   });
 }
 
-export function useIndicators(level?: TerritoryLevel, context?: DataContext) {
+export function useIndicators(level?: TerritoryLevel, context?: DataContext, enabled = true) {
   return useQuery({
     queryKey: queryKeys.indicators(level, context),
     queryFn: ({ signal }) =>
       apiGet<IndicatorListResponse>('/indicators', { level, context }, signal),
+    enabled,
     staleTime: STATIC_DATA_STALE_TIME,
     // O catálogo do nível/contexto anterior serve de ponte enquanto o novo
     // carrega: sem isso o painel de controles desaparecia e voltava a cada
@@ -289,5 +296,48 @@ export function useDeleteSavedView() {
   return useMutation({
     mutationFn: (id: string) => apiDelete(`/views/${id}`),
     onSuccess: refresh,
+  });
+}
+
+/* ------------------------------------------------------------------ clima --
+ *
+ * Diferente de tudo acima: o dado muda sozinho, sem nenhuma ação do usuário
+ * — uma estação ou um alerta pode ser atualizado pelo scheduler do backend a
+ * qualquer momento (ver `app/jobs/weather_scheduler.py`). `staleTime` estático
+ * faria a tela nunca perceber isso; `refetchInterval` é o desvio deliberado
+ * do padrão "dado só muda na ingestão" que o resto deste arquivo documenta.
+ * `enabled` mantém o polling fora do ar enquanto o contexto Clima não está
+ * em tela — a mesma disciplina de `useMapLayer` para não pagar rede à toa.
+ */
+const WEATHER_POLL_INTERVAL_MS = 90 * 1000;
+
+export function useWeatherStations(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.weatherStations(),
+    queryFn: ({ signal }) =>
+      apiGet<WeatherStationCollection>('/weather/stations', undefined, signal),
+    enabled,
+    refetchInterval: WEATHER_POLL_INTERVAL_MS,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useWeatherAlerts(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.weatherAlerts(),
+    queryFn: ({ signal }) => apiGet<WeatherAlertCollection>('/weather/alerts', undefined, signal),
+    enabled,
+    refetchInterval: WEATHER_POLL_INTERVAL_MS,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useWeatherSources(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.weatherSources(),
+    queryFn: ({ signal }) => apiGet<WeatherSourcesResponse>('/weather/sources', undefined, signal),
+    enabled,
+    refetchInterval: WEATHER_POLL_INTERVAL_MS,
+    placeholderData: (previous) => previous,
   });
 }

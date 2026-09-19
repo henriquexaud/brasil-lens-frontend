@@ -18,6 +18,7 @@
 import { useId, useRef, useState } from 'react';
 
 import type { Indicator } from '@/api/types';
+import { ScrambleText } from '@/components/ScrambleText';
 import { Select } from '@/components/Select';
 
 export const LATEST_YEAR = 'latest';
@@ -85,9 +86,7 @@ export function ControlPanel({
       <header className="scope">
         <div className="scope-text">
           <p className="scope-kicker">{scopeSubtitle}</p>
-          <h1 key={scopeTitle} className="scope-title">
-            {scopeTitle}
-          </h1>
+          <ScrambleText key={scopeTitle} as="h1" className="scope-title" text={scopeTitle} />
         </div>
         {onResetScope && (
           <button
