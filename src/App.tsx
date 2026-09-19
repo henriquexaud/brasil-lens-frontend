@@ -9,24 +9,29 @@
  * no browser. A camada do mapa e os metadados de coropleta chegam na mesma
  * resposta, e os municípios só são buscados quando um estado é aberto.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
+  useContexts,
   useIndicators,
   useMapLayer,
   usePrefetchOverview,
   useTerritoryOverview,
 } from '@/api/queries';
-import type { MapQuery, MapScopeInput, SavedView } from '@/api/types';
+import type { DataContext, MapQuery, MapScopeInput, SavedView } from '@/api/types';
+import { Select } from '@/components/Select';
 import { EmptyState, ErrorMessage, TopProgress } from '@/components/Feedback';
 import { ControlPanel, LATEST_YEAR } from '@/features/controls/ControlPanel';
 import { TerritoryDetailPanel } from '@/features/detail/TerritoryDetailPanel';
 import { Legend } from '@/features/map/Legend';
 import { MapView } from '@/features/map/MapView';
 import { useMapScope } from '@/features/map/useMapScope';
+import { SearchBox } from '@/features/search/SearchBox';
 import { SavedViewsPanel } from '@/features/views/SavedViewsPanel';
+import type { SearchResult } from '@/lib/searchIndex';
 
 const DEFAULT_INDICATOR = 'population';
+const DEFAULT_CONTEXT: DataContext = 'sociopolitical';
 
 export default function App() {
   const {
@@ -41,10 +46,59 @@ export default function App() {
 
   const [indicatorKey, setIndicatorKey] = useState(DEFAULT_INDICATOR);
   const [year, setYear] = useState<string>(LATEST_YEAR);
+  const [context, setContext] = useState<DataContext>(DEFAULT_CONTEXT);
+
+  /**
+   * Esc como "voltar" a partir do mapa: fecha o detalhe aberto ou, sem
+   * detalhe, sobe um nível de volta ao Brasil.
+   *
+   * Só age quando o foco está fora do painel e da busca — dentro deles, o
+   * próprio `ControlPanel`/`SearchBox` já usa Esc para fechar o seletor de
+   * ano/sobre ou o dropdown de resultados, e um select nativo aberto também
+   * consome Esc antes de qualquer listener em `window`. Sem essa guarda, os
+   * handlers disparariam juntos.
+   */
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      if (document.activeElement?.closest('.panel, .search-slot')) return;
+      if (selectedCode) setSelectedCode(null);
+      else if (isDrilledDown) resetScope();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedCode, isDrilledDown, setSelectedCode, resetScope]);
+
+  /**
+   * Escolher um resultado da busca é o mesmo fluxo de clicar no território no
+   * mapa — só que o usuário pode nem estar vendo aquele pedaço do mapa ainda.
+   * Estado: se estava dentro de uma UF, primeiro volta ao Brasil. Município:
+   * sempre entra na UF-mãe antes de selecionar, já que o mapa só carrega
+   * municípios de um estado por vez (ver useMapScope).
+   */
+  const handleSearchSelect = useCallback(
+    (result: SearchResult) => {
+      if (result.level === 'state') {
+        if (isDrilledDown) resetScope();
+        setSelectedCode(result.ibgeCode);
+      } else if (result.parentCode) {
+        drillIntoState(result.parentCode, result.parentName ?? result.name);
+        setSelectedCode(result.ibgeCode);
+      }
+    },
+    [isDrilledDown, resetScope, setSelectedCode, drillIntoState],
+  );
+
+  // Contextos de dados (sociopolítico, clima/ambiente, biodiversidade) e os
+  // providers registrados em cada um — metadado do backend, não da ingestão.
+  const contextsQuery = useContexts();
+  const contexts = contextsQuery.data?.contexts ?? [];
 
   // A cobertura temporal depende do nível exibido, então o catálogo é pedido
   // para o nível atual: o seletor de ano nunca oferece um ano sem dado.
-  const indicatorsQuery = useIndicators(scope.level);
+  // `context` restringe ao contexto ativo — os demais ainda não têm provider
+  // registrado, então o catálogo vem vazio até um ser adicionado.
+  const indicatorsQuery = useIndicators(scope.level, context);
   const indicators = indicatorsQuery.data?.indicators ?? [];
   const currentIndicator = indicators.find((indicator) => indicator.key === indicatorKey);
 
@@ -116,32 +170,43 @@ export default function App() {
         selectedCode={selectedCode}
         onSelect={setSelectedCode}
         onHover={prefetchOverview}
+        onDrillDown={drillIntoState}
       />
+
+      <SearchBox onSelect={handleSearchSelect} />
 
       <div className="panel-slot">
         <aside className="panel">
-          {/* Ambas as seções dependem do catálogo: sem ele não há nome de
-              indicador para exibir em nenhuma das duas. */}
+          {/* Sempre visível, mesmo quando o contexto ativo ainda não tem
+              indicador algum: é o que permite sair dele. */}
+          {contexts.length > 1 && (
+            <div className="panel-section">
+              <Select
+                id="context"
+                label="Contexto de dados"
+                value={context}
+                options={contexts.map((item) => ({
+                  value: item.key,
+                  label: item.indicatorCount > 0 ? item.name : `${item.name} (em breve)`,
+                }))}
+                onChange={(value) => setContext(value as DataContext)}
+              />
+            </div>
+          )}
+
+          {/* Os controles dependem do catálogo para exibir os indicadores. */}
           {indicators.length > 0 && (
-            <>
-              <ControlPanel
-                indicators={indicators}
-                selectedIndicatorKey={indicatorKey}
-                onIndicatorChange={setIndicatorKey}
-                selectedYear={effectiveYear}
-                onYearChange={setYear}
-                scopeTitle={scope.parentName ?? 'Brasil'}
-                scopeSubtitle={isDrilledDown ? 'Municípios de' : 'Estados do'}
-                resolvedYear={showsCurrentScope ? (collection?.indicator?.year ?? null) : null}
-                onResetScope={isDrilledDown ? resetScope : undefined}
-              />
-              <SavedViewsPanel
-                current={currentView}
-                currentParentName={scope.parentName}
-                indicators={indicators}
-                onApply={applySavedView}
-              />
-            </>
+            <ControlPanel
+              indicators={indicators}
+              selectedIndicatorKey={indicatorKey}
+              onIndicatorChange={setIndicatorKey}
+              selectedYear={effectiveYear}
+              onYearChange={setYear}
+              scopeTitle={scope.parentName ?? 'Brasil'}
+              scopeSubtitle={isDrilledDown ? 'Municípios de' : 'Estados do'}
+              resolvedYear={showsCurrentScope ? (collection?.indicator?.year ?? null) : null}
+              onResetScope={isDrilledDown ? resetScope : undefined}
+            />
           )}
 
           {failure && (
@@ -150,7 +215,16 @@ export default function App() {
             </div>
           )}
 
-          {!failure && isEmptyScope && (
+          {!failure && !indicatorsQuery.isFetching && indicators.length === 0 && (
+            <div className="panel-section">
+              <EmptyState
+                title="Nenhum indicador neste contexto"
+                hint="Este contexto ainda não tem nenhuma fonte de dados registrada."
+              />
+            </div>
+          )}
+
+          {!failure && indicators.length > 0 && isEmptyScope && (
             <div className="panel-section">
               <EmptyState
                 title="Nenhum território para este recorte"
@@ -167,6 +241,15 @@ export default function App() {
               mappedIndicatorKey={indicatorKey}
               onClose={() => setSelectedCode(null)}
               onDrillDown={drillIntoState}
+            />
+          )}
+
+          {indicators.length > 0 && (
+            <SavedViewsPanel
+              current={currentView}
+              currentParentName={scope.parentName}
+              indicators={indicators}
+              onApply={applySavedView}
             />
           )}
         </aside>

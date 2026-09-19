@@ -22,10 +22,13 @@ interface Props {
 
 export function Legend({ indicator, classification, statistics }: Props) {
   if (!indicator) return null;
+  const contentKey = `${indicator.key}:${indicator.year}`;
   if (!classification || !statistics) {
     return (
       <figure className="legend" aria-label={`Legenda de ${indicator.name}`}>
-        <figcaption className="legend-title">{indicator.name}</figcaption>
+        <figcaption key={contentKey} className="legend-title">
+          {indicator.name}
+        </figcaption>
         <div className="legend-missing">
           <span className="legend-step" style={{ background: NO_DATA_COLOR }} />
           Sem dados para este recorte
@@ -40,7 +43,7 @@ export function Legend({ indicator, classification, statistics }: Props) {
 
   return (
     <figure className="legend" aria-label={`Legenda de ${indicator.name}`}>
-      <figcaption className="legend-title">
+      <figcaption key={contentKey} className="legend-title">
         {indicator.name}
         <span className="legend-meta">
           {indicator.year !== null && indicator.year}
@@ -52,7 +55,7 @@ export function Legend({ indicator, classification, statistics }: Props) {
       <div className="legend-ramp" role="list">
         {classification.breaks.map((upper, index) => (
           <span
-            key={upper}
+            key={index}
             role="listitem"
             className="legend-step"
             style={{ background: colors[index] }}
@@ -61,7 +64,7 @@ export function Legend({ indicator, classification, statistics }: Props) {
         ))}
       </div>
 
-      <div className="legend-bounds">
+      <div key={`bounds:${contentKey}`} className="legend-bounds">
         <span>{formatCompact(statistics.min)}</span>
         <span>{formatCompact(statistics.max)}</span>
       </div>

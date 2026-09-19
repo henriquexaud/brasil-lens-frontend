@@ -13,8 +13,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 
+import { buildSearchIndex, type SearchableTerritory } from '@/lib/searchIndex';
+
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 import type {
+  ContextListResponse,
+  DataContext,
   IndicatorListResponse,
   MapFeatureCollection,
   MapQuery,
@@ -24,13 +28,16 @@ import type {
   TerritoryLevel,
   TerritoryListResponse,
   TerritoryOverview,
+  TerritorySummary,
 } from './types';
 
 /** Dados mudam só quando a ingestão roda: cache longo é correto, não preguiça. */
 const STATIC_DATA_STALE_TIME = 5 * 60 * 1000;
 
 export const queryKeys = {
-  indicators: (level?: TerritoryLevel) => ['indicators', level ?? 'all'] as const,
+  contexts: () => ['contexts'] as const,
+  indicators: (level?: TerritoryLevel, context?: DataContext) =>
+    ['indicators', level ?? 'all', context ?? 'all'] as const,
   map: (query: MapQuery) =>
     [
       'map',
@@ -41,18 +48,33 @@ export const queryKeys = {
     ] as const,
   overview: (ibgeCode: string) => ['overview', ibgeCode] as const,
   territories: (level: TerritoryLevel) => ['territories', level] as const,
+  searchIndex: () => ['search-index'] as const,
   savedViews: () => ['saved-views'] as const,
 };
 
-export function useIndicators(level?: TerritoryLevel) {
+/**
+ * Contextos de dados disponíveis (sociopolítico, clima/ambiente,
+ * biodiversidade) e os providers registrados em cada um. Metadado do backend,
+ * não muda entre ingestões — mesmo `staleTime` longo do catálogo.
+ */
+export function useContexts() {
   return useQuery({
-    queryKey: queryKeys.indicators(level),
-    queryFn: ({ signal }) => apiGet<IndicatorListResponse>('/indicators', { level }, signal),
+    queryKey: queryKeys.contexts(),
+    queryFn: ({ signal }) => apiGet<ContextListResponse>('/contexts', undefined, signal),
     staleTime: STATIC_DATA_STALE_TIME,
-    // O catálogo do nível anterior serve de ponte enquanto o novo carrega:
-    // sem isso o painel de controles desaparecia e voltava a cada drill-down.
-    // `isPlaceholderData` permite ao chamador saber que a cobertura temporal
-    // ainda é a do nível antigo.
+  });
+}
+
+export function useIndicators(level?: TerritoryLevel, context?: DataContext) {
+  return useQuery({
+    queryKey: queryKeys.indicators(level, context),
+    queryFn: ({ signal }) =>
+      apiGet<IndicatorListResponse>('/indicators', { level, context }, signal),
+    staleTime: STATIC_DATA_STALE_TIME,
+    // O catálogo do nível/contexto anterior serve de ponte enquanto o novo
+    // carrega: sem isso o painel de controles desaparecia e voltava a cada
+    // drill-down ou troca de contexto. `isPlaceholderData` permite ao
+    // chamador saber que a cobertura temporal ainda é a do nível antigo.
     placeholderData: (previous) => previous,
   });
 }
@@ -148,6 +170,75 @@ export function useTerritories(level: TerritoryLevel, enabled = true) {
   });
 }
 
+/** Maior página que a API aceita por requisição (`Query(ge=1, le=1000)`). */
+const SEARCH_PAGE_SIZE = 1000;
+
+function toSearchable(row: TerritorySummary): SearchableTerritory {
+  return {
+    ibgeCode: row.ibgeCode,
+    name: row.name,
+    level: row.level,
+    abbreviation: row.abbreviation,
+    parentCode: row.parent?.ibgeCode ?? null,
+    parentName: row.parent?.name ?? null,
+  };
+}
+
+/**
+ * Todos os municípios, paginados — são ~5.600, e a API limita a 1000 por
+ * página. As páginas seguintes (offset conhecido de antemão pelo `total` da
+ * primeira) saem em paralelo: é uma tela cheia de nomes, não uma corrente de
+ * dependências.
+ */
+async function fetchAllMunicipalities(signal?: AbortSignal): Promise<TerritorySummary[]> {
+  const first = await apiGet<TerritoryListResponse>(
+    '/territories',
+    { level: 'municipality', limit: SEARCH_PAGE_SIZE, offset: 0 },
+    signal,
+  );
+  const remaining: Promise<TerritoryListResponse>[] = [];
+  for (let offset = SEARCH_PAGE_SIZE; offset < first.pagination.total; offset += SEARCH_PAGE_SIZE) {
+    remaining.push(
+      apiGet<TerritoryListResponse>(
+        '/territories',
+        { level: 'municipality', limit: SEARCH_PAGE_SIZE, offset },
+        signal,
+      ),
+    );
+  }
+  const rest = await Promise.all(remaining);
+  return [first, ...rest].flatMap((page) => page.territories);
+}
+
+/**
+ * Índice de busca: todo estado e todo município, uma vez só.
+ *
+ * A busca por nome que a API já tem (`/territories?search=`) é um `ILIKE` que
+ * não ignora acento — "sao paulo" não encontra "São Paulo" (ver
+ * `@/lib/searchIndex`). Resolver isso no cliente, contra o catálogo inteiro,
+ * evita mexer no banco por um problema de comparação de texto: 27 estados e
+ * ~5.600 municípios cabem tranquilos em memória e a busca fica instantânea, a
+ * cada tecla, sem round-trip.
+ *
+ * `staleTime` bem mais longo que o das outras projeções: isso muda apenas
+ * quando o IBGE cria ou funde um município, evento raro o bastante para não
+ * merecer refetch dentro da mesma sessão.
+ */
+export function useSearchIndex() {
+  return useQuery({
+    queryKey: queryKeys.searchIndex(),
+    queryFn: async ({ signal }) => {
+      const [statesRes, municipalities] = await Promise.all([
+        apiGet<TerritoryListResponse>('/territories', { level: 'state', limit: 1000 }, signal),
+        fetchAllMunicipalities(signal),
+      ]);
+      const rows = [...statesRes.territories, ...municipalities];
+      return buildSearchIndex(rows.map(toSearchable));
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+}
+
 /* --------------------------------------------------------- visualizações --
  *
  * As quatro operações do CRUD de visualizações salvas, os únicos pontos em que
@@ -159,10 +250,11 @@ export function useTerritories(level: TerritoryLevel, enabled = true) {
  * é o que o banco aceitou, não o que o formulário propôs.
  */
 
-export function useSavedViews() {
+export function useSavedViews(enabled = true) {
   return useQuery({
     queryKey: queryKeys.savedViews(),
     queryFn: ({ signal }) => apiGet<SavedViewListResponse>('/views', undefined, signal),
+    enabled,
   });
 }
 

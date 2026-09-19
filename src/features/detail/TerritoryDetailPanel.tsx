@@ -33,7 +33,7 @@ export function TerritoryDetailPanel({
 }: Props) {
   if (error) {
     return (
-      <div className="panel-section">
+      <div className="panel-section territory-detail">
         <div className="detail-header">
           <ErrorMessage error={error} />
           <button
@@ -53,7 +53,7 @@ export function TerritoryDetailPanel({
   // fazer a superfície saltar quando os dados chegam.
   if (isLoading || !overview) {
     return (
-      <div className="panel-section" aria-busy="true">
+      <div className="panel-section territory-detail" aria-busy="true">
         <div className="skeleton skeleton-title" />
         <div className="skeleton skeleton-row" />
         <div className="skeleton skeleton-row" />
@@ -64,16 +64,30 @@ export function TerritoryDetailPanel({
 
   const canDrillDown =
     onDrillDown !== undefined && overview.level === 'state' && overview.childrenCount > 0;
+  const featuredIndicator = overview.indicators.find(
+    (indicator) => indicator.key === mappedIndicatorKey,
+  );
+  const otherIndicators = overview.indicators.filter(
+    (indicator) => indicator !== featuredIndicator,
+  );
 
   return (
-    <div className="panel-section">
-      <header className="detail-header">
+    <div className="panel-section territory-detail">
+      {/* `header` e `details` têm prefixos distintos de propósito: com a mesma
+          key literal (`overview.ibgeCode`) nos dois, a troca de território faz
+          o React colidir as duas entradas ao montar o mapa de reconciliação —
+          uma sobrescreve a outra, e a mais antiga fica órfã no DOM em vez de
+          ser removida. É a causa de estados "acumulando" no painel ao clicar
+          em vários seguidos. */}
+      <header key={`header:${overview.ibgeCode}`} className="detail-header">
         <div>
           <p className="detail-kicker">
             {levelLabel(overview.level)}
             {overview.parent && ` · ${overview.parent.name}`}
           </p>
           <h2 className="detail-title">{overview.name}</h2>
+          {/* Só estados (e o país) têm capital — municípios e regiões não. */}
+          {overview.capital && <p className="detail-capital">Capital: {overview.capital.name}</p>}
         </div>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Fechar detalhe">
           <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
@@ -88,42 +102,30 @@ export function TerritoryDetailPanel({
         </button>
       </header>
 
-      <p className="detail-facts">
-        {overview.capital && <span>Capital {overview.capital.name}</span>}
-        {overview.childrenLevel && overview.childrenCount > 0 && (
-          <span>
-            {overview.childrenCount.toLocaleString('pt-BR')}{' '}
-            {childrenLabel(overview.childrenLevel, overview.childrenCount)}
-          </span>
-        )}
-        <span>IBGE {overview.ibgeCode}</span>
-      </p>
-
-      <dl className="indicator-list">
-        {overview.indicators.map((indicator) => (
-          <div
-            key={indicator.key}
+      {featuredIndicator && (
+        <dl
+          key={`${overview.ibgeCode}:${featuredIndicator.key}:${featuredIndicator.year}`}
+          className="featured-indicator"
+        >
+          <dt className="indicator-label">
+            {featuredIndicator.name}
+            {featuredIndicator.year !== null && (
+              <span className="indicator-year">{featuredIndicator.year}</span>
+            )}
+          </dt>
+          <dd
             className={
-              indicator.key === mappedIndicatorKey ? 'indicator-row is-mapped' : 'indicator-row'
+              featuredIndicator.value === null ? 'featured-value is-missing' : 'featured-value'
             }
           >
-            <dt className="indicator-label">
-              {indicator.name}
-              {/* Cada indicador carrega o seu próprio ano: a API resolve
-                  "último disponível" por indicador, não por tela. */}
-              {indicator.year !== null && <span className="indicator-year">{indicator.year}</span>}
-            </dt>
-            <dd
-              className={
-                indicator.value === null ? 'indicator-value is-missing' : 'indicator-value'
-              }
-              title={indicator.source ?? undefined}
-            >
-              {formatValue(indicator.value, indicator.unit, indicator.decimalPlaces)}
-            </dd>
-          </div>
-        ))}
-      </dl>
+            {formatValue(
+              featuredIndicator.value,
+              featuredIndicator.unit,
+              featuredIndicator.decimalPlaces,
+            )}
+          </dd>
+        </dl>
+      )}
 
       {canDrillDown && (
         <button
@@ -132,8 +134,57 @@ export function TerritoryDetailPanel({
           onClick={() => onDrillDown(overview.ibgeCode, overview.name)}
         >
           Ver {overview.childrenCount.toLocaleString('pt-BR')} municípios
+          <span aria-hidden="true"> →</span>
         </button>
       )}
+
+      <details key={`details:${overview.ibgeCode}`} className="disclosure territory-details">
+        <summary className="disclosure-trigger">
+          <span className="disclosure-closed-label">Mais detalhes</span>
+          <span className="disclosure-open-label">Menos detalhes</span>
+          <span className="disclosure-chevron" aria-hidden="true" />
+        </summary>
+        <div className="disclosure-content">
+          <p className="detail-facts">
+            {overview.childrenLevel && overview.childrenCount > 0 && (
+              <span>
+                {overview.childrenCount.toLocaleString('pt-BR')}{' '}
+                {childrenLabel(overview.childrenLevel, overview.childrenCount)}
+              </span>
+            )}
+            <span>IBGE {overview.ibgeCode}</span>
+          </p>
+
+          {featuredIndicator?.source && (
+            <p className="source-note detail-source">
+              Fonte de {featuredIndicator.name}: {featuredIndicator.source}
+            </p>
+          )}
+
+          <dl className="indicator-list">
+            {otherIndicators.map((indicator) => (
+              <div key={indicator.key} className="indicator-row">
+                <dt className="indicator-label">
+                  {indicator.name}
+                  {/* Cada indicador carrega o seu próprio ano: a API resolve
+                  "último disponível" por indicador, não por tela. */}
+                  {indicator.year !== null && (
+                    <span className="indicator-year">{indicator.year}</span>
+                  )}
+                </dt>
+                <dd
+                  className={
+                    indicator.value === null ? 'indicator-value is-missing' : 'indicator-value'
+                  }
+                  title={indicator.source ?? undefined}
+                >
+                  {formatValue(indicator.value, indicator.unit, indicator.decimalPlaces)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </details>
     </div>
   );
 }

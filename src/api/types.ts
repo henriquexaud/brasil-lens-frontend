@@ -11,6 +11,8 @@ import type { MultiPolygon } from 'geojson';
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 export type GeometryLod = 'canonical' | 'overview' | 'detail';
 export type IndicatorOrigin = 'sourced' | 'derived';
+/** Agrupamento temático de indicadores. Ver GET /contexts. */
+export type DataContext = 'sociopolitical' | 'climate_environmental' | 'biodiversity';
 
 /** [oeste, sul, leste, norte] — mesma ordem do GeoJSON. */
 export type BoundingBox = [number, number, number, number];
@@ -35,6 +37,7 @@ export interface Indicator {
   description: string | null;
   unit: string;
   origin: IndicatorOrigin;
+  context: DataContext;
   /** Quantas casas decimais exibir — metadado de formatação, não de cor. */
   decimalPlaces: number;
   /** Anos com dado, crescente. É o que popula o seletor de ano. */
@@ -44,6 +47,26 @@ export interface Indicator {
 
 export interface IndicatorListResponse {
   indicators: Indicator[];
+}
+
+/** Um provider registrado num contexto — ver `GET /contexts`. */
+export interface ContextProvider {
+  key: string;
+  name: string;
+  homepage: string | null;
+  indicatorCount: number;
+}
+
+export interface Context {
+  key: DataContext;
+  name: string;
+  description: string;
+  providers: ContextProvider[];
+  indicatorCount: number;
+}
+
+export interface ContextListResponse {
+  contexts: Context[];
 }
 
 export interface TerritoryRef {

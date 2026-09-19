@@ -42,6 +42,32 @@ interface Props {
   selectedCode: string | null;
   onSelect: (ibgeCode: string) => void;
   onHover?: (ibgeCode: string) => void;
+  /** Duplo clique em uma UF pula direto para os seus municípios. */
+  onDrillDown?: (ibgeCode: string, name: string) => void;
+}
+
+/** Insets atuais do enquadramento: a folga reservada para o painel flutuante. */
+function scopeInsets(map: ReturnType<typeof useMap>) {
+  const { x: width, y: height } = map.getSize();
+
+  // A folga é reservada do lado onde o painel efetivamente está, e sempre
+  // limitada a uma fração do mapa.
+  const sideLayout = width > SIDE_PANEL_BREAKPOINT;
+  const right = sideLayout
+    ? Math.min(PANEL_WIDTH + EDGE_PADDING, width * MAX_INSET_RATIO)
+    : EDGE_PADDING;
+  const bottom = sideLayout
+    ? EDGE_PADDING
+    : Math.min(
+        (document.querySelector('.panel-slot')?.getBoundingClientRect().height ??
+          BOTTOM_PANEL_HEIGHT) + EDGE_PADDING,
+        height * MAX_INSET_RATIO,
+      );
+
+  return {
+    paddingTopLeft: [EDGE_PADDING, EDGE_PADDING] as [number, number],
+    paddingBottomRight: [right, bottom] as [number, number],
+  };
 }
 
 /** Ajusta o enquadramento quando o escopo muda (ex.: drill-down em uma UF). */
@@ -50,34 +76,31 @@ function FitToScope({ bbox, scopeKey }: { bbox: BoundingBox | undefined; scopeKe
 
   useEffect(() => {
     if (!bbox) return;
-    const fit = () => {
-      const [west, south, east, north] = bbox;
-      const { x: width, y: height } = map.getSize();
+    const [west, south, east, north] = bbox;
+    const bounds = latLngBounds([south, west], [north, east]);
 
-      // A folga é reservada do lado onde o painel efetivamente está, e sempre
-      // limitada a uma fração do mapa.
-      const sideLayout = width > SIDE_PANEL_BREAKPOINT;
-      const right = sideLayout
-        ? Math.min(PANEL_WIDTH + EDGE_PADDING, width * MAX_INSET_RATIO)
-        : EDGE_PADDING;
-      const bottom = sideLayout
-        ? EDGE_PADDING
-        : Math.min(
-            (document.querySelector('.panel-slot')?.getBoundingClientRect().height ??
-              BOTTOM_PANEL_HEIGHT) + EDGE_PADDING,
-            height * MAX_INSET_RATIO,
-          );
-
-      map.fitBounds(latLngBounds([south, west], [north, east]), {
-        paddingTopLeft: [EDGE_PADDING, EDGE_PADDING],
-        paddingBottomRight: [right, bottom],
-        animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      });
+    const fit = (animate: boolean) => {
+      const insets = scopeInsets(map);
+      if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        map.fitBounds(bounds, { ...insets, animate: false });
+        return;
+      }
+      // `flyToBounds` faz um arco de zoom-out/zoom-in em vez do pan+zoom direto
+      // do fitBounds — o movimento comunica "saindo de um recorte, entrando em
+      // outro" melhor que um deslocamento em linha reta, sobretudo ao pular de
+      // UF para UF sem passar pelo mapa do Brasil.
+      map.flyToBounds(bounds, { ...insets, duration: 0.6, easeLinearity: 0.15 });
     };
-    fit();
-    map.on('resize', fit);
+
+    fit(true);
+    // Redimensionar é ajuste de layout, não navegação: reenquadra na hora, sem
+    // voar. Uma animação aqui competia com o próprio recálculo de posição que
+    // o Leaflet já faz ao redimensionar, e chegou a colapsar alguns polígonos
+    // por um instante (path zerado) até as duas transições se acertarem.
+    const onResize = () => fit(false);
+    map.on('resize', onResize);
     return () => {
-      map.off('resize', fit);
+      map.off('resize', onResize);
     };
     // `scopeKey` (e não `bbox`) na dependência, de propósito: o bbox de um
     // mesmo escopo não muda, e reenquadrar o mapa a cada troca de indicador
@@ -88,7 +111,7 @@ function FitToScope({ bbox, scopeKey }: { bbox: BoundingBox | undefined; scopeKe
   return null;
 }
 
-export function MapView({ collection, selectedCode, onSelect, onHover }: Props) {
+export function MapView({ collection, selectedCode, onSelect, onHover, onDrillDown }: Props) {
   const scopeKey = collection
     ? `${collection.scope.level}:${collection.scope.parent ?? 'root'}`
     : 'initial';
@@ -103,12 +126,30 @@ export function MapView({ collection, selectedCode, onSelect, onHover }: Props) 
       // Sem passo fracionário o Leaflet arredonda para o zoom inteiro inferior
       // e sobra uma faixa larga de oceano em volta do país.
       zoomSnap={0.25}
-      // O controle de zoom fica, mas discreto (ver styles.css): é a única
-      // alternativa ao scroll para quem usa teclado ou não descobre o gesto.
-      zoomControl
+      // O canto superior esquerdo agora é da busca (ver SearchBox/App). Zoom
+      // continua por scroll, pinça e +/- do teclado — o handler de teclado do
+      // Leaflet independe deste botão.
+      zoomControl={false}
       attributionControl
+      // Duplo clique numa UF já faz drill-down (ver ChoroplethLayer); deixar o
+      // zoom nativo do Leaflet também respondendo a duplo clique fazia o
+      // mesmo gesto significar duas coisas diferentes dependendo de onde caía
+      // — e some sem afetar o drill-down, que é um bind próprio na camada,
+      // não este handler do mapa.
+      doubleClickZoom={false}
     >
-      {/* Apenas contexto cartográfico, sem a camada de referências/labels. */}
+      {/*
+       * Apenas contexto cartográfico, sem a camada de referências/labels.
+       *
+       * O World_Terrain_Base só tem relevo de fato fotografado para os EUA:
+       * fora de lá, a partir do zoom 10 (testado no centro do país e também
+       * sobre São Paulo), cada tile vira um "Map data not yet available" —
+       * texto repetido cobrindo a tela. `maxNativeZoom` trava a busca de
+       * tiles nesse teto: o Leaflet passa a ampliar o último tile real em vez
+       * de pedir um nível que só existe como aviso. O visual nos zooms usados
+       * de fato (todo o país, uma UF, a maioria dos municípios) fica idêntico
+       * ao original; só o zoom bem próximo borra em vez de mostrar o aviso.
+       */}
       <Pane
         name="basemap"
         style={{
@@ -119,6 +160,7 @@ export function MapView({ collection, selectedCode, onSelect, onHover }: Props) 
       >
         <TileLayer
           url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}"
+          maxNativeZoom={9}
           opacity={0.45}
           attribution='<a href="https://www.esri.com/">Esri</a>, USGS, NOAA'
         />
@@ -130,6 +172,7 @@ export function MapView({ collection, selectedCode, onSelect, onHover }: Props) 
             collection={collection}
             onSelect={onSelect}
             onHover={onHover}
+            onDrillDown={onDrillDown}
             selectedCode={selectedCode}
           />
           <FitToScope bbox={collection.bbox} scopeKey={scopeKey} />

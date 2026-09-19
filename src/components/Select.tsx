@@ -11,12 +11,15 @@ interface Props {
   options: Option[];
   onChange: (value: string) => void;
   disabled?: boolean;
+  /** Rótulo continua acessível, só sai da tela — para quando o próprio
+   * controle (valor selecionado, posição no painel) já se explica. */
+  hideLabel?: boolean;
 }
 
-export function Select({ id, label, value, options, onChange, disabled }: Props) {
+export function Select({ id, label, value, options, onChange, disabled, hideLabel }: Props) {
   return (
     <div>
-      <label className="field-label" htmlFor={id}>
+      <label className={hideLabel ? 'field-label sr-only' : 'field-label'} htmlFor={id}>
         {label}
       </label>
       <select

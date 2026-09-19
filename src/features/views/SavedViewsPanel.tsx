@@ -113,7 +113,8 @@ function NameForm({
 }
 
 export function SavedViewsPanel({ current, currentParentName, indicators, onApply }: Props) {
-  const viewsQuery = useSavedViews();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const viewsQuery = useSavedViews(isExpanded);
   const createView = useCreateSavedView();
   const updateView = useUpdateSavedView();
   const deleteView = useDeleteSavedView();
@@ -124,7 +125,7 @@ export function SavedViewsPanel({ current, currentParentName, indicators, onAppl
   // alguma visualização salva de fato tiver um pai para traduzir.
   const states = useTerritories(
     'state',
-    views.some((view) => view.parentCode !== null),
+    isExpanded && views.some((view) => view.parentCode !== null),
   );
 
   /** Nome em edição: `null` fora de edição, `{ view: null }` ao criar. */
@@ -184,160 +185,181 @@ export function SavedViewsPanel({ current, currentParentName, indicators, onAppl
   }
 
   return (
-    <div className="panel-section">
-      <header className="views-header">
-        <h2 className="views-title">Visualizações</h2>
-        <button
-          type="button"
-          // O "+" do rótulo vem do CSS, então ele sai junto com o rótulo
-          // quando o botão vira "Cancelar".
-          className={isCreating ? 'ghost-button is-plain' : 'ghost-button is-add'}
-          onClick={isCreating ? () => setDraft(null) : openDraft}
-          disabled={isBusy}
-        >
-          {isCreating ? 'Cancelar' : 'Salvar atual'}
-        </button>
-      </header>
-
-      {isCreating && draft && (
-        <div className="views-form">
-          <NameForm
-            id="saved-view-name"
-            label="Nome da visualização"
-            value={draft.name}
-            busy={isBusy}
-            onChange={(name) => setDraft({ view: null, name })}
-            onSubmit={submitDraft}
-            onCancel={() => setDraft(null)}
+    <details
+      className="panel-section disclosure saved-views"
+      onToggle={(event) => setIsExpanded(event.currentTarget.open)}
+    >
+      <summary className="disclosure-trigger">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path
+            d="M4 2.5h8v11l-4-2.8-4 2.8Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
           />
-        </div>
-      )}
+        </svg>
+        <span>Visualizações salvas</span>
+        {views.length > 0 && <span className="disclosure-count">{views.length}</span>}
+        <span className="disclosure-chevron" aria-hidden="true" />
+      </summary>
+      <div className="disclosure-content">
+        <header className="views-header">
+          <button
+            type="button"
+            // O "+" do rótulo vem do CSS, então ele sai junto com o rótulo
+            // quando o botão vira "Cancelar".
+            className={isCreating ? 'ghost-button is-plain' : 'ghost-button is-add'}
+            onClick={isCreating ? () => setDraft(null) : openDraft}
+            disabled={isBusy}
+          >
+            {isCreating ? 'Cancelar' : 'Salvar atual'}
+          </button>
+        </header>
 
-      {pendingError && (
-        <div className="views-error">
-          <ErrorMessage error={pendingError} />
-        </div>
-      )}
+        {isCreating && draft && (
+          <div className="views-form">
+            <NameForm
+              id="saved-view-name"
+              label="Nome da visualização"
+              value={draft.name}
+              busy={isBusy}
+              onChange={(name) => setDraft({ view: null, name })}
+              onSubmit={submitDraft}
+              onCancel={() => setDraft(null)}
+            />
+          </div>
+        )}
 
-      {viewsQuery.error && !pendingError && <ErrorMessage error={viewsQuery.error} />}
+        {pendingError && (
+          <div className="views-error">
+            <ErrorMessage error={pendingError} />
+          </div>
+        )}
 
-      {showEmptyState && (
-        <p className="source-note">
-          Nenhuma visualização salva. Escolha um indicador, um ano e um recorte e guarde em
-          &ldquo;Salvar atual&rdquo;.
-        </p>
-      )}
+        {viewsQuery.error && !pendingError && <ErrorMessage error={viewsQuery.error} />}
 
-      <ul className="views-list">
-        {views.map((view) => (
-          <li key={view.id} className="views-item">
-            {draft?.view?.id === view.id ? (
-              <NameForm
-                id={`saved-view-${view.id}`}
-                ariaLabel={`Novo nome para ${view.name}`}
-                value={draft.name}
-                busy={isBusy}
-                onChange={(name) => setDraft({ view, name })}
-                onSubmit={submitDraft}
-                onCancel={() => setDraft(null)}
-              />
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="views-apply"
-                  onClick={() => onApply(view, stateName(view.parentCode))}
-                  title="Abrir esta visualização no mapa"
-                >
-                  <span className="views-name">{view.name}</span>
-                  <span className="views-meta">
-                    {scopeLabel(view, stateName(view.parentCode))}
-                    {' · '}
-                    {indicatorName(view.indicatorKey)}
-                    {view.year !== 'latest' && ` · ${view.year}`}
-                  </span>
-                </button>
+        {viewsQuery.isPending && (
+          <p className="source-note" role="status">
+            Carregando visualizações…
+          </p>
+        )}
 
-                {confirmingId === view.id ? (
-                  // Exclusão não tem desfazer: o segundo clique é o que separa
-                  // um engano de uma decisão.
-                  <span className="views-confirm">
-                    <button
-                      type="button"
-                      className="views-confirm-yes"
-                      disabled={isBusy}
-                      onClick={() => {
-                        deleteView.reset();
-                        deleteView.mutate(view.id, { onSettled: () => setConfirmingId(null) });
-                      }}
-                    >
-                      Excluir?
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button views-action"
-                      aria-label="Cancelar exclusão"
-                      title="Cancelar"
-                      onClick={() => setConfirmingId(null)}
-                    >
-                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                        <path
-                          d="M4 4l8 8M12 4l-8 8"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="icon-button views-action"
-                      aria-label={`Renomear ${view.name}`}
-                      title="Renomear"
-                      disabled={isBusy}
-                      onClick={() => openRename(view)}
-                    >
-                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                        <path
-                          d="M10.5 2.5l3 3L6 13H3v-3z"
-                          stroke="currentColor"
-                          strokeWidth="1.4"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                      </svg>
-                    </button>
+        {showEmptyState && (
+          <p className="source-note">Salve o recorte atual para voltar a ele depois.</p>
+        )}
 
-                    <button
-                      type="button"
-                      className="icon-button views-action"
-                      aria-label={`Excluir ${view.name}`}
-                      title="Excluir"
-                      disabled={isBusy}
-                      onClick={() => setConfirmingId(view.id)}
-                    >
-                      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                        <path
-                          d="M3.5 4.5h9M6.5 4.5V3h3v1.5M5 4.5l.6 8.2h4.8L11 4.5"
-                          stroke="currentColor"
-                          strokeWidth="1.3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                      </svg>
-                    </button>
-                  </>
-                )}
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
+        <ul className="views-list">
+          {views.map((view) => (
+            <li key={view.id} className="views-item">
+              {draft?.view?.id === view.id ? (
+                <NameForm
+                  id={`saved-view-${view.id}`}
+                  ariaLabel={`Novo nome para ${view.name}`}
+                  value={draft.name}
+                  busy={isBusy}
+                  onChange={(name) => setDraft({ view, name })}
+                  onSubmit={submitDraft}
+                  onCancel={() => setDraft(null)}
+                />
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="views-apply"
+                    onClick={() => onApply(view, stateName(view.parentCode))}
+                    title="Abrir esta visualização no mapa"
+                  >
+                    <span className="views-name">{view.name}</span>
+                    <span className="views-meta">
+                      {scopeLabel(view, stateName(view.parentCode))}
+                      {' · '}
+                      {indicatorName(view.indicatorKey)}
+                      {view.year !== 'latest' && ` · ${view.year}`}
+                    </span>
+                  </button>
+
+                  {confirmingId === view.id ? (
+                    // Exclusão não tem desfazer: o segundo clique é o que separa
+                    // um engano de uma decisão.
+                    <span className="views-confirm">
+                      <button
+                        type="button"
+                        className="views-confirm-yes"
+                        disabled={isBusy}
+                        onClick={() => {
+                          deleteView.reset();
+                          deleteView.mutate(view.id, { onSettled: () => setConfirmingId(null) });
+                        }}
+                      >
+                        Excluir?
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button views-action"
+                        aria-label="Cancelar exclusão"
+                        title="Cancelar"
+                        onClick={() => setConfirmingId(null)}
+                      >
+                        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                          <path
+                            d="M4 4l8 8M12 4l-8 8"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            fill="none"
+                          />
+                        </svg>
+                      </button>
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="icon-button views-action"
+                        aria-label={`Renomear ${view.name}`}
+                        title="Renomear"
+                        disabled={isBusy}
+                        onClick={() => openRename(view)}
+                      >
+                        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                          <path
+                            d="M10.5 2.5l3 3L6 13H3v-3z"
+                            stroke="currentColor"
+                            strokeWidth="1.4"
+                            strokeLinejoin="round"
+                            fill="none"
+                          />
+                        </svg>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="icon-button views-action"
+                        aria-label={`Excluir ${view.name}`}
+                        title="Excluir"
+                        disabled={isBusy}
+                        onClick={() => setConfirmingId(view.id)}
+                      >
+                        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                          <path
+                            d="M3.5 4.5h9M6.5 4.5V3h3v1.5M5 4.5l.6 8.2h4.8L11 4.5"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            fill="none"
+                          />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
   );
 }

@@ -15,6 +15,8 @@
  * de ano fica desabilitado e o painel diz por quê, em vez de deixar o mapa
  * inteiro cinza sem explicação.
  */
+import { useId, useRef, useState } from 'react';
+
 import type { Indicator } from '@/api/types';
 import { Select } from '@/components/Select';
 
@@ -43,26 +45,49 @@ export function ControlPanel({
   resolvedYear,
   onResetScope,
 }: Props) {
+  const [expandedControl, setExpandedControl] = useState<'year' | 'about' | null>(null);
+  const contentId = useId();
+  const yearButton = useRef<HTMLButtonElement>(null);
+  const aboutButton = useRef<HTMLButtonElement>(null);
   const current = indicators.find((indicator) => indicator.key === selectedIndicatorKey);
   const years = current?.availableYears ?? [];
   const hasCoverage = years.length > 0;
+  const latestYear = current?.latestYear ?? (selectedYear === LATEST_YEAR ? resolvedYear : null);
+  const yearLabel =
+    selectedYear === LATEST_YEAR
+      ? latestYear !== null && latestYear !== undefined
+        ? `${latestYear} · Último`
+        : 'Último disponível'
+      : selectedYear;
+
+  function closeControl() {
+    (expandedControl === 'year' ? yearButton : aboutButton).current?.focus();
+    setExpandedControl(null);
+  }
 
   const yearOptions = [
     {
       value: LATEST_YEAR,
       // "Último" não significa "ano atual": significa o último ano publicado
       // daquele indicador. Mostrar qual ano respondeu evita a ambiguidade.
-      label: resolvedYear !== null ? `Último · ${resolvedYear}` : 'Último disponível',
+      label: latestYear != null ? `Último · ${latestYear}` : 'Último disponível',
     },
     ...[...years].reverse().map((year) => ({ value: String(year), label: String(year) })),
   ];
 
   return (
-    <div className="panel-section">
+    <div
+      className="panel-section"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && expandedControl !== null) closeControl();
+      }}
+    >
       <header className="scope">
         <div className="scope-text">
           <p className="scope-kicker">{scopeSubtitle}</p>
-          <h1 className="scope-title">{scopeTitle}</h1>
+          <h1 key={scopeTitle} className="scope-title">
+            {scopeTitle}
+          </h1>
         </div>
         {onResetScope && (
           <button
@@ -76,23 +101,60 @@ export function ControlPanel({
         )}
       </header>
 
-      <div className="fields">
-        <Select
-          id="indicator"
-          label="Indicador"
-          value={selectedIndicatorKey}
-          options={indicators.map((indicator) => ({
-            value: indicator.key,
-            label: indicator.name,
-          }))}
-          onChange={onIndicatorChange}
-        />
+      <Select
+        id="indicator"
+        label="Indicador"
+        hideLabel
+        value={selectedIndicatorKey}
+        options={indicators.map((indicator) => ({
+          value: indicator.key,
+          label: indicator.name,
+        }))}
+        onChange={(key) => {
+          setExpandedControl(null);
+          onIndicatorChange(key);
+        }}
+      />
+
+      <div className="control-actions">
+        <button
+          ref={yearButton}
+          type="button"
+          className="text-button year-toggle"
+          aria-label={`Alterar ano: ${hasCoverage ? yearLabel : 'sem dados'}`}
+          aria-expanded={expandedControl === 'year'}
+          aria-controls={`${contentId}-year`}
+          disabled={!hasCoverage}
+          onClick={() => setExpandedControl(expandedControl === 'year' ? null : 'year')}
+        >
+          {hasCoverage ? yearLabel : 'Sem dados'}
+          <span className="disclosure-chevron" aria-hidden="true" />
+        </button>
+        {current?.description && (
+          <button
+            ref={aboutButton}
+            type="button"
+            className="text-button"
+            aria-label="Sobre este indicador"
+            aria-expanded={expandedControl === 'about'}
+            aria-controls={`${contentId}-about`}
+            onClick={() => setExpandedControl(expandedControl === 'about' ? null : 'about')}
+          >
+            Sobre o indicador
+          </button>
+        )}
+      </div>
+
+      <div id={`${contentId}-year`} hidden={expandedControl !== 'year'} className="control-extra">
         <Select
           id="year"
-          label="Ano"
+          label="Ano de referência"
           value={selectedYear}
           options={yearOptions}
-          onChange={onYearChange}
+          onChange={(value) => {
+            onYearChange(value);
+            closeControl();
+          }}
           disabled={!hasCoverage}
         />
       </div>
@@ -102,13 +164,16 @@ export function ControlPanel({
       )}
 
       {current?.description && (
-        // Fica em duas linhas e o texto completo vai para o `title`: a
-        // procedência do dado é informação de confiança, mas não precisa
-        // ocupar o painel inteiro o tempo todo.
-        <p className="source-note" title={current.description}>
-          {current.origin === 'derived' && <span className="derived-mark">calculado</span>}
-          {current.description}
-        </p>
+        <div
+          id={`${contentId}-about`}
+          hidden={expandedControl !== 'about'}
+          className="control-extra"
+        >
+          <p className="source-note">
+            {current.origin === 'derived' && <span className="derived-mark">calculado</span>}
+            {current.description}
+          </p>
+        </div>
       )}
     </div>
   );

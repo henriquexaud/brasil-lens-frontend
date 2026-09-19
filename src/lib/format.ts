@@ -14,6 +14,7 @@ const UNIT_SUFFIX: Record<string, string> = {
   '%': '%',
   // Taxa anualizada: sem o "a.a." o número seria lido como variação total.
   '%/year': '% a.a.',
+  'people/100k': '/100 mil hab.',
 };
 
 const UNIT_LABEL: Record<string, string> = {
@@ -23,6 +24,7 @@ const UNIT_LABEL: Record<string, string> = {
   BRL: 'R$',
   '%': '%',
   '%/year': '% ao ano',
+  'people/100k': 'pessoas por 100 mil habitantes',
 };
 
 /** O símbolo de porcentagem cola no número; as demais unidades não. */
