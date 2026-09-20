@@ -6,7 +6,7 @@
  * membros extras (`scope`, `indicator`, `statistics`, `classification`), o que
  * permite entregá-la ao react-leaflet sem transformação nenhuma.
  */
-import type { MultiPolygon, Point } from 'geojson';
+import type { Geometry, MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 export type GeometryLod = 'canonical' | 'overview' | 'detail';
@@ -301,3 +301,80 @@ export interface WeatherSourceStatus {
 export interface WeatherSourcesResponse {
   sources: WeatherSourceStatus[];
 }
+
+export interface WeatherForecastDay {
+  date: string;
+  weatherCode: number | null;
+  temperatureMinC: number | null;
+  temperatureMaxC: number | null;
+  precipitationProbabilityPct: number | null;
+}
+
+export interface WeatherCity {
+  id: string;
+  name: string;
+  stateAbbreviation: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
+  observedAt: string;
+  temperatureC: number;
+  apparentTemperatureC: number | null;
+  humidityPct: number | null;
+  windSpeedKmh: number | null;
+  precipitationMm: number | null;
+  precipitationIntervalMinutes: number;
+  weatherCode: number | null;
+  forecast: WeatherForecastDay[];
+}
+
+export interface WeatherCurrentResponse {
+  source: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  status: WeatherSourceStatusValue;
+  cities: WeatherCity[];
+  nextOffset: number | null;
+}
+
+export type HydroCategory = 'river' | 'water_body';
+
+export interface HydroFeatureProperties {
+  id: string;
+  name: string;
+  category: HydroCategory;
+  drainageAreaKm2: number | null;
+  dominion: string | null;
+  management: string | null;
+  bodyType: string | null;
+  segmentCount?: number | null;
+}
+
+export interface HydroFeature {
+  type: 'Feature';
+  id: string;
+  properties: HydroFeatureProperties;
+  geometry: Geometry;
+}
+
+export interface HydroMetadata {
+  level: string;
+  parentCode: string | null;
+  riverCount: number;
+  waterBodyCount: number;
+  source: string;
+}
+
+export interface HydroFeatureCollection {
+  type: 'FeatureCollection';
+  metadata: HydroMetadata;
+  bbox?: BoundingBox;
+  features: HydroFeature[];
+}
+
+export interface HydroQuery {
+  level: 'country' | 'state' | 'municipality';
+  parent?: string | null;
+  includeWaterBodies?: boolean;
+}
+

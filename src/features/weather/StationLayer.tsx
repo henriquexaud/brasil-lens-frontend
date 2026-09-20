@@ -12,11 +12,9 @@ import { CircleMarker, Popup } from 'react-leaflet';
 
 import type { WeatherStationCollection, WeatherStationFeature } from '@/api/types';
 import { AnimatedText } from '@/components/AnimatedText';
-import { interpolatePalette, PALETTES } from '@/features/map/colors';
+import { colorForTemperature, interpolatePalette, PALETTES } from '@/features/map/colors';
 import { formatRelativeTime } from '@/lib/format';
 
-/** Faixa útil para o Brasil — fora dela a cor só satura na ponta. */
-const TEMPERATURE_RANGE_C: [number, number] = [10, 38];
 /** Chuva na última leitura, não acumulado diário — a maioria das leituras é 0. */
 const PRECIPITATION_RANGE_MM: [number, number] = [0, 25];
 /** Sem nenhuma variável colorível ainda (estação nova, leitura incompleta). */
@@ -30,7 +28,7 @@ function normalize(value: number, [min, max]: [number, number]): number {
 function colorFor(properties: WeatherStationFeature['properties']): string {
   const { stationType, temperatureC, precipitationMm } = properties;
   if (stationType === 'automatic_weather' && temperatureC !== null) {
-    return interpolatePalette(PALETTES.temperature, normalize(temperatureC, TEMPERATURE_RANGE_C));
+    return colorForTemperature(temperatureC);
   }
   if (precipitationMm !== null) {
     return interpolatePalette(PALETTES.rain, normalize(precipitationMm, PRECIPITATION_RANGE_MM));
@@ -58,15 +56,16 @@ export function StationLayer({ collection }: Props) {
           <CircleMarker
             key={feature.id}
             center={[latitude, longitude]}
-            radius={6}
+            radius={12}
             pathOptions={{
-              color: '#ffffff',
-              weight: 1.5,
+              color: 'rgba(255, 255, 255, 0.35)',
+              weight: 0.75,
               fillColor: colorFor(properties),
-              fillOpacity: 0.9,
+              fillOpacity: 0.6,
+              className: 'weather-marker weather-station-marker',
             }}
           >
-            <Popup>
+            <Popup className="weather-station-popup">
               <AnimatedText as="strong" text={properties.name} />
               <div>{properties.stateAbbreviation ?? ''}</div>
               <div>Temperatura: {formatMeasurement(properties.temperatureC, '°C')}</div>

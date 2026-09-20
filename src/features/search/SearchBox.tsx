@@ -21,13 +21,15 @@ const MIN_QUERY_LENGTH = 2;
 
 interface Props {
   onSelect: (result: SearchResult) => void;
+  backgroundReady?: boolean;
+  onPreview?: (code: string) => void;
 }
 
-export function SearchBox({ onSelect }: Props) {
+export function SearchBox({ onSelect, backgroundReady = false, onPreview }: Props) {
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const index = useSearchIndex();
+  const index = useSearchIndex(focused || backgroundReady);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
@@ -61,7 +63,7 @@ export function SearchBox({ onSelect }: Props) {
 
   function selectResult(result: SearchResult) {
     onSelect(result);
-    setQuery(result.name);
+    setQuery('');
     setFocused(false);
     inputRef.current?.blur();
   }
@@ -157,7 +159,11 @@ export function SearchBox({ onSelect }: Props) {
                 role="option"
                 aria-selected={i === activeIndex}
                 className={i === activeIndex ? 'search-result is-active' : 'search-result'}
-                onMouseEnter={() => setActiveIndex(i)}
+                onMouseEnter={() => {
+                  setActiveIndex(i);
+                  onPreview?.(result.ibgeCode);
+                }}
+                onFocus={() => onPreview?.(result.ibgeCode)}
                 // mousedown (não click) dispara antes do input perder o foco.
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectResult(result)}

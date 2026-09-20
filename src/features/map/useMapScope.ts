@@ -5,9 +5,10 @@
  * (nível, pai, seleção) e consumido por poucos componentes. Introduzir Redux
  * aqui resolveria um problema que não existe.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { TerritoryLevel } from '@/api/types';
+import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 
 export interface MapScopeState {
   level: TerritoryLevel;
@@ -19,8 +20,27 @@ export interface MapScopeState {
 const ROOT_SCOPE: MapScopeState = { level: 'state', parent: null, parentName: null };
 
 export function useMapScope() {
-  const [scope, setScope] = useState<MapScopeState>(ROOT_SCOPE);
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [scope, setScope] = useState<MapScopeState>(() => {
+    const saved = loadSessionState();
+    if (
+      saved.scope &&
+      (saved.scope.level === 'state' ||
+        saved.scope.level === 'municipality' ||
+        saved.scope.level === 'country' ||
+        saved.scope.level === 'region')
+    ) {
+      return saved.scope;
+    }
+    return ROOT_SCOPE;
+  });
+  const [selectedCode, setSelectedCode] = useState<string | null>(() => {
+    const saved = loadSessionState();
+    return typeof saved.selectedCode === 'string' ? saved.selectedCode : null;
+  });
+
+  useEffect(() => {
+    saveSessionState({ scope, selectedCode });
+  }, [scope, selectedCode]);
 
   /** Drill-down: carrega apenas os municípios da UF escolhida. */
   const drillIntoState = useCallback((ibgeCode: string, name: string) => {

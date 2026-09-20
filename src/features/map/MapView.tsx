@@ -1,24 +1,14 @@
-/**
- * O mapa.
- *
- * Responsabilidade estreita de propósito: a base cartográfica (tiles, panes,
- * enquadramento) mais um slot para a camada de dado — `children`. A
- * coroplética (`collection`) é uma dessas camadas, não a única: o contexto
- * Clima usa o mesmo shell com `StationLayer`/`AlertsLayer` no lugar de
- * `ChoroplethLayer`, sem `collection` nenhuma (não há coroplética, nem
- * `bbox` para `fitBounds` — ver `features/weather/WeatherDashboard.tsx`).
- * Nenhum cálculo geográfico acontece no browser — o `bbox` usado no
- * `fitBounds` é gravado durante a ingestão e entregue pronto na resposta,
- * justamente para não iterar coordenadas no cliente.
+/** Base cartográfica e navegação compartilhadas por todos os contextos.
+ * A coleção traz as divisas e os recortes; children acrescenta clima e avisos.
  */
 import 'leaflet/dist/leaflet.css';
 
 import { latLngBounds } from 'leaflet';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { MapContainer, Pane, TileLayer, useMap } from 'react-leaflet';
+import { GeoJSON, MapContainer, Pane, TileLayer, useMap } from 'react-leaflet';
 
-import type { BoundingBox, MapFeatureCollection } from '@/api/types';
+import type { BoundingBox, MapFeature, MapFeatureCollection, WeatherCity } from '@/api/types';
 
 import { ChoroplethLayer } from './ChoroplethLayer';
 import { scopeInsets } from './viewport';
@@ -37,6 +27,11 @@ interface Props {
   onDrillDown?: (ibgeCode: string, name: string) => void;
   /** Camadas de dado que não são a coroplética territorial (ex.: estações e alertas). */
   children?: ReactNode;
+  weatherByCode?: Map<string, WeatherCity>;
+  /** Contorno persistente do Brasil (ex.: sempre visível no contexto de Clima). */
+  brazilOutline?: MapFeatureCollection;
+  /** Contorno da fronteira do estado quando o usuário está dentro de um estado exibindo cidades. */
+  stateOutline?: MapFeature | null;
 }
 
 /** Ajusta o enquadramento quando o escopo muda (ex.: drill-down em uma UF). */
@@ -87,6 +82,9 @@ export function MapView({
   onHover,
   onDrillDown,
   children,
+  weatherByCode,
+  brazilOutline,
+  stateOutline,
 }: Props) {
   const scopeKey = collection
     ? `${collection.scope.level}:${collection.scope.parent ?? 'root'}`
@@ -142,6 +140,22 @@ export function MapView({
         />
       </Pane>
       <Pane name="territory-selection" style={{ zIndex: 480, pointerEvents: 'none' }} />
+      {brazilOutline && (
+        <Pane name="brazil-outline" style={{ zIndex: 420, pointerEvents: 'none' }}>
+          <GeoJSON
+            key="brazil-national-boundary"
+            data={brazilOutline}
+            interactive={false}
+            style={{
+              fill: false,
+              color: 'rgba(80, 105, 115, 0.45)',
+              weight: 1.5,
+              opacity: 0.85,
+              className: 'brazil-national-outline',
+            }}
+          />
+        </Pane>
+      )}
       {collection && (
         <>
           <ChoroplethLayer
@@ -150,9 +164,38 @@ export function MapView({
             onHover={onHover}
             onDrillDown={onDrillDown}
             selectedCode={selectedCode}
+            weatherByCode={weatherByCode}
           />
           <FitToScope bbox={collection.bbox} scopeKey={scopeKey} />
         </>
+      )}
+      {stateOutline && (
+        <Pane name="state-outline" style={{ zIndex: 430, pointerEvents: 'none' }}>
+          <GeoJSON
+            key={`state-outline-${stateOutline.properties.ibgeCode}:halo`}
+            data={stateOutline}
+            interactive={false}
+            style={{
+              fill: false,
+              color: '#ffffff',
+              weight: 4.2,
+              opacity: 0.75,
+              className: 'state-selected-halo',
+            }}
+          />
+          <GeoJSON
+            key={`state-outline-${stateOutline.properties.ibgeCode}:stroke`}
+            data={stateOutline}
+            interactive={false}
+            style={{
+              fill: false,
+              color: 'rgba(30, 58, 75, 0.85)',
+              weight: 2.0,
+              opacity: 0.95,
+              className: 'state-selected-outline',
+            }}
+          />
+        </Pane>
       )}
       {children}
     </MapContainer>

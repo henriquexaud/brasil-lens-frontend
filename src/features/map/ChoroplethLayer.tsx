@@ -7,10 +7,10 @@ import {
   Polygon,
   type PathOptions,
 } from 'leaflet';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GeoJSON, useMap } from 'react-leaflet';
 
-import type { MapFeatureCollection, MapFeatureProperties } from '@/api/types';
+import type { MapFeatureCollection, MapFeatureProperties, WeatherCity } from '@/api/types';
 import { formatValue } from '@/lib/format';
 
 import {
@@ -18,10 +18,12 @@ import {
   HOVER_COLOR,
   SELECTED_COLOR,
   colorForClass,
+  colorForTemperature,
   paletteForIndicator,
 } from './colors';
 import { revealText, type RevealMode } from '@/lib/revealText';
 import { scopeInsets } from './viewport';
+import { measurement, weatherDescription } from '@/features/weather/conditions';
 
 interface Props {
   collection: MapFeatureCollection;
@@ -30,6 +32,7 @@ interface Props {
   /** Duplo clique em uma UF pula direto para os seus municípios. */
   onDrillDown?: (ibgeCode: string, name: string) => void;
   selectedCode: string | null;
+  weatherByCode?: Map<string, WeatherCity>;
 }
 
 type TerritoryFeature = Feature<Geometry, MapFeatureProperties>;
@@ -39,14 +42,42 @@ const TOOLTIP_ID = 'map-hover-tooltip';
 /** Não deixa o card colado no cursor nem sair da faixa visível do mapa. */
 const TOOLTIP_EDGE = 8;
 
+/** Estima o centróide aproximado de um polígono para cálculo de vizinhança espacial rápida. */
+function computeFeatureCenter(feature: TerritoryFeature): [number, number] {
+  let sumLng = 0;
+  let sumLat = 0;
+  let count = 0;
+  const geom = feature.geometry as { type: string; coordinates?: unknown };
+  if (!geom || !geom.coordinates) return [0, 0];
+
+  const coords = geom.coordinates;
+  if (Array.isArray(coords)) {
+    const polygons = geom.type === 'MultiPolygon' ? coords : [coords];
+    for (const poly of polygons) {
+      const ring = Array.isArray(poly) ? poly[0] : null;
+      if (!ring || !Array.isArray(ring)) continue;
+      const step = Math.max(1, Math.floor(ring.length / 8));
+      for (let i = 0; i < ring.length; i += step) {
+        const pt = ring[i];
+        if (pt && typeof pt[0] === 'number' && typeof pt[1] === 'number') {
+          sumLng += pt[0];
+          sumLat += pt[1];
+          count++;
+        }
+      }
+    }
+  }
+  return count > 0 ? [sumLng / count, sumLat / count] : [0, 0];
+}
+
 // textContent keeps API names and units as text, including accents and symbols.
 // Animações do tooltip são canceladas quando o território muda.
 function fillTooltipContent(
   el: HTMLElement,
   properties: MapFeatureProperties,
   collection: MapFeatureCollection,
-  canDrillDown: boolean,
-  municipal: boolean,
+  weather?: WeatherCity,
+  interpolated?: { color: string; temperatureC: number },
 ) {
   const cleanups: Array<() => void> = [];
   el.replaceChildren();
@@ -59,6 +90,31 @@ function fillTooltipContent(
   };
   add('tooltip-name', properties.name, 'text');
   if (properties.parentName) add('tooltip-meta', properties.parentName);
+  if (weather) {
+    const valEl = document.createElement('span');
+    valEl.className = 'tooltip-value';
+    const dot = document.createElement('span');
+    dot.className = 'tooltip-thermal-dot';
+    dot.style.backgroundColor = colorForTemperature(weather.temperatureC);
+    valEl.append(dot);
+    const textSpan = document.createElement('span');
+    cleanups.push(revealText(textSpan, measurement(weather.temperatureC, ' °C'), 'number'));
+    valEl.append(textSpan);
+    el.append(valEl);
+    add('tooltip-meta', weatherDescription(weather.weatherCode));
+  } else if (interpolated) {
+    const valEl = document.createElement('span');
+    valEl.className = 'tooltip-value';
+    const dot = document.createElement('span');
+    dot.className = 'tooltip-thermal-dot';
+    dot.style.backgroundColor = interpolated.color;
+    valEl.append(dot);
+    const textSpan = document.createElement('span');
+    cleanups.push(revealText(textSpan, `~${Math.round(interpolated.temperatureC)} °C`, 'number'));
+    valEl.append(textSpan);
+    el.append(valEl);
+    add('tooltip-meta', 'Cor aproximada da região');
+  }
   if (collection.indicator) {
     const { unit, decimalPlaces } = collection.indicator;
     add(
@@ -67,15 +123,17 @@ function fillTooltipContent(
       'number',
     );
   }
-  // Único jeito de anunciar o gesto: não há espaço fixo na tela para uma dica
-  // permanente, e o tooltip já é o lugar que o usuário está olhando quando
-  // paira sobre a UF.
-  if (canDrillDown) add('tooltip-hint', 'Duplo clique para ver os municípios');
-  else if (municipal) add('tooltip-hint', 'Duplo clique para centralizar e aproximar');
   return () => cleanups.forEach((cleanup) => cleanup());
 }
 
-function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode }: Props) {
+function Territories({
+  collection,
+  onSelect,
+  onHover,
+  onDrillDown,
+  selectedCode,
+  weatherByCode,
+}: Props) {
   const map = useMap();
   const layerRef = useRef<LeafletGeoJSON>(null);
   const selectionHaloRef = useRef<LeafletGeoJSON>(null);
@@ -83,6 +141,7 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
   const hoveredCode = useRef<string | null>(null);
   const municipal = collection.scope.level === 'municipality';
   const canDrillDown = collection.scope.level === 'state' && Boolean(onDrillDown);
+  const isClimate = !collection.indicator?.key;
   const featuresByCode = useMemo(
     () => new Map(collection.features.map((feature) => [feature.properties.ibgeCode, feature])),
     [collection.features],
@@ -91,6 +150,128 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
     () => collection.features.find((feature) => feature.properties.ibgeCode === selectedCode),
     [collection, selectedCode],
   );
+
+  // Centróides aproximados de cada polígono municipal para cálculo de vizinhança espacial rápida
+  const featureCenters = useMemo(() => {
+    const centers = new Map<string, [number, number]>();
+    if (municipal && isClimate) {
+      for (const feature of collection.features) {
+        centers.set(feature.properties.ibgeCode, computeFeatureCenter(feature));
+      }
+    }
+    return centers;
+  }, [collection.features, municipal, isClimate]);
+
+  // Cidades com medição meteorológica real na visão atual
+  const measuredCities = useMemo(() => {
+    if (!municipal || !isClimate || !weatherByCode || weatherByCode.size === 0) {
+      return [];
+    }
+    const list: Array<{ id: string; lat: number; lng: number; temp: number; color: string }> = [];
+    for (const city of weatherByCode.values()) {
+      if (
+        city.temperatureC !== null &&
+        city.temperatureC !== undefined &&
+        typeof city.latitude === 'number' &&
+        typeof city.longitude === 'number'
+      ) {
+        list.push({
+          id: city.id,
+          lat: city.latitude,
+          lng: city.longitude,
+          temp: city.temperatureC,
+          color: colorForTemperature(city.temperatureC),
+        });
+      }
+    }
+    return list;
+  }, [municipal, isClimate, weatherByCode]);
+
+  // Interpolação espacial (Nearest-Neighbor) para municípios sem dados diretos
+  // Agrupa em 4 etapas (ondas) progressivas a partir da distância até o ponto medido mais próximo
+  const interpolatedWeather = useMemo(() => {
+    const first = measuredCities[0];
+    if (!first) {
+      return new Map<string, { color: string; temperatureC: number; stage: number }>();
+    }
+
+    const unmeasured: Array<{ code: string; color: string; temperatureC: number; distSq: number }> = [];
+
+    for (const feature of collection.features) {
+      const code = feature.properties.ibgeCode;
+      if (weatherByCode?.has(code)) continue;
+
+      const center = featureCenters.get(code);
+      if (!center) continue;
+      const [fLng, fLat] = center;
+
+      let nearest = first;
+      let minDistSq = Infinity;
+
+      for (const m of measuredCities) {
+        const dLat = fLat - m.lat;
+        const dLng = fLng - m.lng;
+        const distSq = dLat * dLat + dLng * dLng;
+        if (distSq < minDistSq) {
+          minDistSq = distSq;
+          nearest = m;
+        }
+      }
+
+      unmeasured.push({
+        code,
+        color: nearest.color,
+        temperatureC: nearest.temp,
+        distSq: minDistSq,
+      });
+    }
+
+    unmeasured.sort((a, b) => a.distSq - b.distSq);
+    const total = unmeasured.length;
+    const result = new Map<string, { color: string; temperatureC: number; stage: number }>();
+
+    unmeasured.forEach((item, index) => {
+      const ratio = total > 0 ? index / total : 0;
+      const stage = ratio < 0.25 ? 1 : ratio < 0.5 ? 2 : ratio < 0.75 ? 3 : 4;
+      result.set(item.code, {
+        color: item.color,
+        temperatureC: item.temperatureC,
+        stage,
+      });
+    });
+
+    return result;
+  }, [measuredCities, collection.features, featureCenters, weatherByCode]);
+
+  // Preenchimento gradual das cidades: após os pontos com informação carregarem,
+  // expande a cor em ondas até colorir 100% do estado
+  const [gradualStage, setGradualStage] = useState(0);
+  const hasMeasuredCities = measuredCities.length > 0;
+
+  useEffect(() => {
+    if (!municipal || !isClimate || !hasMeasuredCities) {
+      setGradualStage(0);
+      return;
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      setGradualStage(4);
+      return;
+    }
+
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    timers.push(setTimeout(() => setGradualStage(1), 220));
+    timers.push(setTimeout(() => setGradualStage(2), 440));
+    timers.push(setTimeout(() => setGradualStage(3), 660));
+    timers.push(setTimeout(() => setGradualStage(4), 880));
+
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, [municipal, isClimate, collection.scope.parent, hasMeasuredCities]);
 
   // --- tooltip único e compartilhado -------------------------------------
   //
@@ -113,6 +294,7 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
   const offsetRef = useRef({ dx: 16, dy: -14 });
   const tooltipSizeRef = useRef({ width: 0, height: 0 });
   const activeTooltipCodeRef = useRef<string | null>(null);
+  const activeTooltipContentRef = useRef('');
   const moveFrameRef = useRef<number | null>(null);
   const hideFrameRef = useRef<number | null>(null);
   const requestReposition = useRef<() => void>(() => {});
@@ -178,10 +360,35 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
       const properties = feature && featuresByCode.get(feature.properties.ibgeCode)?.properties;
       const hovered =
         properties?.ibgeCode === hoveredCode.current && properties?.ibgeCode !== selectedCode;
+
+      if (isClimate) {
+        const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
+        const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
+        const interp = properties ? interpolatedWeather.get(properties.ibgeCode) : undefined;
+        const isInterpFilled = Boolean(interp && interp.stage <= gradualStage);
+
+        const hasColor = hasDirectTemp || isInterpFilled;
+        const fillColor = hasDirectTemp
+          ? colorForTemperature(weather.temperatureC)
+          : isInterpFilled && interp
+            ? interp.color
+            : '#f1f5f9';
+
+        const fillOpacity = hasColor ? (hovered ? 0.85 : 0.68) : hovered ? 0.35 : 0.18;
+        return {
+          color: hovered ? HOVER_COLOR : '#ffffff',
+          weight: hovered ? (municipal ? 1.4 : 1.6) : municipal ? 0.5 : 0.85,
+          opacity: hovered ? 0.95 : municipal ? 0.7 : 0.85,
+          fillOpacity,
+          fillColor,
+          className: 'territory-shape climate-territory-shape',
+        };
+      }
+
       return {
         color: hovered ? HOVER_COLOR : BORDER_COLOR,
         weight: hovered ? (municipal ? 1.2 : 1.5) : municipal ? 0.4 : 0.75,
-        opacity: hovered ? 0.9 : municipal ? 0.55 : 0.8,
+        opacity: hovered ? 0.85 : municipal ? 0.55 : 0.8,
         fillOpacity: properties?.classIndex == null ? 0.35 : 0.68,
         fillColor: colorForClass(
           properties?.classIndex ?? null,
@@ -191,7 +398,17 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
         className: 'territory-shape',
       };
     },
-    [collection.classification, collection.indicator?.key, featuresByCode, municipal, selectedCode],
+    [
+      collection.classification,
+      collection.indicator?.key,
+      featuresByCode,
+      gradualStage,
+      interpolatedWeather,
+      isClimate,
+      municipal,
+      selectedCode,
+      weatherByCode,
+    ],
   );
 
   // Rebind interactions to current data without replacing focused paths or
@@ -224,15 +441,31 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
       cancelHide();
       const el = tooltipElRef.current;
       if (!el) return;
-      if (activeTooltipCodeRef.current !== properties.ibgeCode) {
+      const weather = weatherByCode?.get(properties.ibgeCode);
+      const interp = interpolatedWeather.get(properties.ibgeCode);
+      const isInterpFilled = Boolean(interp && interp.stage <= gradualStage);
+      const content = JSON.stringify([
+        properties.name,
+        properties.parentName,
+        properties.value,
+        collection.indicator,
+        weather?.temperatureC,
+        weather?.weatherCode,
+        isInterpFilled ? interp?.temperatureC : null,
+      ]);
+      if (
+        activeTooltipCodeRef.current !== properties.ibgeCode ||
+        activeTooltipContentRef.current !== content
+      ) {
         tooltipCleanupRef.current?.();
         tooltipCleanupRef.current = fillTooltipContent(
           el,
           properties,
           collection,
-          canDrillDown,
-          municipal,
+          weather,
+          isInterpFilled ? interp : undefined,
         );
+        activeTooltipContentRef.current = content;
         // Decide o lado uma vez por território, não a cada frame: não vale o
         // custo de medir o layout do card a cada pixel que o mouse anda.
         const size = map.getSize();
@@ -261,7 +494,20 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
       territory.feature = feature;
       const properties = feature.properties;
       const selected = properties.ibgeCode === selectedCode;
-      const hoverStyle = { color: HOVER_COLOR, weight: municipal ? 1.2 : 1.5, opacity: 0.9 };
+      const isClimate = !collection.indicator?.key;
+      const weather = weatherByCode?.get(properties.ibgeCode);
+      const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
+      const interp = interpolatedWeather.get(properties.ibgeCode);
+      const isInterpFilled = Boolean(interp && interp.stage <= gradualStage);
+      const hasColor = hasDirectTemp || isInterpFilled;
+      const hoverStyle = isClimate
+        ? {
+            color: HOVER_COLOR,
+            weight: municipal ? 1.4 : 1.6,
+            opacity: 0.95,
+            fillOpacity: hasColor ? 0.85 : 0.35,
+          }
+        : { color: HOVER_COLOR, weight: municipal ? 1.2 : 1.5, opacity: 0.9 };
       layer.setStyle(style(feature));
       const element = layer.getElement();
       const hoverEnter = () => {
@@ -337,9 +583,16 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
         element?.removeEventListener('keydown', keydown as EventListener);
       });
     });
+    // Atualiza também o local já sob o cursor quando seu lote chega ou o contexto muda.
+    const activeCode = activeTooltipCodeRef.current;
+    const activeProperties = activeCode ? featuresByCode.get(activeCode)?.properties : undefined;
+    if (activeProperties && hideFrameRef.current === null) {
+      showTooltipFor(activeProperties, fixedAnchorRef.current ?? undefined);
+    }
     return () => cleanups.forEach((cleanup) => cleanup());
   }, [
     collection,
+    weatherByCode,
     featuresByCode,
     onHover,
     onSelect,
@@ -349,6 +602,8 @@ function Territories({ collection, onSelect, onHover, onDrillDown, selectedCode 
     style,
     municipal,
     map,
+    gradualStage,
+    interpolatedWeather,
   ]);
 
   useEffect(() => {

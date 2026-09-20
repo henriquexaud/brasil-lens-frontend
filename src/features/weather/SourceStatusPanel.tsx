@@ -32,8 +32,7 @@ export function SourceStatusPanel({ sources }: Props) {
   if (!sources || sources.sources.length === 0) return null;
 
   return (
-    <div className="panel-section">
-      <span className="field-label">Fontes de dados</span>
+    <div className="weather-source-status">
       <ul className="weather-source-list">
         {sources.sources.map((source) => (
           <li key={source.key} className="weather-source-row">

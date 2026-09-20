@@ -11,7 +11,7 @@ divergirem, o código está desatualizado — corrija-o para bater com aqui.
 Não é "uma cor por contexto". É: cada **contexto** tem uma família visual
 predominante, e cada **variável/indicador** dentro do contexto escolhe a
 subpaleta que faz sentido para o que ela representa. População e PIB estão
-ambos no contexto Sociopolítico, mas usam famílias diferentes porque
+ambos no contexto Socioeconômico, mas usam famílias diferentes porque
 significam coisas diferentes (volume demográfico vs. força econômica).
 
 Toda família tem exatamente **5 tons**, do mais claro/baixo ao mais
@@ -21,7 +21,7 @@ quando a classificação real usa menos classes (a amostragem em
 
 ## Famílias definidas
 
-### Sociopolítico
+### Socioeconômico
 
 **Verde Brasil** — demografia e indicadores territoriais gerais. Remete ao
 Brasil sem cair no exagero das cores da bandeira; funciona bem tanto em
@@ -84,17 +84,19 @@ interpolação contínua sobre o volume de chuva, não por classe de quantil.
 | 4 | `#2D87C8` |
 | 5 | `#0E5A96` |
 
-**Temperatura (`temperature`)** — amarelo→laranja→vermelho; usada hoje na
-cor das estações meteorológicas automáticas do INMET (mesmo mecanismo de
-interpolação contínua).
+**Temperatura (`temperature`)** — escala térmica fixa de 9 faixas em intervalos de 5°C, inspirada em cartografia meteorológica com transição do azul profundo ao vermelho intenso:
 
-| Faixa | Cor |
-|---|---|
-| 1 | `#FFF4CC` |
-| 2 | `#FFD97A` |
-| 3 | `#FFB347` |
-| 4 | `#F0762F` |
-| 5 | `#C9461C` |
+| Faixa | Intervalo | Rótulo | Cor | Tonalidade |
+|---|---|---|---|---|
+| 1 | ≤ 0°C | `≤0°` | `#2454C6` | Azul profundo |
+| 2 | 0°C a 5°C | `0–5°` | `#2F7DE1` | Azul médio |
+| 3 | 5°C a 10°C | `5–10°` | `#47B3E8` | Azul celeste |
+| 4 | 10°C a 15°C | `10–15°` | `#79DCE2` | Ciano / Azul claro |
+| 5 | 15°C a 20°C | `15–20°` | `#D8F4F0` | Menta / Ciano muito claro |
+| 6 | 20°C a 25°C | `20–25°` | `#FFF5A6` | Amarelo claro |
+| 7 | 25°C a 30°C | `25–30°` | `#FFD447` | Amarelo dourado |
+| 8 | 30°C a 35°C | `30–35°` | `#FF9B38` | Laranja |
+| 9 | > 35°C | `>35°` | `#F04432` | Vermelho intenso |
 
 **Umidade (`humidity`)** — teal, para diferenciar de chuva mas manter a
 sensação "aquosa". **Reservada, sem uso hoje** — só há um lugar óbvio para
@@ -136,7 +138,7 @@ seca/estiagem está integrada ainda.
 
 ### Biodiversidade
 
-Deliberadamente fora do verde institucional do Sociopolítico — mais
+Deliberadamente fora do verde institucional do Socioeconômico — mais
 orgânico/vivo. **Todas as três reservadas, sem uso hoje**: o contexto
 Biodiversidade tem zero providers registrados (`app/providers/registry.py`
 no backend), então não há indicador algum para colorir ainda.

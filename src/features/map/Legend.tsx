@@ -45,12 +45,8 @@ export function Legend({ indicator, classification, statistics }: Props) {
   return (
     <figure className="legend" aria-label={`Legenda de ${indicator.name}`}>
       <figcaption key={contentKey} className="legend-title">
-        <AnimatedText text={indicator.name} />
-        <span className="legend-meta">
-          {indicator.year !== null && indicator.year}
-          {indicator.year !== null && unit && ' · '}
-          {unit}
-        </span>
+        <span className="sr-only">{indicator.name}</span>
+        <span className="legend-meta">{unit}</span>
       </figcaption>
 
       <div className="legend-ramp" role="list">

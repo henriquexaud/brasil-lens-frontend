@@ -150,9 +150,43 @@ utilitários em `camelCase`; um diretório por *feature*, não por tipo de arqui
 
 ```bash
 npm run lint      # eslint + tsc --noEmit
+npm test          # animações, disclosures e prioridade das consultas
 npm run format    # prettier
 npm run build     # tsc -b && vite build
 ```
 
 TypeScript roda em `strict`, com `noUnusedLocals`, `noUncheckedIndexedAccess` e
 `verbatimModuleSyntax`.
+
+### Contexto de clima
+
+Compartilha mapa, busca, seleção, destaque e navegação entre estados e
+municípios com o contexto sociopolítico. O Brasil exibe temperaturas nas
+capitais; selecionar uma UF mostra as condições da capital como referência.
+Ao entrar na UF, `/weather/municipalities` carrega as condições atuais de
+todos os municípios em lotes de até 40, com cinco segundos entre lotes.
+As consultas começam depois do mapa, usam os momentos ociosos do navegador
+e pausam enquanto uma seleção ou previsão carrega. Sair do recorte cancela
+o lote pendente; os já concluídos permanecem no cache.
+
+Selecionar ou buscar um município reutiliza esses dados imediatamente,
+consultando `/weather/current?territory=<IBGE>&forecast=false` se necessário.
+As condições selecionadas e as capitais atualizam a cada cinco minutos;
+o cache municipal é revalidado ao voltar a um recorte depois desse intervalo.
+A previsão de três dias (`forecast=true`) só carrega ao abrir **Próximos dias**.
+
+O painel mostra o dado principal. **Mais detalhes** reúne os outros valores,
+horário e referência espacial. **Camadas e fontes** consulta os avisos INMET,
+permite habilitar sua sobreposição e apresenta fontes e atualização manual.
+Os avisos ficam abaixo das divisas e não interceptam cliques. Nenhuma chave
+de API é necessária; a atribuição da Open-Meteo permanece no mapa.
+
+### Hierarquia e carregamento
+
+Mapa e catálogo do indicador iniciam juntos. O índice de busca é antecipado
+depois do mapa, ou imediatamente quando a busca recebe foco. O valor principal
+sociopolítico vem do próprio mapa; os demais indicadores só são consultados
+ao expandir **Mais detalhes**. Ajustes de ano, informações da fonte e ações de
+visualizações salvas ficam recolhidos. Painéis de detalhe e camadas climáticas
+têm bundles separados, carregados quando entram em uso. Hover, seleção,
+busca e botões contextuais orientam a navegação, sem textos instrucionais fixos.

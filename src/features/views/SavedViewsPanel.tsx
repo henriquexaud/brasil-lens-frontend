@@ -16,7 +16,7 @@
  * O componente é uma *seção* do painel existente, como os controles e o
  * detalhe — não um terceiro objeto flutuante disputando espaço com o mapa.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   useCreateSavedView,
@@ -79,7 +79,7 @@ function NameForm({
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (value.trim()) onSubmit();
+        if (!busy && value.trim()) onSubmit();
       }}
     >
       {label && (
@@ -94,11 +94,17 @@ function NameForm({
           value={value}
           maxLength={NAME_MAX_LENGTH}
           autoFocus
+          disabled={busy}
           aria-label={ariaLabel}
           onChange={(event) => onChange(event.target.value)}
           // Escape é a saída esperada de um campo que abriu no lugar de uma
           // linha: sem ela, sair do modo de edição exigiria achar o botão.
-          onKeyDown={(event) => event.key === 'Escape' && onCancel()}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              onCancel();
+            }
+          }}
         />
         <button
           type="submit"
@@ -114,6 +120,7 @@ function NameForm({
 
 export function SavedViewsPanel({ current, currentParentName, indicators, onApply }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const disclosureRef = useRef<HTMLDetailsElement>(null);
   const viewsQuery = useSavedViews(isExpanded);
   const createView = useCreateSavedView();
   const updateView = useUpdateSavedView();
@@ -186,8 +193,22 @@ export function SavedViewsPanel({ current, currentParentName, indicators, onAppl
 
   return (
     <details
+      ref={disclosureRef}
       className="panel-section disclosure saved-views"
-      onToggle={(event) => setIsExpanded(event.currentTarget.open)}
+      onToggle={(event) => {
+        setIsExpanded(event.currentTarget.open);
+        if (!event.currentTarget.open) {
+          setDraft(null);
+          setConfirmingId(null);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !draft && !confirmingId && disclosureRef.current?.open) {
+          event.stopPropagation();
+          disclosureRef.current.open = false;
+          disclosureRef.current.querySelector('summary')?.focus();
+        }
+      }}
     >
       <summary className="disclosure-trigger">
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -200,7 +221,6 @@ export function SavedViewsPanel({ current, currentParentName, indicators, onAppl
           />
         </svg>
         <span>Visualizações salvas</span>
-        {views.length > 0 && <span className="disclosure-count">{views.length}</span>}
         <span className="disclosure-chevron" aria-hidden="true" />
       </summary>
       <div className="disclosure-content">
@@ -245,9 +265,7 @@ export function SavedViewsPanel({ current, currentParentName, indicators, onAppl
           </p>
         )}
 
-        {showEmptyState && (
-          <p className="source-note">Salve o recorte atual para voltar a ele depois.</p>
-        )}
+        {showEmptyState && <p className="source-note">Nenhuma visualização salva.</p>}
 
         <ul className="views-list">
           {views.map((view) => (
@@ -267,7 +285,10 @@ export function SavedViewsPanel({ current, currentParentName, indicators, onAppl
                   <button
                     type="button"
                     className="views-apply"
-                    onClick={() => onApply(view, stateName(view.parentCode))}
+                    onClick={() => {
+                      onApply(view, stateName(view.parentCode));
+                      if (disclosureRef.current) disclosureRef.current.open = false;
+                    }}
                     title="Abrir esta visualização no mapa"
                   >
                     <span className="views-name">{view.name}</span>

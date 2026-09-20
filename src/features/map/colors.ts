@@ -43,7 +43,17 @@ export const PALETTES = {
   jadeEconomico: ['#EDF7F5', '#C8E7DF', '#86C8B7', '#3C9F88', '#176A59'],
   electionDiverging: ['#1D4E89', '#7FA9D6', '#E8E3DC', '#D98C8C', '#A63232'],
   rain: ['#EDF6FD', '#BFDDF4', '#78B8E6', '#2D87C8', '#0E5A96'],
-  temperature: ['#FFF4CC', '#FFD97A', '#FFB347', '#F0762F', '#C9461C'],
+  temperature: [
+    '#2454C6',
+    '#2F7DE1',
+    '#47B3E8',
+    '#79DCE2',
+    '#D8F4F0',
+    '#FFF5A6',
+    '#FFD447',
+    '#FF9B38',
+    '#F04432',
+  ],
   humidity: ['#EDF9F8', '#BFE9E4', '#75CFC2', '#2EA79A', '#176D67'],
   wind: ['#F1F4FA', '#D3DDF0', '#A5B8DE', '#718EC4', '#46659E'],
   drought: ['#FBF6E9', '#EFD9A8', '#D9B56A', '#B88734', '#7F5A1E'],
@@ -53,6 +63,46 @@ export const PALETTES = {
 } as const satisfies Record<string, readonly string[]>;
 
 export type PaletteKey = keyof typeof PALETTES;
+
+/** Faixas térmicas fixas em intervalos de 5°C (do azul profundo ao vermelho intenso). */
+export const TEMPERATURE_SCALE = [
+  { max: 0, color: '#2454C6', label: '≤0°', min: -Infinity, name: 'Até 0°C' },
+  { max: 5, color: '#2F7DE1', label: '0–5°', min: 0, name: '0°C a 5°C' },
+  { max: 10, color: '#47B3E8', label: '5–10°', min: 5, name: '5°C a 10°C' },
+  { max: 15, color: '#79DCE2', label: '10–15°', min: 10, name: '10°C a 15°C' },
+  { max: 20, color: '#D8F4F0', label: '15–20°', min: 15, name: '15°C a 20°C' },
+  { max: 25, color: '#FFF5A6', label: '20–25°', min: 20, name: '20°C a 25°C' },
+  { max: 30, color: '#FFD447', label: '25–30°', min: 25, name: '25°C a 30°C' },
+  { max: 35, color: '#FF9B38', label: '30–35°', min: 30, name: '30°C a 35°C' },
+  { max: Infinity, color: '#F04432', label: '>35°', min: 35, name: 'Acima de 35°C' },
+] as const;
+
+export const TEMPERATURE_BANDS = TEMPERATURE_SCALE;
+export type TemperatureBand = (typeof TEMPERATURE_SCALE)[number];
+
+export function colorForTemperature(temp: number | null | undefined): string {
+  if (temp === null || temp === undefined || Number.isNaN(temp)) {
+    return NO_DATA_COLOR;
+  }
+  for (const band of TEMPERATURE_SCALE) {
+    if (temp <= band.max) {
+      return band.color;
+    }
+  }
+  return TEMPERATURE_SCALE[TEMPERATURE_SCALE.length - 1]?.color ?? NO_DATA_COLOR;
+}
+
+export function bandForTemperature(temp: number | null | undefined): TemperatureBand | undefined {
+  if (temp === null || temp === undefined || Number.isNaN(temp)) {
+    return undefined;
+  }
+  for (const band of TEMPERATURE_SCALE) {
+    if (temp <= band.max) {
+      return band;
+    }
+  }
+  return TEMPERATURE_SCALE[TEMPERATURE_SCALE.length - 1];
+}
 
 /**
  * Indicador → família de cor, para os indicadores que existem hoje.
