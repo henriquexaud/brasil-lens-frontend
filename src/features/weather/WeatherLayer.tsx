@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { CircleMarker, Pane, Tooltip, useMap } from 'react-leaflet';
 import type { WeatherCity } from '@/api/types';
 import { colorForTemperature } from '@/features/map/colors';
-import { WeatherIcon, weatherShortDescription } from '@/features/weather/conditions';
+import { WeatherIcon } from '@/features/weather/conditions';
 
 const ATTRIBUTION =
   'Clima: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>';
@@ -127,11 +127,6 @@ export function WeatherLayer({
                       <WeatherIcon code={city.weatherCode} size={14} />
                     </span>
                     <span className="weather-pill-temp">{Math.round(city.temperatureC)}°</span>
-                    {(!isCompact || isSelected) && (
-                      <span className="weather-pill-desc">
-                        {weatherShortDescription(city.weatherCode)}
-                      </span>
-                    )}
                   </div>
                 )}
               </Tooltip>
