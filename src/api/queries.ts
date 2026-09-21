@@ -758,15 +758,25 @@ export function useCapitalsWeather(enabled: boolean, pause: boolean) {
   return { ...query, data };
 }
 
-/** Condições atuais de todos os municípios visíveis, começando pelo centro do mapa. */
-export function useViewportWeather(bbox: string | undefined, enabled: boolean, pause: boolean) {
+/** Condições atuais de todos os municípios visíveis, começando pelo centro do mapa, restritas ao estado se informado. */
+export function useViewportWeather(
+  bbox: string | undefined,
+  parentOrEnabled: string | null | boolean = null,
+  enabledOrPause: boolean = true,
+  maybePause = false,
+) {
+  const isLegacySignature = typeof parentOrEnabled === 'boolean';
+  const parent = isLegacySignature ? null : parentOrEnabled;
+  const enabled = isLegacySignature ? parentOrEnabled : enabledOrPause;
+  const pause = isLegacySignature ? enabledOrPause : maybePause;
+
   const client = useQueryClient();
   const query = useInfiniteQuery({
-    queryKey: ['weather', 'viewport', bbox],
+    queryKey: ['weather', 'viewport', parent ?? 'all', bbox],
     queryFn: ({ signal, pageParam }) =>
       apiGet<WeatherCurrentResponse>(
         '/weather/viewport',
-        { bbox, offset: pageParam, limit: 20 },
+        { bbox, parent: parent ?? undefined, offset: pageParam, limit: 20 },
         signal,
       ),
     initialPageParam: 0,
@@ -778,12 +788,12 @@ export function useViewportWeather(bbox: string | undefined, enabled: boolean, p
     refetchOnWindowFocus: false,
   });
   useEffect(() => {
-    const key = ['weather', 'viewport', bbox];
+    const key = ['weather', 'viewport', parent ?? 'all', bbox];
     if (!enabled) void client.cancelQueries({ queryKey: key, exact: true });
     return () => {
       void client.cancelQueries({ queryKey: key, exact: true });
     };
-  }, [client, bbox, enabled]);
+  }, [client, parent, bbox, enabled]);
   const { data, isFetching, hasNextPage, isError, fetchNextPage } = query;
   useEffect(() => {
     if (!enabled || pause || !hasNextPage || isFetching || isError) return;

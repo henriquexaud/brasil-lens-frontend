@@ -314,6 +314,7 @@ export interface WeatherForecastDay {
   temperatureMinC: number | null;
   temperatureMaxC: number | null;
   precipitationProbabilityPct: number | null;
+  precipitationSumMm?: number | null;
 }
 
 export interface WeatherCity {
@@ -329,6 +330,8 @@ export interface WeatherCity {
   humidityPct: number | null;
   windSpeedKmh: number | null;
   precipitationMm: number | null;
+  precipitationSumMm?: number | null;
+  precipitationProbabilityPct?: number | null;
   precipitationIntervalMinutes: number;
   weatherCode: number | null;
   forecast: WeatherForecastDay[];

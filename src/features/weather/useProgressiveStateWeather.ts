@@ -15,6 +15,10 @@ interface CachedStateWeather {
 // Cache em memória persistente entre trocas de estado na mesma sessão
 const stateWeatherCache = new Map<string, CachedStateWeather>();
 
+export function clearStateWeatherCacheForTesting(): void {
+  stateWeatherCache.clear();
+}
+
 export interface ProgressiveWeatherResult {
   /** Mapa completo (código IBGE -> WeatherCity) contendo valores reais e estimados */
   weatherByCode: Map<string, WeatherCity>;
@@ -56,6 +60,7 @@ export function useProgressiveStateWeather({
   // Se houver cache recente do estado que está entrando, carrega instantaneamente
   useEffect(() => {
     activeStateRef.current = stateCode;
+    processedSignatureRef.current = '';
     if (!enabled || !stateCode) {
       setCurrentMap(new Map());
       return;
@@ -71,52 +76,68 @@ export function useProgressiveStateWeather({
 
   const processedSignatureRef = useRef<string>('');
 
+  const filteredStateFeatures = useMemo(() => {
+    if (!stateCode) return stateFeatures;
+    return stateFeatures.filter((f) => {
+      const code = f.properties?.ibgeCode || (typeof f.id === 'string' ? f.id : '');
+      return code.startsWith(stateCode);
+    });
+  }, [stateFeatures, stateCode]);
+
+  const filteredRealCities = useMemo(() => {
+    if (!stateCode) return realCities;
+    return realCities.filter((c) => c.id.startsWith(stateCode));
+  }, [realCities, stateCode]);
+
   // Efeito principal de processamento em 3 momentos:
   // 1. Resposta imediata: primeira amostra real -> interpolação de todo o estado
-  // 2. Refinamento progressivo: novos lotes reais substituem estimativas
-  // 3. Estado final: consolidação e gravação no cache
+  // 2. Refinamento progressivo: novos lotes reais chegam em segundo plano e recalculam as estimativas com maior resolução
+  // 3. Estado final: 100% dos municípios com medições reais confirmadas
   useEffect(() => {
-    if (!enabled || !stateCode || !stateFeatures.length || !realCities.length) {
+    if (!enabled || !stateCode || !filteredStateFeatures.length || !filteredRealCities.length) {
       return;
     }
 
     // Garante que a atualização ainda é para o estado ativo
     if (activeStateRef.current !== stateCode) return;
 
-    // Evita recalcular se o estado e a quantidade de cidades reais não mudaram
-    const signature = `${stateCode}:${realCities.length}:${isCoverageComplete}`;
+    // Evita recalcular se o estado, malha e quantidade de cidades reais não mudaram
+    const signature = `${stateCode}:${filteredStateFeatures.length}:${filteredRealCities.length}:${isCoverageComplete}`;
     if (signature === processedSignatureRef.current) return;
     processedSignatureRef.current = signature;
 
     setCurrentMap((prev) => {
-      // 1. Constrói mapa base com os dados reais recém-chegados
+      // 1. Constrói mapa base com todos os dados reais conhecidos
       const realOnlyMap = new Map<string, WeatherCity>();
-      for (const city of realCities) {
-        realOnlyMap.set(city.id, { ...city, isInferred: false });
-      }
 
-      // 2. Mescla os novos dados reais sobre o mapa anterior respeitando a precedência
-      let merged = mergeWeatherWithPrecedence(prev, realOnlyMap);
-
-      // 3. Se ainda houver municípios da malha sem dado nenhum (ou apenas o mapa inicial com 0 ou poucas cidades),
-      // geramos a estimativa espacial para cobrir 100% do território do estado.
-      const hasUncoveredMunicipalities = stateFeatures.some(
-        (f) => !merged.has(f.properties?.ibgeCode || f.id),
-      );
-
-      if (hasUncoveredMunicipalities || isCoverageComplete) {
-        if (!isCoverageComplete) {
-          // Momento 1 e 2: Interpola os municípios ainda sem dados reais
-          const estimatedMap = interpolateStateWeather(
-            stateFeatures,
-            realCities,
-            stateFeatures[0]?.properties?.abbreviation || '',
-          );
-          merged = mergeWeatherWithPrecedence(merged, estimatedMap);
+      // Preserva medições reais que já estavam no mapa anterior (ex: do cache ou seleções manuais) do estado ativo
+      for (const [id, city] of prev) {
+        if (!city.isInferred && id.startsWith(stateCode)) {
+          realOnlyMap.set(id, city);
         }
       }
 
-      // 4. Salva no cache com TTL
+      // Mescla com as cidades reais atuais
+      for (const city of filteredRealCities) {
+        realOnlyMap.set(city.id, { ...city, isInferred: false });
+      }
+
+      const allRealCities = [...realOnlyMap.values()];
+      let merged = new Map<string, WeatherCity>(realOnlyMap);
+
+      // 2. Se a cobertura de dados reais ainda não for total,
+      // recalcula a interpolação para os municípios restantes com base no conjunto expandido de cidades reais.
+      // A cada novo lote que chega em segundo plano, as estimativas são refinadas aumentando a resolução espacial.
+      if (allRealCities.length < filteredStateFeatures.length) {
+        const estimatedMap = interpolateStateWeather(
+          filteredStateFeatures,
+          allRealCities,
+          filteredStateFeatures[0]?.properties?.abbreviation || '',
+        );
+        merged = mergeWeatherWithPrecedence(merged, estimatedMap);
+      }
+
+      // 3. Salva no cache com TTL
       stateWeatherCache.set(stateCode, {
         weatherByCode: merged,
         timestamp: Date.now(),
@@ -124,7 +145,7 @@ export function useProgressiveStateWeather({
 
       return merged;
     });
-  }, [enabled, stateCode, stateFeatures, realCities, isCoverageComplete]);
+  }, [enabled, stateCode, filteredStateFeatures, filteredRealCities, isCoverageComplete]);
 
   // Separa as cidades puramente medidas (para os pills/marcadores do WeatherLayer)
   const measuredCities = useMemo(() => {
@@ -137,18 +158,19 @@ export function useProgressiveStateWeather({
     return list;
   }, [currentMap]);
 
-  const totalCount = stateFeatures.length;
+  const totalCount = filteredStateFeatures.length;
   const realCount = measuredCities.length;
   const inferredCount = Math.max(0, currentMap.size - realCount);
 
+  const isFinal = isCoverageComplete || (totalCount > 0 && realCount >= totalCount);
   const stage = !enabled || !stateCode
     ? 'idle'
-    : isCoverageComplete || (totalCount > 0 && realCount >= totalCount)
+    : isFinal
       ? 'final'
-      : inferredCount > 0 && realCount > 0
-        ? 'immediate'
+      : realCount > 16
+        ? 'progressive'
         : realCount > 0
-          ? 'progressive'
+          ? 'immediate'
           : 'idle';
 
   return {

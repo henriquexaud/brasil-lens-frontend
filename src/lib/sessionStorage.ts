@@ -12,7 +12,10 @@ export interface AppSessionState {
   year?: string;
   showWeatherAlerts?: boolean;
   showHydrography?: boolean;
+  showClimate?: boolean;
   showFireHotspots?: boolean;
+  showRainfall?: boolean;
+  activeThematicLayer?: 'climate' | 'fire' | 'rainfall' | 'temperature' | 'none';
 }
 
 function getStorage(): Storage | null {

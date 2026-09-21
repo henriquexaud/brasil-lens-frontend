@@ -54,6 +54,28 @@ test('saveSessionState salva e loadSessionState recupera contexto e outros estad
   assert.equal(state.showWeatherAlerts, true);
 });
 
+test('saveSessionState salva e loadSessionState recupera showRainfall e activeThematicLayer', () => {
+  saveSessionState({
+    showRainfall: true,
+    activeThematicLayer: 'rainfall',
+  });
+
+  const state = loadSessionState();
+  assert.equal(state.showRainfall, true);
+  assert.equal(state.activeThematicLayer, 'rainfall');
+});
+
+test('saveSessionState salva e loadSessionState recupera showClimate e activeThematicLayer: climate', () => {
+  saveSessionState({
+    showClimate: true,
+    activeThematicLayer: 'climate',
+  });
+
+  const state = loadSessionState();
+  assert.equal(state.showClimate, true);
+  assert.equal(state.activeThematicLayer, 'climate');
+});
+
 test('saveSessionState mescla patches parciais preservando campos anteriores', () => {
   saveSessionState({ context: 'sociopolitical', indicatorKey: 'population' });
   saveSessionState({

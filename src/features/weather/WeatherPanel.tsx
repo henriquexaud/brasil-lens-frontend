@@ -10,6 +10,7 @@ import { Disclosure } from '@/components/Disclosure';
 import { ErrorMessage } from '@/components/Feedback';
 import { formatFireDate } from '@/features/fire/fireStyles';
 import { densityColor } from '@/features/fire/fireDensity';
+import { rainColor, rainDescription, rainBadgeText } from '@/features/rainfall/rainScale';
 import { measurement, weatherDescription, WeatherIcon } from './conditions';
 
 function Forecast({ code }: { code: string }) {
@@ -146,6 +147,98 @@ function FireStatusSection({
   );
 }
 
+function RainStatusSection({
+  city,
+  loading,
+  highlight = false,
+}: {
+  city: WeatherCity | undefined;
+  loading?: boolean;
+  highlight?: boolean;
+}) {
+  if (loading && !city) {
+    return (
+      <div className={`rain-detail-card ${highlight ? 'is-highlight' : ''}`} role="status">
+        <p className="source-note">Consultando dados de chuva…</p>
+      </div>
+    );
+  }
+
+  if (!city) {
+    return (
+      <div className={`rain-detail-card ${highlight ? 'is-highlight' : ''}`}>
+        <p className="source-note">Dados de chuva não disponíveis para este local.</p>
+      </div>
+    );
+  }
+
+  const rainMm = city.precipitationSumMm ?? city.precipitationMm ?? 0;
+  const hasRain = rainMm > 0;
+  const color = rainColor(rainMm);
+  const badgeText = rainBadgeText(rainMm);
+  const desc = rainDescription(rainMm);
+  const prob = city.precipitationProbabilityPct;
+
+  return (
+    <div className={`rain-detail-card ${highlight ? 'is-highlight' : ''}`}>
+      <div className="rain-detail-header">
+        <div className="rain-detail-status">
+          <span
+            className="rain-layer-dot"
+            style={{ backgroundColor: color }}
+            aria-hidden="true"
+          />
+          <strong>{desc}</strong>
+        </div>
+        <span className={`weather-layer-badge ${hasRain ? 'badge-rain' : 'badge-neutral'}`}>
+          {badgeText}
+        </span>
+      </div>
+
+      <div className="rain-metrics-grid">
+        <div className="rain-metric">
+          <span className="rain-metric-val">
+            {Number(rainMm).toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
+            mm
+          </span>
+          <span className="rain-metric-lbl">acumulado em 24h</span>
+        </div>
+        {prob != null && (
+          <div className="rain-metric">
+            <span className="rain-metric-val">{prob}%</span>
+            <span className="rain-metric-lbl">probabilidade de chuva</span>
+          </div>
+        )}
+      </div>
+
+      {city.forecast && city.forecast.length > 0 && city.forecast[0]?.precipitationSumMm != null && (
+        <p className="rain-forecast-note">
+          Previsão para hoje:{' '}
+          <strong>
+            {Number(city.forecast[0].precipitationSumMm).toLocaleString('pt-BR', {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}{' '}
+            mm
+          </strong>
+          {city.forecast[0].precipitationProbabilityPct != null
+            ? ` (${city.forecast[0].precipitationProbabilityPct}% de chance)`
+            : ''}
+        </p>
+      )}
+
+      {!hasRain && (
+        <p className="source-note" style={{ margin: '4px 0 0' }}>
+          Sem volume significativo de chuva acumulado nas últimas 24h.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export interface WeatherPanelProps {
   code: string;
   territory: MapFeatureProperties | undefined;
@@ -159,6 +252,7 @@ export interface WeatherPanelProps {
   fireActive?: boolean;
   fireLoading?: boolean;
   fireHours?: number;
+  rainActive?: boolean;
 }
 
 export function WeatherPanel({
@@ -174,10 +268,11 @@ export function WeatherPanel({
   fireActive = false,
   fireLoading = false,
   fireHours = 24,
+  rainActive = false,
 }: WeatherPanelProps) {
   const isState = territory?.level === 'state';
 
-  const weatherDetailsContent = city && (
+  const weatherDetailsContent = !fireActive && !rainActive && city && (
     <>
       <div className="weather-current">
         <WeatherIcon code={city.weatherCode} size={36} className="weather-current-icon" />
@@ -213,6 +308,12 @@ export function WeatherPanel({
             <dd className="indicator-value">{measurement(city.windSpeedKmh, ' km/h')}</dd>
           </div>
           <div className="indicator-row">
+            <dt className="indicator-label">Chuva acumulada (24h)</dt>
+            <dd className="indicator-value">
+              {measurement(city.precipitationSumMm ?? city.precipitationMm, ' mm')}
+            </dd>
+          </div>
+          <div className="indicator-row">
             <dt className="indicator-label">Chuva em {city.precipitationIntervalMinutes} min</dt>
             <dd className="indicator-value">{measurement(city.precipitationMm, ' mm')}</dd>
           </div>
@@ -235,8 +336,10 @@ export function WeatherPanel({
       className="panel-section territory-detail"
       aria-label={
         fireActive
-          ? 'Focos de calor e clima do local selecionado'
-          : 'Clima do local selecionado'
+          ? 'Focos de calor do local selecionado'
+          : rainActive
+            ? 'Quantidade de chuva do local selecionado'
+            : 'Clima do local selecionado'
       }
     >
       <header className="detail-header">
@@ -270,17 +373,26 @@ export function WeatherPanel({
         />
       )}
 
-      {!city && loading && !fireActive && (
+      {/* Quando a camada de chuva está ativa, Chuva é o elemento primário (Hero) */}
+      {!fireActive && rainActive && (
+        <RainStatusSection
+          city={city}
+          loading={loading}
+          highlight
+        />
+      )}
+
+      {!city && loading && !fireActive && !rainActive && (
         <div className="weather-skeleton" role="status" aria-label="Carregando clima">
           <div className="skeleton skeleton-title" />
           <div className="skeleton skeleton-row" />
         </div>
       )}
 
-      {!city && error != null && !fireActive && <ErrorMessage error={error} />}
+      {!city && error != null && !fireActive && !rainActive && <ErrorMessage error={error} />}
 
-      {/* Quando a camada de clima está ativa, o Clima é o elemento primário */}
-      {!fireActive && weatherDetailsContent}
+      {/* Quando a camada de temperatura está ativa, o Clima geral é o elemento primário */}
+      {!fireActive && !rainActive && weatherDetailsContent}
 
       {/* Botão de drill-down para navegar aos municípios do estado */}
       {isState && territory && (
@@ -289,24 +401,19 @@ export function WeatherPanel({
         </button>
       )}
 
-      {/* Quando o foco é Fogo, o clima fica disponível em seção complementar */}
-      {fireActive && (city || loading || error != null) && (
-        <Disclosure title="Condições meteorológicas" defaultOpen={false} className="weather-disclosure">
-          {city ? (
-            weatherDetailsContent
-          ) : loading ? (
-            <div className="weather-skeleton" role="status" aria-label="Carregando clima">
-              <div className="skeleton skeleton-title" />
-              <div className="skeleton skeleton-row" />
-            </div>
-          ) : error != null ? (
-            <ErrorMessage error={error} />
-          ) : null}
+      {/* Quando o foco é Clima geral, a chuva fica disponível se houver cidade */}
+      {!fireActive && !rainActive && (city || loading) && (
+        <Disclosure
+          title="Quantidade de chuva"
+          defaultOpen={Boolean(city && (city.precipitationSumMm ?? city.precipitationMm ?? 0) > 0)}
+          className="weather-disclosure"
+        >
+          <RainStatusSection city={city} loading={loading} />
         </Disclosure>
       )}
 
-      {/* Quando o foco é Clima, os focos ficam disponíveis se houver dados */}
-      {!fireActive && (fireMunicipality || fireLoading) && (
+      {/* Focos de calor disponíveis quando não é a camada ativa */}
+      {!fireActive && !rainActive && (fireMunicipality || fireLoading) && (
         <Disclosure
           title="Focos de calor"
           defaultOpen={Boolean(fireMunicipality && fireMunicipality.count > 0)}

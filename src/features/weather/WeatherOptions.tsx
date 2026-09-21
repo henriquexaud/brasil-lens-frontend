@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useWeatherAlerts, useWeatherSources } from '@/api/queries';
 import type {
   FireHotspotCollection,
@@ -13,6 +14,10 @@ import { SourceStatusPanel } from './SourceStatusPanel';
 export interface WeatherOptionsProps {
   showAlerts: boolean;
   onToggleAlerts: (show: boolean) => void;
+  showClimate?: boolean;
+  onToggleClimate?: (show: boolean) => void;
+  minTemperature?: number;
+  maxTemperature?: number;
   showHydrography?: boolean;
   onToggleHydrography?: (show: boolean) => void;
   hydrographyPartial?: boolean;
@@ -21,6 +26,9 @@ export interface WeatherOptionsProps {
   fireHotspotsLoading?: boolean;
   fireHotspots?: FireHotspotCollection;
   fireHotspotsError?: boolean;
+  showRainfall?: boolean;
+  onToggleRainfall?: (show: boolean) => void;
+  maxRainfall?: number;
   code: string | null;
   current: WeatherCurrentResponse | undefined;
   error: unknown;
@@ -36,6 +44,10 @@ export interface WeatherOptionsProps {
 export function WeatherOptions({
   showAlerts,
   onToggleAlerts,
+  showClimate,
+  onToggleClimate,
+  minTemperature,
+  maxTemperature,
   showHydrography,
   onToggleHydrography,
   hydrographyPartial,
@@ -44,6 +56,9 @@ export function WeatherOptions({
   fireHotspotsLoading,
   fireHotspots,
   fireHotspotsError,
+  showRainfall,
+  onToggleRainfall,
+  maxRainfall,
   code,
   current,
   error,
@@ -70,6 +85,20 @@ export function WeatherOptions({
       ),
   );
 
+  const calculatedRange = useMemo(() => {
+    if (minTemperature != null && maxTemperature != null) {
+      return { min: minTemperature, max: maxTemperature };
+    }
+    const temps = (current?.cities ?? [])
+      .map((c) => c.temperatureC)
+      .filter((t): t is number => t != null && Number.isFinite(t));
+    if (!temps.length) return null;
+    return {
+      min: Math.min(...temps),
+      max: Math.max(...temps),
+    };
+  }, [minTemperature, maxTemperature, current?.cities]);
+
   return (
     <section
       className="panel-section weather-options-section"
@@ -77,6 +106,56 @@ export function WeatherOptions({
     >
       {/* Grupo Unificado de Camadas Interativas */}
       <div className="weather-layers-panel">
+        {/* Camada: Clima */}
+        {onToggleClimate && (
+          <div className="weather-layer-card">
+            <label className="weather-layer-label weather-toggle">
+              <input
+                type="checkbox"
+                checked={showClimate ?? false}
+                onChange={(event) => onToggleClimate(event.target.checked)}
+              />
+              <div className="weather-layer-title">
+                <span>Clima</span>
+                <span className="weather-layer-source">Open-Meteo</span>
+              </div>
+            </label>
+            {showClimate && (
+              <span className="weather-layer-badge badge-climate">
+                {calculatedRange
+                  ? Math.round(calculatedRange.min) === Math.round(calculatedRange.max)
+                    ? `${Math.round(calculatedRange.min)}°C · ${scopeName ?? 'Brasil'}`
+                    : `${Math.round(calculatedRange.min)} - ${Math.round(calculatedRange.max)}°C · ${scopeName ?? 'Brasil'}`
+                  : 'Ativo'}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Camada: Quantidade de Chuva */}
+        {onToggleRainfall && (
+          <div className="weather-layer-card">
+            <label className="weather-layer-label weather-toggle">
+              <input
+                type="checkbox"
+                checked={showRainfall ?? false}
+                onChange={(event) => onToggleRainfall(event.target.checked)}
+              />
+              <div className="weather-layer-title">
+                <span>Quantidade de chuva</span>
+                <span className="weather-layer-source">Open-Meteo / 24h</span>
+              </div>
+            </label>
+            {showRainfall && (
+              <span className="weather-layer-badge badge-rain">
+                {maxRainfall != null && maxRainfall > 0
+                  ? `Máx: ${maxRainfall.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`
+                  : 'Ativo'}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Camada: Focos de Calor */}
         {onToggleFireHotspots && (
           <div className="weather-layer-card">
@@ -228,11 +307,13 @@ export function WeatherOptions({
       {/* Rodapé Inteligente e Compacto */}
       <div className="weather-footer-bar">
         <div className="weather-sync-status">
-          <span className="weather-sync-dot" aria-hidden="true" />
+          <span className={`weather-sync-dot ${loading ? 'syncing' : ''}`} aria-hidden="true" />
           <span>
-            {current
-              ? `Atualizado ${formatRelativeTime(current.fetchedAt)}`
-              : 'Sincronizado'}
+            {loading
+              ? 'Sincronizando dados…'
+              : current
+                ? `Atualizado ${formatRelativeTime(current.fetchedAt)}`
+                : 'Sincronizado'}
           </span>
         </div>
         <button
@@ -252,11 +333,25 @@ export function WeatherOptions({
       <Disclosure title="Fontes e metodologia" className="weather-sources-disclosure">
         <ul className="weather-methodology-list">
           <li className="weather-methodology-item">
+            <strong>Clima e temperatura:</strong>{' '}
+            <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
+              Open-Meteo
+            </a>
+            . Modelos numéricos de alta resolução e estações meteorológicas em tempo real.
+          </li>
+          <li className="weather-methodology-item">
             <strong>Focos de calor:</strong>{' '}
             <a href="https://data.inpe.br/queimadas/" target="_blank" rel="noreferrer">
               INPE / Queimadas
             </a>
             . Deteções por satélite nas últimas 24h normalizadas por área territorial.
+          </li>
+          <li className="weather-methodology-item">
+            <strong>Quantidade de chuva:</strong>{' '}
+            <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
+              Open-Meteo
+            </a>
+            . Precipitação acumulada em 24h e probabilidade estimada por modelo numérico e estações de superfície.
           </li>
           <li className="weather-methodology-item">
             <strong>Avisos meteorológicos:</strong>{' '}

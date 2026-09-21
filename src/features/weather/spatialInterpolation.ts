@@ -82,6 +82,9 @@ export interface KnownWeatherStation {
   humidityPct?: number | null;
   windSpeedKmh?: number | null;
   weatherCode: number | null;
+  precipitationMm?: number | null;
+  precipitationSumMm?: number | null;
+  precipitationProbabilityPct?: number | null;
   isInferred?: boolean;
 }
 
@@ -124,7 +127,9 @@ export function interpolateSingleMunicipalWeather(
       apparentTemperatureC: s.apparentTemperatureC ?? s.temperatureC,
       humidityPct: s.humidityPct ?? null,
       windSpeedKmh: s.windSpeedKmh ?? null,
-      precipitationMm: 0,
+      precipitationMm: s.precipitationMm ?? 0,
+      precipitationSumMm: s.precipitationSumMm ?? s.precipitationMm ?? 0,
+      precipitationProbabilityPct: s.precipitationProbabilityPct ?? null,
       precipitationIntervalMinutes: 15,
       weatherCode: s.weatherCode ?? 0,
       forecast: [],
@@ -139,6 +144,10 @@ export function interpolateSingleMunicipalWeather(
   let weightedApparent = 0;
   let weightedHumidity = 0;
   let hasHumidity = false;
+  let weightedPrecipSum = 0;
+  let hasPrecipSum = false;
+  let weightedPrecipProb = 0;
+  let hasPrecipProb = false;
 
   for (const item of kNearest) {
     const weight = 1 / item.distSq;
@@ -153,12 +162,27 @@ export function interpolateSingleMunicipalWeather(
       weightedHumidity += item.station.humidityPct * weight;
       hasHumidity = true;
     }
+    if (item.station.precipitationSumMm != null) {
+      weightedPrecipSum += item.station.precipitationSumMm * weight;
+      hasPrecipSum = true;
+    } else if (item.station.precipitationMm != null) {
+      weightedPrecipSum += item.station.precipitationMm * weight;
+      hasPrecipSum = true;
+    }
+    if (item.station.precipitationProbabilityPct != null) {
+      weightedPrecipProb += item.station.precipitationProbabilityPct * weight;
+      hasPrecipProb = true;
+    }
   }
 
   const estimatedTemp = totalWeight > 0 ? weightedTemp / totalWeight : closest.station.temperatureC;
   const estimatedApparent =
     totalWeight > 0 ? weightedApparent / totalWeight : closest.station.apparentTemperatureC;
   const estimatedHumidity = hasHumidity && totalWeight > 0 ? weightedHumidity / totalWeight : null;
+  const estimatedPrecipSum =
+    hasPrecipSum && totalWeight > 0 ? Math.round((weightedPrecipSum / totalWeight) * 10) / 10 : 0;
+  const estimatedPrecipProb =
+    hasPrecipProb && totalWeight > 0 ? Math.round(weightedPrecipProb / totalWeight) : null;
 
   return {
     id: target.id,
@@ -172,7 +196,9 @@ export function interpolateSingleMunicipalWeather(
     apparentTemperatureC: estimatedApparent != null ? Math.round(estimatedApparent * 10) / 10 : null,
     humidityPct: estimatedHumidity != null ? Math.round(estimatedHumidity) : null,
     windSpeedKmh: closest.station.windSpeedKmh ?? null,
-    precipitationMm: 0,
+    precipitationMm: closest.station.precipitationMm ?? 0,
+    precipitationSumMm: estimatedPrecipSum,
+    precipitationProbabilityPct: estimatedPrecipProb,
     precipitationIntervalMinutes: 15,
     // Código de tempo (ícone de céu) vem do vizinho mais próximo
     weatherCode: closest.station.weatherCode ?? 0,
@@ -204,6 +230,9 @@ export function interpolateStateWeather(
     apparentTemperatureC: c.apparentTemperatureC,
     humidityPct: c.humidityPct,
     windSpeedKmh: c.windSpeedKmh,
+    precipitationMm: c.precipitationMm,
+    precipitationSumMm: c.precipitationSumMm,
+    precipitationProbabilityPct: c.precipitationProbabilityPct,
     weatherCode: c.weatherCode,
     isInferred: false,
   }));

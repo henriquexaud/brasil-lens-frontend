@@ -64,6 +64,15 @@ const FireLegend = lazy(() =>
 const FireOverview = lazy(() =>
   import('@/features/fire/FireOverview').then((m) => ({ default: m.FireOverview })),
 );
+const RainLegend = lazy(() =>
+  import('@/features/rainfall/RainLegend').then((m) => ({ default: m.RainLegend })),
+);
+const RainOverview = lazy(() =>
+  import('@/features/rainfall/RainOverview').then((m) => ({ default: m.RainOverview })),
+);
+const ClimateOverview = lazy(() =>
+  import('@/features/weather/ClimateOverview').then((m) => ({ default: m.ClimateOverview })),
+);
 const FireHotspotsLayer = lazy(() =>
   import('@/features/fire/FireHotspotsLayer').then((module) => ({
     default: module.FireHotspotsLayer,
@@ -134,10 +143,32 @@ export default function App() {
     const saved = loadSessionState();
     return typeof saved.showHydrography === 'boolean' ? saved.showHydrography : true;
   });
-  const [showFireHotspots, setShowFireHotspots] = useState<boolean>(() => {
+  const [activeThematicLayer, setActiveThematicLayer] = useState<
+    'climate' | 'fire' | 'rainfall' | 'none'
+  >(() => {
     const saved = loadSessionState();
-    return typeof saved.showFireHotspots === 'boolean' ? saved.showFireHotspots : true;
+    if (saved.showRainfall || saved.activeThematicLayer === 'rainfall') return 'rainfall';
+    if (saved.showFireHotspots || saved.activeThematicLayer === 'fire') return 'fire';
+    if (saved.showClimate === false || saved.activeThematicLayer === 'none') return 'none';
+    return 'climate';
   });
+
+  const showClimate = activeThematicLayer === 'climate';
+  const showFireHotspots = activeThematicLayer === 'fire';
+  const showRainfall = activeThematicLayer === 'rainfall';
+
+  const handleToggleClimate = useCallback((show: boolean) => {
+    setActiveThematicLayer(show ? 'climate' : 'none');
+  }, []);
+
+  const handleToggleFireHotspots = useCallback((show: boolean) => {
+    setActiveThematicLayer(show ? 'fire' : 'none');
+  }, []);
+
+  const handleToggleRainfall = useCallback((show: boolean) => {
+    setActiveThematicLayer(show ? 'rainfall' : 'none');
+  }, []);
+
   const [viewport, setViewport] = useState<MapViewport>({ zoom: 4 });
   const activeFireMode = fireMode(viewport.zoom);
   const [locationTarget, setLocationTarget] = useState<{
@@ -162,9 +193,22 @@ export default function App() {
       year,
       showWeatherAlerts,
       showHydrography,
+      showClimate,
       showFireHotspots,
+      showRainfall,
+      activeThematicLayer,
     });
-  }, [context, indicatorKey, year, showWeatherAlerts, showHydrography, showFireHotspots]);
+  }, [
+    context,
+    indicatorKey,
+    year,
+    showWeatherAlerts,
+    showHydrography,
+    showClimate,
+    showFireHotspots,
+    showRainfall,
+    activeThematicLayer,
+  ]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -396,32 +440,34 @@ export default function App() {
       }
     }
   }, [client, nationalWeather.data, statesOutlineLayer.data]);
-   const forecastBusy = useIsFetching({ queryKey: ['weather', 'forecast'] });
-  const isCitySelected = Boolean(selectedCode && selectedCode.length === 7);
-  // Prioridade máxima para a cidade selecionada: pausa os lotes de fundo do estado
-  const pauseMunicipalBatching =
-    isCitySelected ||
+  const forecastBusy = useIsFetching({ queryKey: ['weather', 'forecast'] });
+  const viewportWeatherBusy = useIsFetching({ queryKey: ['weather', 'viewport'] });
+  // Pausa de requisições de tela (viewport) apenas durante movimento do mapa ou seleção explícita
+  const pauseNearbyWeather =
     selectedWeather.isFetching ||
     forecastBusy > 0 ||
     Boolean(viewport.moving);
 
-  // Em estados com alta densidade (> 50 municípios), 2 estágios (32 cidades estratégicas)
-  // são mais que suficientes para o IDW preencher o estado com alta fidelidade regional,
-  // evitando sobrecarga de dezenas de requisições de fundo.
-  const isHighDensityState = (collection?.features.length ?? 0) > 50;
-  const maxStateStages = isHighDensityState && !closeMunicipalView ? 2 : Infinity;
+  // Prioridade para requisições ativas do usuário e visão municipal aproximada:
+  // pausa lotes de fundo do estado completo quando o usuário estiver focado nas cidades da tela,
+  // ou durante fetches prioritários e movimento do mapa.
+  const pauseMunicipalBatching =
+    closeMunicipalView ||
+    pauseNearbyWeather ||
+    viewportWeatherBusy > 0;
 
+  // Busca em segundo plano todos os lotes de municípios do estado, refinando a resolução a cada lote
   const municipalities = useMunicipalityWeather(
     scope.parent,
-    weatherStageReady && !closeMunicipalView,
+    weatherStageReady,
     pauseMunicipalBatching,
     COVERAGE_STAGE_LIMIT,
-    maxStateStages,
   );
   const nearbyWeather = useViewportWeather(
     viewport.bbox,
+    isDrilledDown ? scope.parent : undefined,
     weatherStageReady && closeMunicipalView,
-    pauseMunicipalBatching,
+    pauseNearbyWeather,
   );
   const climateBaseReady =
     weatherStageReady &&
@@ -445,9 +491,10 @@ export default function App() {
       ),
     [fireSummary.data],
   );
-  // Quando ativa, a camada de fogo prevalece imediatamente sobre o clima,
-  // garantindo que não ocorra alternância ou piscamento para a paleta térmica.
+  // Prevalência temática: apenas uma camada (clima, fogo ou chuva) ativa por vez
+  const climateVisualActive = Boolean(isClimate && showClimate);
   const fireVisualActive = Boolean(isClimate && showFireHotspots);
+  const rainVisualActive = Boolean(isClimate && showRainfall);
   // As camadas opcionais aguardam o primeiro lote, não todos os municípios.
   const primarySettled =
     climateBaseReady &&
@@ -510,6 +557,30 @@ export default function App() {
       setSelectedCode(city.ibgeCode);
     },
     [statesOutlineLayer.data, drillIntoState, setSelectedCode],
+  );
+  const selectWeatherCity = useCallback(
+    (city: WeatherCity) => {
+      if (city.id.length === 2) {
+        const state = statesOutlineLayer.data?.features.find(
+          (f) => f.properties.abbreviation === city.id || f.properties.ibgeCode === city.id,
+        );
+        if (state) {
+          drillIntoState(state.properties.ibgeCode, state.properties.name);
+        } else {
+          drillIntoState(city.id, city.name);
+        }
+      } else {
+        const parent = city.id.slice(0, 2);
+        if (!isDrilledDown || scope.parent !== parent) {
+          const state = statesOutlineLayer.data?.features.find(
+            (f) => f.properties.ibgeCode === parent,
+          );
+          drillIntoState(parent, state?.properties.name ?? city.stateAbbreviation ?? parent);
+        }
+        setSelectedCode(city.id);
+      }
+    },
+    [statesOutlineLayer.data, drillIntoState, isDrilledDown, scope.parent, setSelectedCode],
   );
   const selectMapTerritory = useCallback(
     (code: string) => {
@@ -581,9 +652,14 @@ export default function App() {
         byId.set(c.id, c);
       }
     }
-    return [...byId.values()];
+    const all = [...byId.values()];
+    if (isDrilledDown && scope.parent) {
+      return all.filter((c) => c.id.startsWith(scope.parent!));
+    }
+    return all;
   }, [
     isDrilledDown,
+    scope.parent,
     municipalities.data,
     closeMunicipalView,
     nearbyWeather.data,
@@ -592,6 +668,32 @@ export default function App() {
     selectedCode,
     selectedWeather.data,
   ]);
+
+  const maxRainfall = useMemo(() => {
+    if (!weatherCities.length) return undefined;
+    let max = 0;
+    for (const c of weatherCities) {
+      const val = c.precipitationSumMm ?? c.precipitationMm ?? 0;
+      if (val > max) max = val;
+    }
+    return max;
+  }, [weatherCities]);
+
+  const { minTemperature, maxTemperature } = useMemo(() => {
+    const valid = weatherCities.filter(
+      (c) => c.temperatureC != null && Number.isFinite(c.temperatureC),
+    );
+    const first = valid[0];
+    if (!first) return { minTemperature: undefined, maxTemperature: undefined };
+    let min = first.temperatureC;
+    let max = first.temperatureC;
+    for (const c of valid) {
+      if (c.temperatureC < min) min = c.temperatureC;
+      if (c.temperatureC > max) max = c.temperatureC;
+    }
+    return { minTemperature: min, maxTemperature: max };
+  }, [weatherCities]);
+
   const progressiveWeather = useProgressiveStateWeather({
     stateCode: isDrilledDown ? scope.parent : null,
     stateFeatures: isDrilledDown ? (collection?.features ?? []) : [],
@@ -606,6 +708,11 @@ export default function App() {
   // deixou a janela atual. A cor só muda quando uma resposta nova substituir
   // o registro daquela cidade.
   const weatherColorCacheRef = useRef(new Map<string, WeatherCity>());
+
+  // Limpa o cache de cores ao trocar de estado ou voltar ao mapa nacional
+  useEffect(() => {
+    weatherColorCacheRef.current.clear();
+  }, [scope.parent]);
   const weatherByCode = useMemo(() => {
     if (isClimate && isDrilledDown && progressiveWeather.weatherByCode.size > 0) {
       return progressiveWeather.weatherByCode;
@@ -663,11 +770,6 @@ export default function App() {
         ? nearbyWeather.data?.pages[0]
         : municipalities.data?.pages[0]
       : nationalWeather.data;
-  const weatherLoading = isDrilledDown
-    ? closeMunicipalView
-      ? nearbyWeather.isFetching
-      : municipalities.isFetching
-    : nationalWeather.isFetching;
   const weatherError = isDrilledDown
     ? closeMunicipalView
       ? nearbyWeather.error
@@ -683,6 +785,56 @@ export default function App() {
     : weatherError && weatherCities.length > 0
       ? 'Cobertura parcial'
       : undefined;
+
+  // Identifica se há requisições ativas ou mais páginas na fila em segundo plano na visualização atual
+  const isViewActivelyWorking = Boolean(
+    isClimate && (
+      selectedWeather.isFetching ||
+      forecastBusy > 0 ||
+      viewportWeatherBusy > 0 ||
+      (isDrilledDown
+        ? closeMunicipalView
+          ? nearbyWeather.isFetching ||
+            (Boolean(nearbyWeather.hasNextPage) && !nearbyWeather.isError)
+          : municipalities.isFetching ||
+            (!municipalities.isCoverageComplete &&
+              Boolean(municipalities.hasNextPage) &&
+              !municipalities.isError &&
+              !pauseMunicipalBatching)
+        : nationalWeather.isFetching ||
+          (Boolean(nationalWeather.hasNextPage) && !nationalWeather.isError)) ||
+      (showFireHotspots && (fireHotspotsLayer.isFetching || fireSummary.isFetching)) ||
+      (showHydrography && (hydrographyLayer.isFetching || waterBodies.isFetching)) ||
+      (showWeatherAlerts && alerts.isFetching) ||
+      selectedBoundary.isFetching
+    ),
+  );
+
+  // Estabiliza a alternância entre "Atualizando…" e "Atualizar dados" para evitar piscar:
+  // entra imediatamente em Atualizando, mas só sai após 600ms de repouso completo.
+  const [isViewUpdating, setIsViewUpdating] = useState(false);
+  const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isViewActivelyWorking) {
+      if (updateTimerRef.current) {
+        clearTimeout(updateTimerRef.current);
+        updateTimerRef.current = null;
+      }
+      setIsViewUpdating(true);
+    } else {
+      updateTimerRef.current = setTimeout(() => {
+        setIsViewUpdating(false);
+        updateTimerRef.current = null;
+      }, 600);
+    }
+    return () => {
+      if (updateTimerRef.current) {
+        clearTimeout(updateTimerRef.current);
+      }
+    };
+  }, [isViewActivelyWorking]);
+
   // Prefetch de detalhes também respeita a fila: no clima, o hover só pode
   // aquecer outra cidade depois que a camada meteorológica principal chegou.
   const previewReady = isClimate ? climateBaseReady : backgroundReady;
@@ -691,7 +843,9 @@ export default function App() {
     <div className="app">
       {((!scopeReady && mapLayer.isFetching) ||
         selectedBoundary.isFetching ||
-        (isClimate && selectedWeather.isFetching)) && <TopProgress />}
+        (isClimate &&
+          climateVisualActive &&
+          selectedWeather.isFetching)) && <TopProgress />}
       <MapView
         collection={collection}
         selectedCode={selectedCode}
@@ -702,9 +856,11 @@ export default function App() {
         stateOutline={selectedStateOutline}
         onViewportChange={setViewport}
         locationTarget={locationTarget}
+        climateMode={climateVisualActive}
         fireMode={fireVisualActive ? activeFireMode : undefined}
         fireByCode={fireByCode}
         fireHours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
+        rainMode={rainVisualActive}
       >
         <Suspense fallback={null}>
           {isClimate && showWeatherAlerts && (
@@ -718,14 +874,12 @@ export default function App() {
               onMapError={setFireMapError}
             />
           )}
-          {isClimate && (
+          {isClimate && climateVisualActive && (
             <WeatherLayer
               cities={
-                fireVisualActive
-                  ? weatherCities.filter((item) => item.id === city?.id)
-                  : isDrilledDown
-                    ? progressiveWeather.measuredCities
-                    : weatherCities
+                isDrilledDown
+                  ? progressiveWeather.measuredCities
+                  : weatherCities
               }
               selectedId={city?.id}
               municipal={isDrilledDown}
@@ -824,6 +978,7 @@ export default function App() {
                     fireActive={fireVisualActive}
                     fireLoading={fireSummary.isFetching}
                     fireHours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
+                    rainActive={rainVisualActive}
                   />
                 ) : (
                   <TerritoryDetailPanel
@@ -845,14 +1000,33 @@ export default function App() {
               )}
             </Suspense>
           </ErrorBoundary>
-          {isClimate && !selectedCode && weatherCities.length === 0 && (
-            <p className="panel-section navigation-hint" role="status">
-              {weatherError ? 'Clima indisponível no momento.' : 'Carregando clima…'}
-            </p>
-          )}
+          {isClimate &&
+            !fireVisualActive &&
+            !rainVisualActive &&
+            !selectedCode &&
+            weatherCities.length === 0 && (
+              <p className="panel-section navigation-hint" role="status">
+                {weatherError ? 'Clima indisponível no momento.' : 'Carregando clima…'}
+              </p>
+            )}
           <Suspense fallback={null}>
             {isClimate && (
               <>
+                {showClimate && !selectedCode && (
+                  <ClimateOverview
+                    cities={weatherCities}
+                    scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+                    isDrilledDown={isDrilledDown}
+                    onSelect={selectWeatherCity}
+                  />
+                )}
+                {showRainfall && !selectedCode && (
+                  <RainOverview
+                    cities={weatherCities}
+                    scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+                    onSelect={selectWeatherCity}
+                  />
+                )}
                 {showFireHotspots && fireSummary.data && !selectedCode && (
                   <FireOverview
                     summary={rankedFireSummary ?? fireSummary.data}
@@ -863,11 +1037,15 @@ export default function App() {
                 <WeatherOptions
                   showAlerts={showWeatherAlerts}
                   onToggleAlerts={setShowWeatherAlerts}
+                  showClimate={showClimate}
+                  onToggleClimate={handleToggleClimate}
+                  minTemperature={minTemperature}
+                  maxTemperature={maxTemperature}
                   showHydrography={showHydrography}
                   onToggleHydrography={setShowHydrography}
                   hydrographyPartial={hydroCollection?.metadata.status === 'partial'}
                   showFireHotspots={showFireHotspots}
-                  onToggleFireHotspots={setShowFireHotspots}
+                  onToggleFireHotspots={handleToggleFireHotspots}
                   fireHotspotsLoading={fireHotspotsLayer.isFetching}
                   fireHotspots={fireHotspotsLayer.data}
                   fireHotspotsError={
@@ -875,12 +1053,13 @@ export default function App() {
                     fireSummary.error != null ||
                     (activeFireMode === 'points' && fireMapError)
                   }
+                  showRainfall={showRainfall}
+                  onToggleRainfall={handleToggleRainfall}
+                  maxRainfall={maxRainfall}
                   code={selectedCode ?? scope.parent}
                   current={currentWeather}
                   error={weatherError}
-                  loading={
-                    weatherLoading || selectedWeather.isFetching || fireHotspotsLayer.isFetching
-                  }
+                  loading={isViewUpdating}
                   alertsData={alerts.data}
                   alertsPending={alerts.isPending}
                   weatherReady={climateBaseReady}
@@ -914,9 +1093,14 @@ export default function App() {
                   error={fireSummary.error != null}
                   hours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
                 />
-              ) : (
+              ) : rainVisualActive ? (
+                <RainLegend
+                  loading={isViewUpdating}
+                  error={weatherError != null}
+                />
+              ) : climateVisualActive ? (
                 <WeatherLegend notice={weatherNotice} />
-              )
+              ) : null
             ) : (
               <Legend
                 indicator={collection?.indicator ?? null}

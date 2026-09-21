@@ -30,6 +30,7 @@ import {
 import { scopeInsets } from './viewport';
 import { densityColor, type FireMode } from '@/features/fire/fireDensity';
 import { formatFireDate } from '@/features/fire/fireStyles';
+import { rainColor, rainDescription } from '@/features/rainfall/rainScale';
 import { measurement, weatherDescription } from '@/features/weather/conditions';
 
 interface Props {
@@ -43,6 +44,8 @@ interface Props {
   fireByCode?: Map<string, FireMunicipality>;
   fireMode?: FireMode;
   fireHours?: number;
+  rainMode?: boolean;
+  climateMode?: boolean;
 }
 
 type TerritoryFeature = Feature<Geometry, MapFeatureProperties>;
@@ -66,6 +69,8 @@ function fillTooltipContent(
   fire?: FireMunicipality,
   fireHours = 24,
   fireActive = false,
+  rainActive = false,
+  climateActive = true,
 ) {
   el.replaceChildren();
   const add = (className: string, text: string) => {
@@ -102,8 +107,27 @@ function fillTooltipContent(
       if (fire.latestDetectionAt)
         add('tooltip-meta', `Última: ${formatFireDate(fire.latestDetectionAt)}`);
     } else add('tooltip-meta', 'Resumo de focos indisponível');
-  }
-  if (weather && !fireActive) {
+  } else if (rainActive) {
+    if (weather) {
+      const rainVal = weather.precipitationSumMm ?? weather.precipitationMm ?? 0;
+      const valEl = document.createElement('span');
+      valEl.className = 'tooltip-value';
+      const dot = document.createElement('span');
+      dot.className = 'tooltip-thermal-dot';
+      dot.style.backgroundColor = rainColor(rainVal);
+      valEl.append(dot);
+      const textSpan = document.createElement('span');
+      textSpan.textContent = `${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
+      valEl.append(textSpan);
+      el.append(valEl);
+      add('tooltip-meta', rainDescription(rainVal));
+      if (weather.precipitationProbabilityPct != null) {
+        add('tooltip-meta', `Probabilidade: ${weather.precipitationProbabilityPct}%`);
+      }
+    } else {
+      add('tooltip-meta', 'Dados de chuva indisponíveis');
+    }
+  } else if (climateActive && weather) {
     const valEl = document.createElement('span');
     valEl.className = 'tooltip-value';
     const dot = document.createElement('span');
@@ -136,6 +160,8 @@ function Territories({
   fireByCode,
   fireMode,
   fireHours = 24,
+  rainMode,
+  climateMode = true,
 }: Props) {
   const map = useMap();
   const layerRef = useRef<LeafletGeoJSON>(null);
@@ -290,7 +316,23 @@ function Territories({
           className: 'territory-shape climate-territory-shape',
         };
       }
-      if (isClimate) {
+      if (isClimate && rainMode) {
+        const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
+        const rainVal = weather?.precipitationSumMm ?? weather?.precipitationMm ?? 0;
+        const hasRain = rainVal > 0;
+        const fillColor = rainColor(rainVal);
+        const fillOpacity = hasRain ? (hovered ? 0.88 : 0.72) : hovered ? 0.3 : 0.12;
+        return {
+          smoothFactor: 0,
+          color: hovered ? HOVER_COLOR : '#ffffff',
+          weight: hovered ? (municipal ? 1.4 : 1.6) : municipal ? 0.5 : 0.85,
+          opacity: hovered ? 0.95 : municipal ? 0.7 : 0.85,
+          fillOpacity,
+          fillColor,
+          className: 'territory-shape climate-territory-shape',
+        };
+      }
+      if (isClimate && climateMode) {
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
         const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
         const hasColor = hasDirectTemp;
@@ -304,6 +346,17 @@ function Territories({
           opacity: hovered ? 0.95 : municipal ? 0.7 : 0.85,
           fillOpacity,
           fillColor,
+          className: 'territory-shape climate-territory-shape',
+        };
+      }
+      if (isClimate) {
+        return {
+          smoothFactor: 0,
+          color: hovered ? HOVER_COLOR : '#ffffff',
+          weight: hovered ? (municipal ? 1.4 : 1.6) : municipal ? 0.5 : 0.85,
+          opacity: hovered ? 0.95 : municipal ? 0.7 : 0.85,
+          fillOpacity: hovered ? 0.25 : 0.08,
+          fillColor: '#f1f5f9',
           className: 'territory-shape climate-territory-shape',
         };
       }
@@ -331,6 +384,8 @@ function Territories({
       weatherByCode,
       fireByCode,
       fireMode,
+      rainMode,
+      climateMode,
     ],
   );
 
@@ -347,6 +402,8 @@ function Territories({
     fireByCode,
     fireMode,
     fireHours,
+    rainMode,
+    climateMode,
     collection,
     style,
   });
@@ -361,6 +418,8 @@ function Territories({
     fireByCode,
     fireMode,
     fireHours,
+    rainMode,
+    climateMode,
     collection,
     style,
   };
@@ -388,7 +447,15 @@ function Territories({
     cancelHide();
     const el = tooltipElRef.current;
     if (!el) return;
-    const { weatherByCode: wb, fireByCode: fb, fireMode: fm, fireHours: fh, collection: col } = propsRef.current;
+    const {
+      weatherByCode: wb,
+      fireByCode: fb,
+      fireMode: fm,
+      fireHours: fh,
+      rainMode: rm,
+      climateMode: cm = true,
+      collection: col,
+    } = propsRef.current;
     const weather = wb?.get(properties.ibgeCode);
     const content = JSON.stringify([
       properties.name,
@@ -396,9 +463,13 @@ function Territories({
       properties.value,
       fb?.get(properties.ibgeCode),
       fm,
+      rm,
+      cm,
       col.indicator,
       weather?.temperatureC,
       weather?.weatherCode,
+      weather?.precipitationSumMm,
+      weather?.precipitationMm,
     ]);
     if (
       activeTooltipCodeRef.current !== properties.ibgeCode ||
@@ -413,6 +484,8 @@ function Territories({
         fb?.get(properties.ibgeCode),
         fh,
         Boolean(fm),
+        Boolean(rm),
+        Boolean(cm),
       );
       activeTooltipContentRef.current = content;
       const size = map.getSize();
@@ -451,14 +524,21 @@ function Territories({
           const hasColor = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
           const hStyle = currentProps.fireMode
             ? { color: HOVER_COLOR, weight: 1.2, opacity: 0.9 }
-            : isClimateLayer
+            : currentProps.rainMode
               ? {
                   color: HOVER_COLOR,
                   weight: currentProps.municipal ? 1.4 : 1.6,
                   opacity: 0.95,
-                  fillOpacity: hasColor ? 0.85 : 0.35,
+                  fillOpacity: 0.88,
                 }
-              : { color: HOVER_COLOR, weight: currentProps.municipal ? 1.2 : 1.5, opacity: 0.9 };
+              : isClimateLayer
+                ? {
+                    color: HOVER_COLOR,
+                    weight: currentProps.municipal ? 1.4 : 1.6,
+                    opacity: 0.95,
+                    fillOpacity: hasColor ? 0.85 : 0.35,
+                  }
+                : { color: HOVER_COLOR, weight: currentProps.municipal ? 1.2 : 1.5, opacity: 0.9 };
           layer.setStyle(hStyle);
         }
         currentProps.onHover?.(properties.ibgeCode);

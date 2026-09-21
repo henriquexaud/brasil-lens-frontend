@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -56,6 +56,7 @@ const {
   colorForTemperature,
   WeatherPanel,
   FireOverview,
+  WeatherOptions,
 } = await import(pathToFileURL(path).href);
 let root, client, map, requests;
 function CaptureMap() {
@@ -503,3 +504,242 @@ test('WeatherPanel lida com variações de casing do backend (count24H, count_24
   assert.match(card.textContent, /18 em 24h/);
   assert.match(card.textContent, /2,1 focos \/ 1.000 km²/);
 });
+
+test('WeatherPanel em camada de fogo oculta completamente detalhes e disclosures de clima', async () => {
+  const fireMunicipality = {
+    ibgeCode: '5100001',
+    name: 'Marcelândia',
+    state: 'Mato Grosso',
+    count: 120,
+    count24h: 45,
+    density: 14.2,
+    areaKm2: 12500,
+    latestDetectionAt: '2026-09-20T07:50:00Z',
+  };
+  const dummyCity = {
+    id: '5100001',
+    name: 'Marcelândia',
+    stateAbbreviation: 'MT',
+    temperatureC: 34,
+    apparentTemperatureC: 38,
+    relativeHumidityPct: 40,
+    windSpeedKmh: 15,
+    weatherCode: 0,
+    observedAt: '2026-09-20T12:00:00Z',
+    timezone: 'America/Cuiaba',
+    forecast: [],
+  };
+
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherPanel, {
+          code: '5100001',
+          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality', value: null },
+          city: dummyCity,
+          data: undefined,
+          error: null,
+          loading: false,
+          onClose: () => {},
+          onDrillDown: () => {},
+          fireMunicipality,
+          fireActive: true,
+          fireHours: 24,
+          rainActive: false,
+        }),
+      ),
+    ),
+  );
+
+  const panel = document.querySelector('.territory-detail');
+  assert.ok(panel);
+  assert.equal(panel.getAttribute('aria-label'), 'Focos de calor do local selecionado');
+  assert.equal(document.querySelector('.fire-detail-card'), panel.querySelector('.fire-detail-card'));
+  // Não deve conter 'Condições meteorológicas' ou indicadores térmicos (°C, Sensação, etc.)
+  assert.equal(document.querySelector('.weather-disclosure'), null);
+  assert.doesNotMatch(panel.textContent, /Condições meteorológicas/);
+  assert.doesNotMatch(panel.textContent, /°C/);
+  assert.doesNotMatch(panel.textContent, /Sensação/);
+  assert.doesNotMatch(panel.textContent, /Umidade/);
+});
+
+test('WeatherPanel em camada de chuva exibe métricas de precipitação e oculta clima e fogo', async () => {
+  const dummyCity = {
+    id: '5100001',
+    name: 'Marcelândia',
+    stateAbbreviation: 'MT',
+    temperatureC: 28,
+    apparentTemperatureC: 30,
+    relativeHumidityPct: 85,
+    windSpeedKmh: 10,
+    weatherCode: 61,
+    precipitationSumMm: 45.2,
+    precipitationProbabilityPct: 90,
+    observedAt: '2026-09-20T12:00:00Z',
+    timezone: 'America/Cuiaba',
+    forecast: [{ date: '2026-09-20', precipitationSumMm: 45.2, precipitationProbabilityPct: 90 }],
+  };
+  const fireMunicipality = {
+    ibgeCode: '5100001',
+    name: 'Marcelândia',
+    state: 'Mato Grosso',
+    count: 10,
+    count24h: 5,
+    density: 1.2,
+    areaKm2: 12500,
+    latestDetectionAt: '2026-09-20T07:50:00Z',
+  };
+
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherPanel, {
+          code: '5100001',
+          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality', value: null },
+          city: dummyCity,
+          data: undefined,
+          error: null,
+          loading: false,
+          onClose: () => {},
+          onDrillDown: () => {},
+          fireMunicipality,
+          fireActive: false,
+          fireHours: 24,
+          rainActive: true,
+        }),
+      ),
+    ),
+  );
+
+  const panel = document.querySelector('.territory-detail');
+  assert.ok(panel);
+  assert.equal(panel.getAttribute('aria-label'), 'Quantidade de chuva do local selecionado');
+  const rainCard = document.querySelector('.rain-detail-card');
+  assert.ok(rainCard);
+  assert.match(rainCard.textContent, /45,2\s*mm/);
+  assert.match(rainCard.textContent, /90%/);
+  // Não deve conter clima geral (°C, Sensação, Umidade) nem disclosure de focos de calor
+  assert.equal(document.querySelector('.weather-disclosure'), null);
+  assert.doesNotMatch(panel.textContent, /Condições meteorológicas/);
+  assert.doesNotMatch(panel.textContent, /°C/);
+  assert.doesNotMatch(panel.textContent, /Focos de calor/);
+  assert.doesNotMatch(panel.textContent, /focos \/ 1\.000 km²/);
+});
+
+test('WeatherOptions exibe Clima, Focos e Chuva com concorrência e estado de atualização', async () => {
+  let climateToggled = null;
+  let fireToggled = null;
+  let rainToggled = null;
+  let refreshed = false;
+
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherOptions, {
+          showAlerts: false,
+          onToggleAlerts: () => {},
+          showClimate: true,
+          onToggleClimate: (val) => { climateToggled = val; },
+          showFireHotspots: false,
+          onToggleFireHotspots: (val) => { fireToggled = val; },
+          showRainfall: false,
+          onToggleRainfall: (val) => { rainToggled = val; },
+          code: '35',
+          current: undefined,
+          error: null,
+          loading: true,
+          onRefresh: () => { refreshed = true; },
+        }),
+      ),
+    ),
+  );
+
+  const checkboxes = document.querySelectorAll('.weather-layers-panel input[type="checkbox"]');
+  // Clima, Quantidade de chuva, Focos de calor, Avisos
+  assert.ok(checkboxes.length >= 3);
+  assert.equal(checkboxes[0].checked, true, 'Clima deve estar marcado');
+  assert.equal(checkboxes[1].checked, false, 'Chuva deve estar desmarcada');
+  assert.equal(checkboxes[2].checked, false, 'Focos deve estar desmarcado');
+
+  // Badge de clima ativo
+  const climateBadge = document.querySelector('.badge-climate');
+  assert.ok(climateBadge);
+  assert.equal(climateBadge.textContent, 'Ativo');
+
+  // Botão em estado Atualizando... desabilitado
+  const refreshBtn = document.querySelector('.weather-refresh-btn');
+  assert.ok(refreshBtn);
+  assert.equal(refreshBtn.disabled, true);
+  assert.equal(refreshBtn.textContent, 'Atualizando…');
+
+  const syncDot = document.querySelector('.weather-sync-dot');
+  assert.ok(syncDot.classList.contains('syncing'));
+
+  // Teste de interação com checkbox de fogo (agora no índice 2)
+  await act(async () => checkboxes[2].click());
+  assert.equal(fireToggled, true);
+});
+
+test('WeatherOptions exibe faixa de temperatura mínima e máxima no badge da camada de clima', async () => {
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherOptions, {
+          showAlerts: false,
+          onToggleAlerts: () => {},
+          showClimate: true,
+          onToggleClimate: () => {},
+          minTemperature: 20.2,
+          maxTemperature: 34.4,
+          scopeName: 'Brasil',
+          code: null,
+          current: undefined,
+          error: null,
+          loading: false,
+          onRefresh: () => {},
+        }),
+      ),
+    ),
+  );
+
+  const badge = document.querySelector('.badge-climate');
+  assert.ok(badge);
+  assert.equal(badge.textContent, '20 - 34°C · Brasil');
+
+  // Quando min == max (temperatura única)
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherOptions, {
+          showAlerts: false,
+          onToggleAlerts: () => {},
+          showClimate: true,
+          onToggleClimate: () => {},
+          minTemperature: 24,
+          maxTemperature: 24,
+          scopeName: 'Campinas',
+          code: '3509502',
+          current: undefined,
+          error: null,
+          loading: false,
+          onRefresh: () => {},
+        }),
+      ),
+    ),
+  );
+
+  const singleBadge = document.querySelector('.badge-climate');
+  assert.ok(singleBadge);
+  assert.equal(singleBadge.textContent, '24°C · Campinas');
+});
+

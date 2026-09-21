@@ -44,8 +44,8 @@ export function weatherEmoji(code: number | null): string {
   return '🌤️';
 }
 
-export function measurement(value: number | null, unit: string): string {
-  return value === null
+export function measurement(value: number | null | undefined, unit: string): string {
+  return value == null || typeof value !== 'number' || Number.isNaN(value)
     ? '—'
     : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}${unit}`;
 }

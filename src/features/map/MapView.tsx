@@ -39,6 +39,8 @@ interface Props {
   fireByCode?: Map<string, FireMunicipality>;
   fireMode?: FireMode;
   fireHours?: number;
+  rainMode?: boolean;
+  climateMode?: boolean;
   onViewportChange?: (viewport: MapViewport) => void;
   /** Contorno persistente do Brasil (ex.: sempre visível no contexto de Clima). */
   brazilOutline?: MapFeatureCollection;
@@ -127,6 +129,8 @@ export function MapView({
   fireByCode,
   fireMode,
   fireHours,
+  rainMode,
+  climateMode,
   onViewportChange,
   brazilOutline,
   stateOutline,
@@ -215,6 +219,8 @@ export function MapView({
             fireByCode={fireByCode}
             fireMode={fireMode}
             fireHours={fireHours}
+            rainMode={rainMode}
+            climateMode={climateMode}
           />
           <FitToScope
             bbox={collection.bbox}

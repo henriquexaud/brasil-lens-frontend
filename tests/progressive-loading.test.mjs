@@ -379,6 +379,21 @@ test('zoom próximo carrega automaticamente todos os lotes visíveis e aquece se
   assert.ok(requests.every((r) => !r.url.searchParams.has('forecast')));
 });
 
+test('zoom próximo na visualização de estado envia parent e restringe a busca de viewport ao estado ativo', async () => {
+  let response;
+  function ViewportWithParent({ bbox, parent, enabled }) {
+    response = useViewportWeather(bbox, parent, enabled, false);
+    return null;
+  }
+  respond = async (url) => new Response(JSON.stringify(page(['3550308'])), { status: 200 });
+  await render(h(ViewportWithParent, { bbox: '-47,-24,-46,-23', parent: '35', enabled: true }));
+  await until(() => response.data?.pages.length === 1);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url.pathname, '/api/v1/weather/viewport');
+  assert.equal(requests[0].url.searchParams.get('parent'), '35');
+  assert.equal(requests[0].url.searchParams.get('bbox'), '-47,-24,-46,-23');
+});
+
 test('capitais aparecem por lote e carregamento nacional pausa para a seleção', async () => {
   let result;
   function Capitals({ pause = false, enabled = true }) {
