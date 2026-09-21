@@ -5,7 +5,7 @@ import {
   mergeWeatherWithPrecedence,
 } from './spatialInterpolation';
 
-const STATE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de janela aceitável
+const STATE_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 horas (Stale-While-Revalidate)
 
 interface CachedStateWeather {
   weatherByCode: Map<string, WeatherCity>;
@@ -15,8 +15,58 @@ interface CachedStateWeather {
 // Cache em memória persistente entre trocas de estado na mesma sessão
 const stateWeatherCache = new Map<string, CachedStateWeather>();
 
+function saveStateToSession(stateCode: string, map: Map<string, WeatherCity>): void {
+  try {
+    if (typeof sessionStorage === 'undefined') return;
+    const entries: [string, WeatherCity][] = [];
+    for (const [code, city] of map) {
+      entries.push([code, city]);
+    }
+    sessionStorage.setItem(`bl.sw.${stateCode}`, JSON.stringify({ entries, timestamp: Date.now() }));
+  } catch {
+    // sessionStorage quota exceeded or unavailable - ignore safely
+  }
+}
+
+function loadStateFromSession(stateCode: string): CachedStateWeather | null {
+  try {
+    if (typeof sessionStorage === 'undefined') return null;
+    const raw = sessionStorage.getItem(`bl.sw.${stateCode}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.entries)) return null;
+    const weatherByCode = new Map<string, WeatherCity>(parsed.entries);
+    return { weatherByCode, timestamp: parsed.timestamp };
+  } catch {
+    return null;
+  }
+}
+
+function getStateCache(stateCode: string): CachedStateWeather | null {
+  const mem = stateWeatherCache.get(stateCode);
+  if (mem && Date.now() - mem.timestamp < STATE_CACHE_TTL_MS) {
+    return mem;
+  }
+  const session = loadStateFromSession(stateCode);
+  if (session && Date.now() - session.timestamp < STATE_CACHE_TTL_MS) {
+    stateWeatherCache.set(stateCode, session);
+    return session;
+  }
+  return null;
+}
+
 export function clearStateWeatherCacheForTesting(): void {
   stateWeatherCache.clear();
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      const keys = Object.keys(sessionStorage);
+      for (const k of keys) {
+        if (k.startsWith('bl.sw.')) sessionStorage.removeItem(k);
+      }
+    } catch {
+      // ignore
+    }
+  }
 }
 
 export interface ProgressiveWeatherResult {
@@ -47,8 +97,8 @@ export function useProgressiveStateWeather({
   // Estado local para armazenar as leituras consolidadas do estado atual
   const [currentMap, setCurrentMap] = useState<Map<string, WeatherCity>>(() => {
     if (!stateCode || !enabled) return new Map();
-    const cached = stateWeatherCache.get(stateCode);
-    if (cached && Date.now() - cached.timestamp < STATE_CACHE_TTL_MS) {
+    const cached = getStateCache(stateCode);
+    if (cached) {
       return cached.weatherByCode;
     }
     return new Map();
@@ -57,7 +107,7 @@ export function useProgressiveStateWeather({
   const activeStateRef = useRef<string | null>(stateCode);
 
   // Ao trocar de estado ou desabilitar:
-  // Se houver cache recente do estado que está entrando, carrega instantaneamente
+  // Se houver cache recente do estado que está entrando, carrega instantaneamente no frame 0
   useEffect(() => {
     activeStateRef.current = stateCode;
     processedSignatureRef.current = '';
@@ -66,8 +116,8 @@ export function useProgressiveStateWeather({
       return;
     }
 
-    const cached = stateWeatherCache.get(stateCode);
-    if (cached && Date.now() - cached.timestamp < STATE_CACHE_TTL_MS) {
+    const cached = getStateCache(stateCode);
+    if (cached) {
       setCurrentMap(cached.weatherByCode);
     } else {
       setCurrentMap(new Map());
@@ -137,11 +187,12 @@ export function useProgressiveStateWeather({
         merged = mergeWeatherWithPrecedence(merged, estimatedMap);
       }
 
-      // 3. Salva no cache com TTL
+      // 3. Salva no cache com TTL e persiste na sessão
       stateWeatherCache.set(stateCode, {
         weatherByCode: merged,
         timestamp: Date.now(),
       });
+      saveStateToSession(stateCode, merged);
 
       return merged;
     });

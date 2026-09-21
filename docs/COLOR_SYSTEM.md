@@ -72,8 +72,8 @@ coropletas. Isso é trabalho de contrato de API futuro, não só de paleta.
 Cada fenômeno tem sua família, para não competir visualmente entre si
 quando aparecerem juntos no mesmo painel.
 
-**Chuva (`rain`)** — azul; usada hoje na cor de estações pluviométricas
-(marcadores do CEMADEN, ver `features/weather/StationLayer.tsx`), por
+**Chuva (`rain`)** — azul; usada na camada e escala de precipitação
+(ver `features/rainfall/rainScale.ts`), por
 interpolação contínua sobre o volume de chuva, não por classe de quantil.
 
 | Faixa | Cor |

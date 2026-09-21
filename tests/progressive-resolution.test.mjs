@@ -253,4 +253,64 @@ test('useProgressiveStateWeather restringe todo cálculo e estimativa estritamen
   assert.ok(hookResult.measuredCities.every((c) => c.id.startsWith('35')));
 });
 
+test('useProgressiveStateWeather carrega imediatamente do cache SWR ao retornar para um estado visitado', async () => {
+  const stateFeatures = [
+    {
+      type: 'Feature',
+      id: '35001',
+      properties: { ibgeCode: '35001', name: 'Cidade de SP' },
+      geometry: { type: 'Polygon', coordinates: [[[-47.0, -23.0], [-46.9, -23.0], [-46.9, -22.9], [-47.0, -23.0]]] },
+    },
+  ];
+
+  const citySP = {
+    id: '35001',
+    name: 'Cidade de SP',
+    stateAbbreviation: 'SP',
+    latitude: -22.95,
+    longitude: -46.95,
+    temperatureC: 28.0,
+    weatherCode: 0,
+    observedAt: new Date().toISOString(),
+    timezone: 'America/Sao_Paulo',
+    forecast: [],
+    isInferred: false,
+  };
+
+  let hookResult;
+  function Harness({ stateCode, realCities }) {
+    hookResult = useProgressiveStateWeather({
+      stateCode,
+      stateFeatures: stateCode ? stateFeatures : [],
+      realCities: realCities || [],
+      isCoverageComplete: true,
+      enabled: Boolean(stateCode),
+    });
+    return null;
+  }
+
+  // 1. Primeira visita: popula o cache de SP
+  await act(async () => {
+    root.render(h(Harness, { stateCode: '35', realCities: [citySP] }));
+  });
+  assert.equal(hookResult.weatherByCode.size, 1);
+  assert.equal(hookResult.weatherByCode.get('35001').temperatureC, 28.0);
+
+  // 2. Usuário volta para visão nacional (desabilita estado)
+  await act(async () => {
+    root.render(h(Harness, { stateCode: null, realCities: [] }));
+  });
+  assert.equal(hookResult.weatherByCode.size, 0);
+
+  // 3. Usuário retorna para SP, inicialmente sem cidades reais ainda carregadas da rede
+  await act(async () => {
+    root.render(h(Harness, { stateCode: '35', realCities: [] }));
+  });
+
+  // Continuidade visual imediata: carrega instantaneamente do cache SWR no frame 0!
+  assert.equal(hookResult.weatherByCode.size, 1);
+  assert.equal(hookResult.weatherByCode.get('35001').temperatureC, 28.0);
+  assert.equal(hookResult.measuredCities.length, 1);
+});
+
 

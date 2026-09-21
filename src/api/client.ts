@@ -11,10 +11,10 @@
  */
 import type { ApiErrorBody } from './types';
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1').replace(
-  /\/$/,
-  '',
-);
+const BASE_URL = (
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+  'http://localhost:8000/api/v1'
+).replace(/\/$/, '');
 
 export class ApiError extends Error {
   readonly status: number;
@@ -37,8 +37,12 @@ export class ApiError extends Error {
 
 type QueryValue = string | number | boolean | null | undefined;
 
-function buildUrl(path: string, params?: Record<string, QueryValue>): string {
-  const url = new URL(`${BASE_URL}${path}`);
+export function buildUrl(path: string, params?: Record<string, QueryValue>): string {
+  const baseOrigin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'http://localhost';
+  const url = new URL(`${BASE_URL}${path}`, baseOrigin);
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== null && value !== undefined && value !== '') {
       url.searchParams.set(key, String(value));

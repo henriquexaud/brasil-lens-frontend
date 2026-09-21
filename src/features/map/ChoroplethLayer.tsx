@@ -613,7 +613,7 @@ function Territories({
       element?.addEventListener('keydown', keydown as EventListener);
       layer.on({ mouseover: enter, mouseout: leave, click, dblclick: drill });
     });
-  }, [featuresByCode, map, municipal, scheduleHideTooltip, showTooltipFor, selectedCode]);
+  }, [featuresByCode, map, municipal, scheduleHideTooltip, showTooltipFor]);
 
   // Atualização cirúrgica de estilo: aplica layer.setStyle apenas quando o estilo do polígono mudou
   useEffect(() => {

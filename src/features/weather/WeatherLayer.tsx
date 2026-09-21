@@ -21,12 +21,12 @@ export function WeatherLayer({
   const { zoom } = viewport;
 
   useEffect(() => {
-    map.attributionControl.addAttribution(ATTRIBUTION);
+    map.attributionControl?.addAttribution(ATTRIBUTION);
     const onMove = () =>
       setViewport((previous) => ({ zoom: map.getZoom(), revision: previous.revision + 1 }));
     map.on('moveend resize', onMove);
     return () => {
-      map.attributionControl.removeAttribution(ATTRIBUTION);
+      map.attributionControl?.removeAttribution(ATTRIBUTION);
       map.off('moveend resize', onMove);
     };
   }, [map]);

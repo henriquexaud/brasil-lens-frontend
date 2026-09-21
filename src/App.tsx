@@ -624,8 +624,17 @@ export default function App() {
   useEffect(() => {
     if (isDrilledDown && selectedCode?.length === 7 && selectedWeather.data?.cities?.length) {
       setUserSelectedCities((prev) => {
+        const incoming = selectedWeather.data?.cities ?? [];
+        let hasChanges = false;
+        for (const c of incoming) {
+          if (prev.get(c.id) !== c) {
+            hasChanges = true;
+            break;
+          }
+        }
+        if (!hasChanges) return prev;
         const next = new Map(prev);
-        for (const c of selectedWeather.data?.cities ?? []) {
+        for (const c of incoming) {
           next.set(c.id, c);
         }
         return next;

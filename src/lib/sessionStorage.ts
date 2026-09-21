@@ -15,7 +15,7 @@ export interface AppSessionState {
   showClimate?: boolean;
   showFireHotspots?: boolean;
   showRainfall?: boolean;
-  activeThematicLayer?: 'climate' | 'fire' | 'rainfall' | 'temperature' | 'none';
+  activeThematicLayer?: 'climate' | 'fire' | 'rainfall' | 'none';
 }
 
 function getStorage(): Storage | null {

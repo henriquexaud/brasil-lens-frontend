@@ -127,7 +127,8 @@ export function useMapLayer(query: MapQuery, enabled = true) {
         signal,
       ),
     enabled,
-    staleTime: STATIC_DATA_STALE_TIME,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
     // Mantém a camada anterior visível enquanto a nova carrega, em vez de
     // piscar o mapa em branco a cada troca de indicador.
     placeholderData: (previous) => previous,
@@ -486,7 +487,7 @@ export function useMunicipalityWeather(
     getNextPageParam: (last) => last.nextOffset ?? undefined,
     enabled: enabled && Boolean(parent) && !pause,
     staleTime: 5 * 60 * 1000,
-    gcTime: 20 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
