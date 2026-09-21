@@ -6,9 +6,11 @@ import { densityColor } from './fireDensity';
 export function FireOverview({
   summary,
   onSelect,
+  scopeName,
 }: {
   summary: FireSummary;
   onSelect: (city: FireMunicipality) => void;
+  scopeName?: string;
 }) {
   const ranked = useMemo(
     () =>
@@ -19,8 +21,9 @@ export function FireOverview({
     [summary],
   );
   if (!ranked.length) return null;
+  const title = scopeName ? `Maior densidade de focos · ${scopeName}` : 'Maior densidade de focos';
   return (
-    <Disclosure title="Maior densidade de focos" className="fire-ranking">
+    <Disclosure title={title} className="fire-ranking">
       <ol>
         {ranked.map((city) => (
           <li key={city.ibgeCode}>

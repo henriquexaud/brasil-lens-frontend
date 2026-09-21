@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -54,6 +54,8 @@ const {
   ChoroplethLayer,
   densityColor,
   colorForTemperature,
+  WeatherPanel,
+  FireOverview,
 } = await import(pathToFileURL(path).href);
 let root, client, map, requests;
 function CaptureMap() {
@@ -352,4 +354,152 @@ test('lotes municipais preservam SVG e foco; sem dados não inventam temperatura
   await draw([second]);
   assert.equal(document.querySelectorAll('.territory-shape').length, 1);
   assert.equal(document.querySelector('[aria-label="Município 5100002"]'), other);
+});
+
+test('WeatherPanel destaca métricas de focos quando a camada de fogo está ativa', async () => {
+  const fireMunicipality = {
+    ibgeCode: '5100001',
+    name: 'Marcelândia',
+    state: 'Mato Grosso',
+    count: 120,
+    count24h: 45,
+    density: 14.2,
+    areaKm2: 12500,
+    latestDetectionAt: '2026-09-20T07:50:00Z',
+  };
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherPanel, {
+          code: '5100001',
+          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality', value: null },
+          city: undefined,
+          data: undefined,
+          error: null,
+          loading: false,
+          onClose: () => {},
+          onDrillDown: () => {},
+          fireMunicipality,
+          fireActive: true,
+          fireHours: 24,
+        }),
+      ),
+    ),
+  );
+  const card = document.querySelector('.fire-detail-card.is-highlight');
+  assert.ok(card, 'Card de fogo destacado deve estar presente');
+  assert.match(card.textContent, /14,2 focos \/ 1.000 km²/);
+  assert.match(card.textContent, /45 em 24h/);
+  assert.match(card.textContent, /12\.500\s*km² de área/);
+  assert.match(card.textContent, /Última detecção:/);
+  assert.match(card.textContent, /07:50 UTC/);
+});
+
+test('WeatherPanel exibe estado limpo quando não há detecções recentes de calor', async () => {
+  const cleanMunicipality = {
+    ibgeCode: '3550308',
+    name: 'São Paulo',
+    state: 'São Paulo',
+    count: 0,
+    count24h: 0,
+    density: 0,
+    areaKm2: 1521,
+    latestDetectionAt: null,
+  };
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherPanel, {
+          code: '3550308',
+          territory: { ibgeCode: '3550308', name: 'São Paulo', parentName: 'São Paulo', level: 'municipality', value: null },
+          city: undefined,
+          data: undefined,
+          error: null,
+          loading: false,
+          onClose: () => {},
+          onDrillDown: () => {},
+          fireMunicipality: cleanMunicipality,
+          fireActive: true,
+          fireHours: 24,
+        }),
+      ),
+    ),
+  );
+  const card = document.querySelector('.fire-detail-card');
+  assert.ok(card);
+  assert.match(card.textContent, /Sem focos ativos/);
+  assert.match(card.textContent, /0 em 24h/);
+  assert.match(card.textContent, /Nenhuma detecção de calor registrada/);
+});
+
+test('FireOverview contextualiza o ranking pelo recorte do estado', async () => {
+  const summary = {
+    windowStart: '2026-09-19T08:00:00Z',
+    windowEnd: '2026-09-20T08:00:00Z',
+    hours: 24,
+    total: 300,
+    municipalities: [
+      {
+        ibgeCode: '5100001',
+        name: 'Marcelândia',
+        state: 'MT',
+        areaKm2: 12500,
+        count: 120,
+        count24h: 45,
+        density: 14.2,
+        latestDetectionAt: '2026-09-20T07:50:00Z',
+      },
+    ],
+    states: [],
+    unassignedCount: 0,
+    areaSource: 'ibge',
+  };
+  await act(async () =>
+    root.render(h(FireOverview, { summary, onSelect: () => {}, scopeName: 'Mato Grosso' })),
+  );
+  const summaryEl = document.querySelector('.fire-ranking summary');
+  assert.ok(summaryEl);
+  assert.match(summaryEl.textContent, /Maior densidade de focos · Mato Grosso/);
+});
+
+test('WeatherPanel lida com variações de casing do backend (count24H, count_24h) sem estourar TypeError', async () => {
+  const fireMunicipalityWithCapsH = {
+    ibgeCode: '1302603',
+    name: 'Manaus',
+    state: 'AM',
+    count: 32,
+    count24H: 18,
+    density: 2.1,
+    areaKm2: 11401,
+    latestDetectionAt: null,
+  };
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherPanel, {
+          code: '1302603',
+          territory: { ibgeCode: '1302603', name: 'Manaus', parentName: 'Amazonas', level: 'municipality', value: null },
+          city: undefined,
+          data: undefined,
+          error: null,
+          loading: false,
+          onClose: () => {},
+          onDrillDown: () => {},
+          fireMunicipality: fireMunicipalityWithCapsH,
+          fireActive: true,
+          fireHours: 24,
+        }),
+      ),
+    ),
+  );
+  const card = document.querySelector('.fire-detail-card');
+  assert.ok(card);
+  assert.match(card.textContent, /18 em 24h/);
+  assert.match(card.textContent, /2,1 focos \/ 1.000 km²/);
 });

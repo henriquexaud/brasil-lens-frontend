@@ -27,7 +27,6 @@ import {
   colorForTemperature,
   paletteForIndicator,
 } from './colors';
-import { revealText, type RevealMode } from '@/lib/revealText';
 import { scopeInsets } from './viewport';
 import { densityColor, type FireMode } from '@/features/fire/fireDensity';
 import { formatFireDate } from '@/features/fire/fireStyles';
@@ -68,35 +67,37 @@ function fillTooltipContent(
   fireHours = 24,
   fireActive = false,
 ) {
-  const cleanups: Array<() => void> = [];
   el.replaceChildren();
-  const add = (className: string, text: string, mode?: RevealMode) => {
+  const add = (className: string, text: string) => {
     const line = document.createElement('span');
     line.className = className;
-    if (mode) cleanups.push(revealText(line, text, mode));
-    else line.textContent = text;
+    line.textContent = text;
     el.append(line);
   };
-  add('tooltip-name', properties.name, 'text');
+  add('tooltip-name', properties.name);
   if (properties.parentName) add('tooltip-meta', properties.parentName);
   if (fireActive) {
     if (fire) {
+      const count24h = Number(
+        fire.count24h ?? fire.count24H ?? (fire as unknown as Record<string, unknown>).count_24h ?? 0,
+      );
+      const count = Number(fire.count ?? 0);
       add(
         'tooltip-value',
         fire.density == null
           ? 'Densidade indisponível'
-          : `${fire.density.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} focos / 1.000 km²`,
+          : `${Number(fire.density).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} focos / 1.000 km²`,
       );
       add(
         'tooltip-meta',
         fireHours === 24
-          ? `${fire.count24h.toLocaleString('pt-BR')} em 24h`
-          : `${fire.count24h.toLocaleString('pt-BR')} em 24h · ${fire.count.toLocaleString('pt-BR')} em ${fireHours}h`,
+          ? `${count24h.toLocaleString('pt-BR')} em 24h`
+          : `${count24h.toLocaleString('pt-BR')} em 24h · ${count.toLocaleString('pt-BR')} em ${fireHours}h`,
       );
       if (fire.areaKm2 != null)
         add(
           'tooltip-meta',
-          `${fire.areaKm2.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km² · malha IBGE`,
+          `${Number(fire.areaKm2).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km² · malha IBGE`,
         );
       if (fire.latestDetectionAt)
         add('tooltip-meta', `Última: ${formatFireDate(fire.latestDetectionAt)}`);
@@ -110,7 +111,7 @@ function fillTooltipContent(
     dot.style.backgroundColor = colorForTemperature(weather.temperatureC);
     valEl.append(dot);
     const textSpan = document.createElement('span');
-    cleanups.push(revealText(textSpan, measurement(weather.temperatureC, ' °C'), 'number'));
+    textSpan.textContent = measurement(weather.temperatureC, ' °C');
     valEl.append(textSpan);
     el.append(valEl);
     add('tooltip-meta', weatherDescription(weather.weatherCode));
@@ -120,10 +121,9 @@ function fillTooltipContent(
     add(
       properties.value === null ? 'tooltip-value is-missing' : 'tooltip-value',
       formatValue(properties.value, unit, decimalPlaces),
-      'number',
     );
   }
-  return () => cleanups.forEach((cleanup) => cleanup());
+  return () => {};
 }
 
 function Territories({
@@ -336,143 +336,160 @@ function Territories({
 
   // Rebind interactions to current data without replacing focused paths or
   // open tooltips. Geometry/LOD changes still update the displayed boundaries.
+  const propsRef = useRef({
+    onSelect,
+    onHover,
+    onDrillDown,
+    canDrillDown,
+    selectedCode,
+    municipal,
+    weatherByCode,
+    fireByCode,
+    fireMode,
+    fireHours,
+    collection,
+    style,
+  });
+  propsRef.current = {
+    onSelect,
+    onHover,
+    onDrillDown,
+    canDrillDown,
+    selectedCode,
+    municipal,
+    weatherByCode,
+    fireByCode,
+    fireMode,
+    fireHours,
+    collection,
+    style,
+  };
+
+  const boundLayersRef = useRef(new WeakSet<Path>());
+
+  // Tooltip compartilhado e helpers de interação
+  const cancelHide = useCallback(() => {
+    if (hideFrameRef.current !== null) {
+      cancelAnimationFrame(hideFrameRef.current);
+      hideFrameRef.current = null;
+    }
+  }, []);
+
+  const scheduleHideTooltip = useCallback(() => {
+    cancelHide();
+    hideFrameRef.current = requestAnimationFrame(() => {
+      hideFrameRef.current = null;
+      if (tooltipElRef.current) tooltipElRef.current.style.opacity = '0';
+      activeTooltipCodeRef.current = null;
+    });
+  }, [cancelHide]);
+
+  const showTooltipFor = useCallback((properties: MapFeatureProperties, fixedPoint?: Point) => {
+    cancelHide();
+    const el = tooltipElRef.current;
+    if (!el) return;
+    const { weatherByCode: wb, fireByCode: fb, fireMode: fm, fireHours: fh, collection: col } = propsRef.current;
+    const weather = wb?.get(properties.ibgeCode);
+    const content = JSON.stringify([
+      properties.name,
+      properties.parentName,
+      properties.value,
+      fb?.get(properties.ibgeCode),
+      fm,
+      col.indicator,
+      weather?.temperatureC,
+      weather?.weatherCode,
+    ]);
+    if (
+      activeTooltipCodeRef.current !== properties.ibgeCode ||
+      activeTooltipContentRef.current !== content
+    ) {
+      tooltipCleanupRef.current?.();
+      tooltipCleanupRef.current = fillTooltipContent(
+        el,
+        properties,
+        col,
+        weather,
+        fb?.get(properties.ibgeCode),
+        fh,
+        Boolean(fm),
+      );
+      activeTooltipContentRef.current = content;
+      const size = map.getSize();
+      const anchor = fixedPoint ?? pointerRef.current;
+      tooltipSizeRef.current = { width: el.offsetWidth, height: el.offsetHeight };
+      offsetRef.current = {
+        dx: anchor && anchor.x + el.offsetWidth + 16 > size.x ? -el.offsetWidth - 16 : 16,
+        dy: anchor && anchor.y < 90 ? 20 : -14,
+      };
+      activeTooltipCodeRef.current = properties.ibgeCode;
+    }
+    fixedAnchorRef.current = fixedPoint ?? null;
+    el.style.opacity = '1';
+    requestReposition.current();
+  }, [cancelHide, map]);
+
+  // Amarração de eventos aos nós SVG — executada UMA VEZ por layer para evitar recriação de listeners
   useEffect(() => {
-    const cleanups: Array<() => void> = [];
-
-    // Definidas uma vez por execução do efeito (não por território): operam
-    // sobre o tooltip compartilhado, não sobre um layer específico.
-    function cancelHide() {
-      if (hideFrameRef.current !== null) {
-        cancelAnimationFrame(hideFrameRef.current);
-        hideFrameRef.current = null;
-      }
-    }
-    // O "leave" agenda o fechamento em vez de fechar na hora: ao cruzar para
-    // um território vizinho, o mouseout de um chega no mesmo instante que o
-    // mouseover do outro, e adiar um frame dá tempo do "enter" seguinte
-    // cancelar o fechamento — sem isso, cada fronteira cruzada piscava o
-    // tooltip fechando e abrindo de novo.
-    function scheduleHideTooltip() {
-      cancelHide();
-      hideFrameRef.current = requestAnimationFrame(() => {
-        hideFrameRef.current = null;
-        if (tooltipElRef.current) tooltipElRef.current.style.opacity = '0';
-        activeTooltipCodeRef.current = null;
-      });
-    }
-    function showTooltipFor(properties: MapFeatureProperties, fixedPoint?: Point) {
-      cancelHide();
-      const el = tooltipElRef.current;
-      if (!el) return;
-      const weather = weatherByCode?.get(properties.ibgeCode);
-      const content = JSON.stringify([
-        properties.name,
-        properties.parentName,
-        properties.value,
-        fireByCode?.get(properties.ibgeCode),
-        fireMode,
-        collection.indicator,
-        weather?.temperatureC,
-        weather?.weatherCode,
-      ]);
-      if (
-        activeTooltipCodeRef.current !== properties.ibgeCode ||
-        activeTooltipContentRef.current !== content
-      ) {
-        tooltipCleanupRef.current?.();
-        tooltipCleanupRef.current = fillTooltipContent(
-          el,
-          properties,
-          collection,
-          weather,
-          fireByCode?.get(properties.ibgeCode),
-          fireHours,
-          Boolean(fireMode),
-        );
-        activeTooltipContentRef.current = content;
-        // Decide o lado uma vez por território, não a cada frame: não vale o
-        // custo de medir o layout do card a cada pixel que o mouse anda.
-        const size = map.getSize();
-        const anchor = fixedPoint ?? pointerRef.current;
-        tooltipSizeRef.current = { width: el.offsetWidth, height: el.offsetHeight };
-        offsetRef.current = {
-          dx: anchor && anchor.x + el.offsetWidth + 16 > size.x ? -el.offsetWidth - 16 : 16,
-          dy: anchor && anchor.y < 90 ? 20 : -14,
-        };
-        activeTooltipCodeRef.current = properties.ibgeCode;
-      }
-      fixedAnchorRef.current = fixedPoint ?? null;
-      el.style.opacity = '1';
-      requestReposition.current();
-    }
-
     layerRef.current?.eachLayer((layer) => {
       if (!(layer instanceof Path)) return;
+      if (boundLayersRef.current.has(layer)) return;
+      boundLayersRef.current.add(layer);
+
       const territory = layer as Path & { feature: TerritoryFeature };
-      const previousFeature = territory.feature;
-      const feature = featuresByCode.get(previousFeature.properties.ibgeCode);
+      const feature = territory.feature;
       if (!feature) return;
-      if (layer instanceof Polygon && previousFeature.geometry !== feature.geometry) {
-        layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(feature.geometry.coordinates, 2));
-      }
-      territory.feature = feature;
       const properties = feature.properties;
-      const selected = properties.ibgeCode === selectedCode;
-      const isClimate = !collection.indicator?.key;
-      const weather = weatherByCode?.get(properties.ibgeCode);
-      const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
-      const hasColor = hasDirectTemp;
-      const hoverStyle = fireMode
-        ? { color: HOVER_COLOR, weight: 1.2, opacity: 0.9 }
-        : isClimate
-          ? {
-              color: HOVER_COLOR,
-              weight: municipal ? 1.4 : 1.6,
-              opacity: 0.95,
-              fillOpacity: hasColor ? 0.85 : 0.35,
-            }
-          : { color: HOVER_COLOR, weight: municipal ? 1.2 : 1.5, opacity: 0.9 };
-      const nextStyle = style(feature);
-      const styleKey = [
-        nextStyle.color,
-        nextStyle.fillColor,
-        nextStyle.weight,
-        nextStyle.opacity,
-        nextStyle.fillOpacity,
-      ].join('|');
-      // Viewport e lotes podem mudar sem alterar a leitura meteorológica.
-      // Evita escrever novamente no SVG nesses casos; uma nova resposta que
-      // mude a cor gera uma assinatura diferente e atualiza o path.
-      if (appliedStyleRef.current.get(layer) !== styleKey) {
-        layer.setStyle(nextStyle);
-        appliedStyleRef.current.set(layer, styleKey);
-      }
       const element = layer.getElement();
+
       const hoverEnter = () => {
         hoveredCode.current = properties.ibgeCode;
-        if (!selected) layer.setStyle(hoverStyle);
-        onHover?.(properties.ibgeCode);
+        const currentProps = propsRef.current;
+        if (properties.ibgeCode !== currentProps.selectedCode) {
+          const isClimateLayer = !currentProps.collection.indicator?.key;
+          const weather = currentProps.weatherByCode?.get(properties.ibgeCode);
+          const hasColor = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
+          const hStyle = currentProps.fireMode
+            ? { color: HOVER_COLOR, weight: 1.2, opacity: 0.9 }
+            : isClimateLayer
+              ? {
+                  color: HOVER_COLOR,
+                  weight: currentProps.municipal ? 1.4 : 1.6,
+                  opacity: 0.95,
+                  fillOpacity: hasColor ? 0.85 : 0.35,
+                }
+              : { color: HOVER_COLOR, weight: currentProps.municipal ? 1.2 : 1.5, opacity: 0.9 };
+          layer.setStyle(hStyle);
+        }
+        currentProps.onHover?.(properties.ibgeCode);
         element?.setAttribute('aria-describedby', TOOLTIP_ID);
       };
+
       const hoverLeave = () => {
         hoveredCode.current = null;
-        layer.setStyle(style(feature));
+        layer.setStyle(propsRef.current.style(feature));
         element?.removeAttribute('aria-describedby');
       };
+
       const enter = (event: LeafletMouseEvent) => {
         pointerRef.current = { x: event.containerPoint.x, y: event.containerPoint.y };
         hoverEnter();
         showTooltipFor(properties);
       };
+
       const leave = () => {
         hoverLeave();
         scheduleHideTooltip();
       };
-      const click = () => onSelect(properties.ibgeCode);
+
+      const click = () => propsRef.current.onSelect(properties.ibgeCode);
+
       const drill = () => {
-        if (canDrillDown) onDrillDown!(properties.ibgeCode, properties.name);
-        else if (municipal && layer instanceof Polygon) {
-          onSelect(properties.ibgeCode);
+        const currentProps = propsRef.current;
+        if (currentProps.canDrillDown) {
+          currentProps.onDrillDown!(properties.ibgeCode, properties.name);
+        } else if (currentProps.municipal && layer instanceof Polygon) {
+          currentProps.onSelect(properties.ibgeCode);
           scheduleHideTooltip();
           map.stop();
           map.flyToBounds(layer.getBounds(), {
@@ -483,13 +500,13 @@ function Territories({
           });
         }
       };
+
       const focus = () => {
         hoverEnter();
-        // Territórios são sempre Polygon/MultiPolygon (nunca Marker/linha) —
-        // é o mesmo pressuposto já usado acima para reprojetar a geometria.
         const center = map.latLngToContainerPoint((layer as Polygon).getBounds().getCenter());
         showTooltipFor(properties, { x: center.x, y: center.y });
       };
+
       const keydown = (event: KeyboardEvent) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
@@ -498,10 +515,11 @@ function Territories({
           else click();
         }
       };
+
       element?.setAttribute('tabindex', '0');
       element?.setAttribute('role', 'button');
       element?.setAttribute('aria-label', properties.name);
-      element?.setAttribute('aria-pressed', String(selected));
+      element?.setAttribute('aria-pressed', String(properties.ibgeCode === selectedCode));
       element?.setAttribute('aria-keyshortcuts', 'Enter Space Shift+Enter');
       element?.setAttribute(
         'aria-description',
@@ -509,45 +527,56 @@ function Territories({
           ? 'Enter para selecionar. Shift + Enter para centralizar e aproximar.'
           : 'Enter para selecionar. Shift + Enter para ver os municípios.',
       );
+
       element?.addEventListener('focus', focus);
       element?.addEventListener('blur', leave);
       element?.addEventListener('keydown', keydown as EventListener);
-      // Do not reorder the interactive SVG on hover: it can cancel the click.
       layer.on({ mouseover: enter, mouseout: leave, click, dblclick: drill });
-      cleanups.push(() => {
-        layer.off({ mouseover: enter, mouseout: leave, click, dblclick: drill });
-        element?.removeEventListener('focus', focus);
-        element?.removeEventListener('blur', leave);
-        element?.removeEventListener('keydown', keydown as EventListener);
-      });
     });
-    // Atualiza também o local já sob o cursor quando seu lote chega ou o contexto muda.
+  }, [featuresByCode, map, municipal, scheduleHideTooltip, showTooltipFor, selectedCode]);
+
+  // Atualização cirúrgica de estilo: aplica layer.setStyle apenas quando o estilo do polígono mudou
+  useEffect(() => {
+    layerRef.current?.eachLayer((layer) => {
+      if (!(layer instanceof Path)) return;
+      const territory = layer as Path & { feature: TerritoryFeature };
+      const previousFeature = territory.feature;
+      const feature = featuresByCode.get(previousFeature?.properties?.ibgeCode);
+      if (!feature) return;
+
+      if (layer instanceof Polygon && previousFeature.geometry !== feature.geometry) {
+        layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(feature.geometry.coordinates, 2));
+      }
+      territory.feature = feature;
+
+      const properties = feature.properties;
+      const selected = properties.ibgeCode === selectedCode;
+      const nextStyle = style(feature);
+      const styleKey = [
+        nextStyle.color,
+        nextStyle.fillColor,
+        nextStyle.weight,
+        nextStyle.opacity,
+        nextStyle.fillOpacity,
+      ].join('|');
+
+      if (appliedStyleRef.current.get(layer) !== styleKey) {
+        layer.setStyle(nextStyle);
+        appliedStyleRef.current.set(layer, styleKey);
+      }
+
+      const element = layer.getElement();
+      if (element) {
+        element.setAttribute('aria-pressed', String(selected));
+      }
+    });
+
     const activeCode = activeTooltipCodeRef.current;
     const activeProperties = activeCode ? featuresByCode.get(activeCode)?.properties : undefined;
     if (activeProperties && hideFrameRef.current === null) {
       showTooltipFor(activeProperties, fixedAnchorRef.current ?? undefined);
-    } else if (!activeProperties && tooltipElRef.current) {
-      tooltipElRef.current.style.opacity = '0';
-      activeTooltipCodeRef.current = null;
-      tooltipCleanupRef.current?.();
     }
-    return () => cleanups.forEach((cleanup) => cleanup());
-  }, [
-    collection,
-    weatherByCode,
-    fireByCode,
-    fireHours,
-    fireMode,
-    featuresByCode,
-    onHover,
-    onSelect,
-    onDrillDown,
-    canDrillDown,
-    selectedCode,
-    style,
-    municipal,
-    map,
-  ]);
+  }, [style, selectedCode, featuresByCode, showTooltipFor]);
 
   useEffect(() => {
     if (!selectedFeature) return;

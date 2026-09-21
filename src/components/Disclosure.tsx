@@ -5,17 +5,20 @@ export function Disclosure({
   title,
   children,
   className = '',
+  defaultOpen = false,
 }: {
   title: ReactNode;
   children: ReactNode;
   className?: string;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const ref = useRef<HTMLDetailsElement>(null);
   return (
     <details
       ref={ref}
       className={`disclosure ${className}`}
+      open={defaultOpen}
       onToggle={(event) => setOpen(event.currentTarget.open)}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && ref.current?.open) {

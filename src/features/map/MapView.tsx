@@ -75,8 +75,15 @@ function FitToScope({
 
     const fit = (animate: boolean) => {
       const insets = scopeInsets(map);
-      if (locationTarget && selectedFeature?.id === locationTarget.code) {
-        map.setView([locationTarget.latitude, locationTarget.longitude], 10, { animate: false });
+      if (locationTarget) {
+        if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          map.setView([locationTarget.latitude, locationTarget.longitude], 10, { animate: false });
+        } else {
+          map.flyTo([locationTarget.latitude, locationTarget.longitude], 10, {
+            duration: 1.2,
+            easeLinearity: 0.25,
+          });
+        }
         return;
       }
       if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -224,7 +231,7 @@ export function MapView({
       {stateOutline && (
         <Pane name="state-outline" style={{ zIndex: 430, pointerEvents: 'none' }}>
           <GeoJSON
-            key={`state-outline-${stateOutline.properties.ibgeCode}:halo`}
+            key={`state-outline-${stateOutline.id ?? stateOutline.properties.ibgeCode}:halo`}
             data={stateOutline}
             interactive={false}
             style={{
@@ -236,7 +243,7 @@ export function MapView({
             }}
           />
           <GeoJSON
-            key={`state-outline-${stateOutline.properties.ibgeCode}:stroke`}
+            key={`state-outline-${stateOutline.id ?? stateOutline.properties.ibgeCode}:stroke`}
             data={stateOutline}
             interactive={false}
             style={{

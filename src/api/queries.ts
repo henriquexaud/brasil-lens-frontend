@@ -59,6 +59,7 @@ export const queryKeys = {
       query.parent ?? null,
       query.indicator ?? null,
       query.year ?? 'latest',
+      query.lod ?? null,
     ] as const,
   hydrography: (query: HydroQuery) =>
     [
@@ -121,6 +122,7 @@ export function useMapLayer(query: MapQuery, enabled = true) {
           parent: query.parent,
           indicator: query.indicator,
           year: query.year ?? 'latest',
+          lod: query.lod,
         },
         signal,
       ),

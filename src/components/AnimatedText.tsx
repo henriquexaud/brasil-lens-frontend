@@ -1,6 +1,4 @@
-import { useEffect, useRef } from 'react';
-
-import { revealText, type RevealMode } from '@/lib/revealText';
+import type { RevealMode } from '@/lib/revealText';
 
 type Tag = 'span' | 'div' | 'p' | 'h1' | 'h2' | 'h3' | 'dd' | 'dt' | 'strong';
 
@@ -12,13 +10,17 @@ interface Props {
   mode?: RevealMode;
 }
 
-export function AnimatedText({ text, as = 'span', className, title, mode = 'text' }: Props) {
-  const ref = useRef<HTMLElement | null>(null);
+/**
+ * Renderiza textos e métricas de forma limpa, direta e com alta performance.
+ * Números recebem alinhamento tabular (tabular-nums) para visual sério e moderno.
+ */
+export function AnimatedText({ text, as: Element = 'span', className, title, mode = 'text' }: Props) {
+  const modeClass = mode === 'number' ? 'tabular-nums' : '';
+  const combinedClass = [className, modeClass].filter(Boolean).join(' ') || undefined;
 
-  useEffect(() => {
-    if (ref.current) return revealText(ref.current, text, mode);
-  }, [text, mode]);
-
-  const Element = as;
-  return <Element ref={ref as never} className={className} title={title} />;
+  return (
+    <Element className={combinedClass} title={title}>
+      {text}
+    </Element>
+  );
 }

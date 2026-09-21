@@ -181,6 +181,7 @@ export interface MapQuery {
   indicator?: string | null;
   /** Ano ou `'latest'`. */
   year?: string;
+  lod?: GeometryLod;
 }
 
 /**
@@ -331,6 +332,8 @@ export interface WeatherCity {
   precipitationIntervalMinutes: number;
   weatherCode: number | null;
   forecast: WeatherForecastDay[];
+  /** Indica se a leitura é uma estimativa por interpolação espacial ou dado real medido */
+  isInferred?: boolean;
 }
 
 export interface WeatherCurrentResponse {
@@ -458,6 +461,7 @@ export interface FireMunicipality {
   areaKm2: number | null;
   count: number;
   count24h: number;
+  count24H?: number;
   density: number | null;
   latestDetectionAt: string | null;
 }
