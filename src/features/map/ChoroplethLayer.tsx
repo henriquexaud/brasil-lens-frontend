@@ -3,14 +3,20 @@ import type { Feature, Geometry } from 'geojson';
 import {
   GeoJSON as LeafletGeoJSON,
   type LeafletMouseEvent,
+  type Layer,
   Path,
   Polygon,
-  type PathOptions,
+  type PolylineOptions,
 } from 'leaflet';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { GeoJSON, useMap } from 'react-leaflet';
 
-import type { MapFeatureCollection, MapFeatureProperties, WeatherCity } from '@/api/types';
+import type {
+  MapFeatureCollection,
+  MapFeatureProperties,
+  WeatherCity,
+  FireMunicipality,
+} from '@/api/types';
 import { formatValue } from '@/lib/format';
 
 import {
@@ -23,6 +29,8 @@ import {
 } from './colors';
 import { revealText, type RevealMode } from '@/lib/revealText';
 import { scopeInsets } from './viewport';
+import { densityColor, type FireMode } from '@/features/fire/fireDensity';
+import { formatFireDate } from '@/features/fire/fireStyles';
 import { measurement, weatherDescription } from '@/features/weather/conditions';
 
 interface Props {
@@ -33,6 +41,9 @@ interface Props {
   onDrillDown?: (ibgeCode: string, name: string) => void;
   selectedCode: string | null;
   weatherByCode?: Map<string, WeatherCity>;
+  fireByCode?: Map<string, FireMunicipality>;
+  fireMode?: FireMode;
+  fireHours?: number;
 }
 
 type TerritoryFeature = Feature<Geometry, MapFeatureProperties>;
@@ -42,32 +53,8 @@ const TOOLTIP_ID = 'map-hover-tooltip';
 /** Não deixa o card colado no cursor nem sair da faixa visível do mapa. */
 const TOOLTIP_EDGE = 8;
 
-/** Estima o centróide aproximado de um polígono para cálculo de vizinhança espacial rápida. */
-function computeFeatureCenter(feature: TerritoryFeature): [number, number] {
-  let sumLng = 0;
-  let sumLat = 0;
-  let count = 0;
-  const geom = feature.geometry as { type: string; coordinates?: unknown };
-  if (!geom || !geom.coordinates) return [0, 0];
-
-  const coords = geom.coordinates;
-  if (Array.isArray(coords)) {
-    const polygons = geom.type === 'MultiPolygon' ? coords : [coords];
-    for (const poly of polygons) {
-      const ring = Array.isArray(poly) ? poly[0] : null;
-      if (!ring || !Array.isArray(ring)) continue;
-      const step = Math.max(1, Math.floor(ring.length / 8));
-      for (let i = 0; i < ring.length; i += step) {
-        const pt = ring[i];
-        if (pt && typeof pt[0] === 'number' && typeof pt[1] === 'number') {
-          sumLng += pt[0];
-          sumLat += pt[1];
-          count++;
-        }
-      }
-    }
-  }
-  return count > 0 ? [sumLng / count, sumLat / count] : [0, 0];
+function preserveBoundary(_feature: Feature, layer: Layer) {
+  if (layer instanceof Polygon) layer.options.smoothFactor = 0;
 }
 
 // textContent keeps API names and units as text, including accents and symbols.
@@ -77,7 +64,9 @@ function fillTooltipContent(
   properties: MapFeatureProperties,
   collection: MapFeatureCollection,
   weather?: WeatherCity,
-  interpolated?: { color: string; temperatureC: number },
+  fire?: FireMunicipality,
+  fireHours = 24,
+  fireActive = false,
 ) {
   const cleanups: Array<() => void> = [];
   el.replaceChildren();
@@ -90,7 +79,30 @@ function fillTooltipContent(
   };
   add('tooltip-name', properties.name, 'text');
   if (properties.parentName) add('tooltip-meta', properties.parentName);
-  if (weather) {
+  if (fireActive) {
+    if (fire) {
+      add(
+        'tooltip-value',
+        fire.density == null
+          ? 'Densidade indisponível'
+          : `${fire.density.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} focos / 1.000 km²`,
+      );
+      add(
+        'tooltip-meta',
+        fireHours === 24
+          ? `${fire.count24h.toLocaleString('pt-BR')} em 24h`
+          : `${fire.count24h.toLocaleString('pt-BR')} em 24h · ${fire.count.toLocaleString('pt-BR')} em ${fireHours}h`,
+      );
+      if (fire.areaKm2 != null)
+        add(
+          'tooltip-meta',
+          `${fire.areaKm2.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km² · malha IBGE`,
+        );
+      if (fire.latestDetectionAt)
+        add('tooltip-meta', `Última: ${formatFireDate(fire.latestDetectionAt)}`);
+    } else add('tooltip-meta', 'Resumo de focos indisponível');
+  }
+  if (weather && !fireActive) {
     const valEl = document.createElement('span');
     valEl.className = 'tooltip-value';
     const dot = document.createElement('span');
@@ -102,18 +114,6 @@ function fillTooltipContent(
     valEl.append(textSpan);
     el.append(valEl);
     add('tooltip-meta', weatherDescription(weather.weatherCode));
-  } else if (interpolated) {
-    const valEl = document.createElement('span');
-    valEl.className = 'tooltip-value';
-    const dot = document.createElement('span');
-    dot.className = 'tooltip-thermal-dot';
-    dot.style.backgroundColor = interpolated.color;
-    valEl.append(dot);
-    const textSpan = document.createElement('span');
-    cleanups.push(revealText(textSpan, `~${Math.round(interpolated.temperatureC)} °C`, 'number'));
-    valEl.append(textSpan);
-    el.append(valEl);
-    add('tooltip-meta', 'Cor aproximada da região');
   }
   if (collection.indicator) {
     const { unit, decimalPlaces } = collection.indicator;
@@ -133,15 +133,28 @@ function Territories({
   onDrillDown,
   selectedCode,
   weatherByCode,
+  fireByCode,
+  fireMode,
+  fireHours = 24,
 }: Props) {
   const map = useMap();
   const layerRef = useRef<LeafletGeoJSON>(null);
   const selectionHaloRef = useRef<LeafletGeoJSON>(null);
   const selectionOutlineRef = useRef<LeafletGeoJSON>(null);
+  const appliedStyleRef = useRef(new WeakMap<Path, string>());
   const hoveredCode = useRef<string | null>(null);
   const municipal = collection.scope.level === 'municipality';
   const canDrillDown = collection.scope.level === 'state' && Boolean(onDrillDown);
   const isClimate = !collection.indicator?.key;
+  useEffect(() => {
+    if (!fireMode || !isClimate) return;
+    const attribution =
+      '<a href="https://data.inpe.br/queimadas/" target="_blank" rel="noopener noreferrer">INPE — Queimadas</a>';
+    map.attributionControl?.addAttribution(attribution);
+    return () => {
+      map.attributionControl?.removeAttribution(attribution);
+    };
+  }, [map, fireMode, isClimate]);
   const featuresByCode = useMemo(
     () => new Map(collection.features.map((feature) => [feature.properties.ibgeCode, feature])),
     [collection.features],
@@ -151,127 +164,22 @@ function Territories({
     [collection, selectedCode],
   );
 
-  // Centróides aproximados de cada polígono municipal para cálculo de vizinhança espacial rápida
-  const featureCenters = useMemo(() => {
-    const centers = new Map<string, [number, number]>();
-    if (municipal && isClimate) {
-      for (const feature of collection.features) {
-        centers.set(feature.properties.ibgeCode, computeFeatureCenter(feature));
-      }
-    }
-    return centers;
-  }, [collection.features, municipal, isClimate]);
-
-  // Cidades com medição meteorológica real na visão atual
-  const measuredCities = useMemo(() => {
-    if (!municipal || !isClimate || !weatherByCode || weatherByCode.size === 0) {
-      return [];
-    }
-    const list: Array<{ id: string; lat: number; lng: number; temp: number; color: string }> = [];
-    for (const city of weatherByCode.values()) {
-      if (
-        city.temperatureC !== null &&
-        city.temperatureC !== undefined &&
-        typeof city.latitude === 'number' &&
-        typeof city.longitude === 'number'
-      ) {
-        list.push({
-          id: city.id,
-          lat: city.latitude,
-          lng: city.longitude,
-          temp: city.temperatureC,
-          color: colorForTemperature(city.temperatureC),
-        });
-      }
-    }
-    return list;
-  }, [municipal, isClimate, weatherByCode]);
-
-  // Interpolação espacial (Nearest-Neighbor) para municípios sem dados diretos
-  // Agrupa em 4 etapas (ondas) progressivas a partir da distância até o ponto medido mais próximo
-  const interpolatedWeather = useMemo(() => {
-    const first = measuredCities[0];
-    if (!first) {
-      return new Map<string, { color: string; temperatureC: number; stage: number }>();
-    }
-
-    const unmeasured: Array<{ code: string; color: string; temperatureC: number; distSq: number }> = [];
-
-    for (const feature of collection.features) {
-      const code = feature.properties.ibgeCode;
-      if (weatherByCode?.has(code)) continue;
-
-      const center = featureCenters.get(code);
-      if (!center) continue;
-      const [fLng, fLat] = center;
-
-      let nearest = first;
-      let minDistSq = Infinity;
-
-      for (const m of measuredCities) {
-        const dLat = fLat - m.lat;
-        const dLng = fLng - m.lng;
-        const distSq = dLat * dLat + dLng * dLng;
-        if (distSq < minDistSq) {
-          minDistSq = distSq;
-          nearest = m;
-        }
-      }
-
-      unmeasured.push({
-        code,
-        color: nearest.color,
-        temperatureC: nearest.temp,
-        distSq: minDistSq,
-      });
-    }
-
-    unmeasured.sort((a, b) => a.distSq - b.distSq);
-    const total = unmeasured.length;
-    const result = new Map<string, { color: string; temperatureC: number; stage: number }>();
-
-    unmeasured.forEach((item, index) => {
-      const ratio = total > 0 ? index / total : 0;
-      const stage = ratio < 0.25 ? 1 : ratio < 0.5 ? 2 : ratio < 0.75 ? 3 : 4;
-      result.set(item.code, {
-        color: item.color,
-        temperatureC: item.temperatureC,
-        stage,
-      });
-    });
-
-    return result;
-  }, [measuredCities, collection.features, featureCenters, weatherByCode]);
-
-  // Preenchimento gradual das cidades: após os pontos com informação carregarem,
-  // expande a cor em ondas até colorir 100% do estado
-  const [gradualStage, setGradualStage] = useState(0);
-  const hasMeasuredCities = measuredCities.length > 0;
-
+  // Acrescenta/remove apenas as features que mudaram: um lote não recria
+  // os SVGs já desenhados, nem perde o foco de teclado ou o tooltip.
   useEffect(() => {
-    if (!municipal || !isClimate || !hasMeasuredCities) {
-      setGradualStage(0);
-      return;
+    const group = layerRef.current;
+    if (!group) return;
+    const present = new Set<string>();
+    group.eachLayer((layer) => {
+      const feature = (layer as Path & { feature?: TerritoryFeature }).feature;
+      const code = feature?.properties.ibgeCode;
+      if (!code || !featuresByCode.has(code)) group.removeLayer(layer);
+      else present.add(code);
+    });
+    for (const [code, feature] of featuresByCode) {
+      if (!present.has(code)) group.addData(feature);
     }
-
-    if (
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    ) {
-      setGradualStage(4);
-      return;
-    }
-
-    const timers: Array<ReturnType<typeof setTimeout>> = [];
-    timers.push(setTimeout(() => setGradualStage(1), 220));
-    timers.push(setTimeout(() => setGradualStage(2), 440));
-    timers.push(setTimeout(() => setGradualStage(3), 660));
-    timers.push(setTimeout(() => setGradualStage(4), 880));
-
-    return () => {
-      timers.forEach((t) => clearTimeout(t));
-    };
-  }, [municipal, isClimate, collection.scope.parent, hasMeasuredCities]);
+  }, [featuresByCode]);
 
   // --- tooltip único e compartilhado -------------------------------------
   //
@@ -354,28 +262,43 @@ function Territories({
   }, [map]);
 
   const style = useCallback(
-    (feature?: TerritoryFeature): PathOptions => {
+    (feature?: TerritoryFeature): PolylineOptions => {
       // React Leaflet retains the original GeoJSON data. Read the latest
       // values while keeping the same SVG paths for a continuous color change.
       const properties = feature && featuresByCode.get(feature.properties.ibgeCode)?.properties;
       const hovered =
         properties?.ibgeCode === hoveredCode.current && properties?.ibgeCode !== selectedCode;
 
+      if (isClimate && fireMode) {
+        const fire = properties ? fireByCode?.get(properties.ibgeCode) : undefined;
+        const showDensity = fire?.density != null;
+        return {
+          smoothFactor: 0,
+          color: hovered ? HOVER_COLOR : '#ffffff',
+          weight: hovered ? 1.2 : municipal ? 0.45 : 0.85,
+          opacity: hovered ? 0.9 : 0.65,
+          fillColor: showDensity ? densityColor(fire?.density) : '#edf0ee',
+          fillOpacity: showDensity
+            ? hovered
+              ? 0.82
+              : fireMode === 'points'
+                ? 0.45
+                : 0.68
+            : hovered
+              ? 0.2
+              : 0.07,
+          className: 'territory-shape climate-territory-shape',
+        };
+      }
       if (isClimate) {
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
         const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
-        const interp = properties ? interpolatedWeather.get(properties.ibgeCode) : undefined;
-        const isInterpFilled = Boolean(interp && interp.stage <= gradualStage);
-
-        const hasColor = hasDirectTemp || isInterpFilled;
-        const fillColor = hasDirectTemp
-          ? colorForTemperature(weather.temperatureC)
-          : isInterpFilled && interp
-            ? interp.color
-            : '#f1f5f9';
+        const hasColor = hasDirectTemp;
+        const fillColor = hasDirectTemp ? colorForTemperature(weather.temperatureC) : '#f1f5f9';
 
         const fillOpacity = hasColor ? (hovered ? 0.85 : 0.68) : hovered ? 0.35 : 0.18;
         return {
+          smoothFactor: 0,
           color: hovered ? HOVER_COLOR : '#ffffff',
           weight: hovered ? (municipal ? 1.4 : 1.6) : municipal ? 0.5 : 0.85,
           opacity: hovered ? 0.95 : municipal ? 0.7 : 0.85,
@@ -402,12 +325,12 @@ function Territories({
       collection.classification,
       collection.indicator?.key,
       featuresByCode,
-      gradualStage,
-      interpolatedWeather,
       isClimate,
       municipal,
       selectedCode,
       weatherByCode,
+      fireByCode,
+      fireMode,
     ],
   );
 
@@ -442,16 +365,15 @@ function Territories({
       const el = tooltipElRef.current;
       if (!el) return;
       const weather = weatherByCode?.get(properties.ibgeCode);
-      const interp = interpolatedWeather.get(properties.ibgeCode);
-      const isInterpFilled = Boolean(interp && interp.stage <= gradualStage);
       const content = JSON.stringify([
         properties.name,
         properties.parentName,
         properties.value,
+        fireByCode?.get(properties.ibgeCode),
+        fireMode,
         collection.indicator,
         weather?.temperatureC,
         weather?.weatherCode,
-        isInterpFilled ? interp?.temperatureC : null,
       ]);
       if (
         activeTooltipCodeRef.current !== properties.ibgeCode ||
@@ -463,7 +385,9 @@ function Territories({
           properties,
           collection,
           weather,
-          isInterpFilled ? interp : undefined,
+          fireByCode?.get(properties.ibgeCode),
+          fireHours,
+          Boolean(fireMode),
         );
         activeTooltipContentRef.current = content;
         // Decide o lado uma vez por território, não a cada frame: não vale o
@@ -497,18 +421,32 @@ function Territories({
       const isClimate = !collection.indicator?.key;
       const weather = weatherByCode?.get(properties.ibgeCode);
       const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
-      const interp = interpolatedWeather.get(properties.ibgeCode);
-      const isInterpFilled = Boolean(interp && interp.stage <= gradualStage);
-      const hasColor = hasDirectTemp || isInterpFilled;
-      const hoverStyle = isClimate
-        ? {
-            color: HOVER_COLOR,
-            weight: municipal ? 1.4 : 1.6,
-            opacity: 0.95,
-            fillOpacity: hasColor ? 0.85 : 0.35,
-          }
-        : { color: HOVER_COLOR, weight: municipal ? 1.2 : 1.5, opacity: 0.9 };
-      layer.setStyle(style(feature));
+      const hasColor = hasDirectTemp;
+      const hoverStyle = fireMode
+        ? { color: HOVER_COLOR, weight: 1.2, opacity: 0.9 }
+        : isClimate
+          ? {
+              color: HOVER_COLOR,
+              weight: municipal ? 1.4 : 1.6,
+              opacity: 0.95,
+              fillOpacity: hasColor ? 0.85 : 0.35,
+            }
+          : { color: HOVER_COLOR, weight: municipal ? 1.2 : 1.5, opacity: 0.9 };
+      const nextStyle = style(feature);
+      const styleKey = [
+        nextStyle.color,
+        nextStyle.fillColor,
+        nextStyle.weight,
+        nextStyle.opacity,
+        nextStyle.fillOpacity,
+      ].join('|');
+      // Viewport e lotes podem mudar sem alterar a leitura meteorológica.
+      // Evita escrever novamente no SVG nesses casos; uma nova resposta que
+      // mude a cor gera uma assinatura diferente e atualiza o path.
+      if (appliedStyleRef.current.get(layer) !== styleKey) {
+        layer.setStyle(nextStyle);
+        appliedStyleRef.current.set(layer, styleKey);
+      }
       const element = layer.getElement();
       const hoverEnter = () => {
         hoveredCode.current = properties.ibgeCode;
@@ -588,11 +526,18 @@ function Territories({
     const activeProperties = activeCode ? featuresByCode.get(activeCode)?.properties : undefined;
     if (activeProperties && hideFrameRef.current === null) {
       showTooltipFor(activeProperties, fixedAnchorRef.current ?? undefined);
+    } else if (!activeProperties && tooltipElRef.current) {
+      tooltipElRef.current.style.opacity = '0';
+      activeTooltipCodeRef.current = null;
+      tooltipCleanupRef.current?.();
     }
     return () => cleanups.forEach((cleanup) => cleanup());
   }, [
     collection,
     weatherByCode,
+    fireByCode,
+    fireHours,
+    fireMode,
     featuresByCode,
     onHover,
     onSelect,
@@ -602,8 +547,6 @@ function Territories({
     style,
     municipal,
     map,
-    gradualStage,
-    interpolatedWeather,
   ]);
 
   useEffect(() => {
@@ -621,13 +564,15 @@ function Territories({
 
   return (
     <>
-      <GeoJSON ref={layerRef} data={collection} style={style} />
+      <GeoJSON ref={layerRef} data={collection} style={style} onEachFeature={preserveBoundary} />
       {selectedFeature && (
         <>
           <GeoJSON
             ref={selectionHaloRef}
             key={`${selectedCode}:halo`}
             data={selectedFeature}
+            onEachFeature={preserveBoundary}
+
             pane="territory-selection"
             interactive={false}
             style={{
@@ -642,6 +587,8 @@ function Territories({
             ref={selectionOutlineRef}
             key={`${selectedCode}:outline`}
             data={selectedFeature}
+            onEachFeature={preserveBoundary}
+
             pane="territory-selection"
             interactive={false}
             style={{
@@ -660,12 +607,7 @@ function Territories({
 
 export function ChoroplethLayer(props: Props) {
   const { collection } = props;
-  const layerKey = [
-    collection.scope.level,
-    collection.scope.parent ?? 'root',
-    collection.scope.lod,
-    collection.features.map((feature) => feature.properties.ibgeCode).join(','),
-  ].join(':');
+  const layerKey = [collection.scope.level, collection.scope.parent ?? 'root'].join(':');
 
   return <Territories key={layerKey} {...props} />;
 }

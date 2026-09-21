@@ -7,7 +7,13 @@ import { GeoJSON, Pane } from 'react-leaflet';
 import type { WeatherAlertCollection } from '@/api/types';
 import { getAlertStyle } from './alertStyles';
 
-export function AlertsLayer({ collection }: { collection: WeatherAlertCollection | undefined }) {
+export function AlertsLayer({
+  collection,
+  muted = false,
+}: {
+  collection: WeatherAlertCollection | undefined;
+  muted?: boolean;
+}) {
   return (
     <Pane name="weather-alerts" style={{ zIndex: 450, pointerEvents: 'none' }}>
       {collection?.features.map((feature) => {
@@ -21,9 +27,9 @@ export function AlertsLayer({ collection }: { collection: WeatherAlertCollection
               color: style.strokeColor,
               weight: style.strokeWeight,
               dashArray: style.strokeDashArray,
-              opacity: style.strokeOpacity,
+              opacity: muted ? 0.35 : style.strokeOpacity,
               fillColor: style.fillColor,
-              fillOpacity: style.fillOpacity,
+              fillOpacity: muted ? 0 : style.fillOpacity,
               className: 'weather-alert-shape',
             }}
           />

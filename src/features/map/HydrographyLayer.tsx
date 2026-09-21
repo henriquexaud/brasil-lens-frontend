@@ -1,108 +1,73 @@
-/**
- * Camada oficial de hidrografia (ANA / SNIRH).
- *
- * Renderizada no Pane zIndex 425 (sobre a coropleta territorial e abaixo de halos de seleção).
- * Apresenta rios, canais e corpos d'água com hierarquia visual baseada em área de bacia
- * e tooltips informativos no hover.
- */
+/** Hidrografia auxiliar: geometria simplificada por escala e nenhum bloqueio da navegação. */
 import type { Feature, Geometry } from 'geojson';
 import type { Layer, LeafletMouseEvent } from 'leaflet';
 import { useCallback } from 'react';
 import { GeoJSON, Pane } from 'react-leaflet';
-
-import type { HydroFeature, HydroFeatureCollection, HydroFeatureProperties } from '@/api/types';
+import type { HydroFeatureCollection, HydroFeatureProperties } from '@/api/types';
 import { formatDrainageArea, getHydroStyle } from './hydroStyles';
 
-interface Props {
+export function HydrographyLayer({
+  collection,
+  fireActive = false,
+  zoom = 4,
+}: {
   collection: HydroFeatureCollection | undefined;
-}
-
-export function HydrographyLayer({ collection }: Props) {
+  fireActive?: boolean;
+  zoom?: number;
+}) {
   const onEachFeature = useCallback(
     (feature: Feature<Geometry, HydroFeatureProperties>, layer: Layer) => {
       const props = feature.properties;
-      const formattedArea = formatDrainageArea(props.drainageAreaKm2);
-
+      const el = document.createElement('div');
+      el.className = 'hydro-tooltip-content';
+      const add = (className: string, text: string) => {
+        const span = document.createElement('span');
+        span.className = className;
+        span.textContent = text;
+        el.appendChild(span);
+      };
+      add('tooltip-name', props.name);
       const isRiver = props.category === 'river';
-      const dominionLabel = props.dominion ? `Domínio ${props.dominion}` : null;
-      const completeInfo =
-        props.segmentCount && props.segmentCount > 1
-          ? `Rio completo (${props.segmentCount} trechos)`
-          : 'Curso contínuo';
-      const typeLabel = isRiver
-        ? `${dominionLabel ?? 'Curso d’água'} • ${completeInfo}`
-        : (props.bodyType ? `Massa d’água (${props.bodyType})` : 'Corpo hídrico');
-
-      const html = `
-      <div class="hydro-tooltip-content">
-        <span class="tooltip-name">${props.name}</span>
-        <span class="tooltip-meta">${typeLabel}</span>
-        ${formattedArea ? `<span class="tooltip-value">Bacia a montante: ${formattedArea} km²</span>` : ''}
-        ${props.management ? `<span class="tooltip-meta" style="margin-top: 4px;">Gestão: ${props.management}</span>` : ''}
-      </div>
-    `;
-
-      layer.bindTooltip(html, {
+      add(
+        'tooltip-meta',
+        isRiver ? 'Curso d’água · ANA' : `${props.bodyType ?? 'Corpo d’água'} · ANA`,
+      );
+      const area = formatDrainageArea(isRiver ? props.drainageAreaKm2 : (props.areaKm2 ?? null));
+      if (area) add('tooltip-meta', `${isRiver ? 'Bacia a montante' : 'Área'}: ${area} km²`);
+      const forward = (event: LeafletMouseEvent) => {
+        const original = event.originalEvent;
+        if (!original || !document.elementsFromPoint) return;
+        const territory = document
+          .elementsFromPoint(original.clientX, original.clientY)
+          .find((element) => element.classList.contains('territory-shape'));
+        territory?.dispatchEvent(new MouseEvent(event.type, original));
+      };
+      layer.on({
+        mousedown: (event: LeafletMouseEvent) => event.originalEvent?.preventDefault(),
+        click: forward,
+        dblclick: forward,
+      });
+      layer.bindTooltip(el, {
         sticky: true,
         className: 'map-tooltip hydro-tooltip',
         direction: 'top',
-        offset: [0, -6],
-      });
-
-      // Os rios são informativos e visuais: nunca devem interceptar a navegação
-      // territorial nem disparar o foco/seletor azul retangular do navegador.
-      layer.on({
-        mousedown: (event: LeafletMouseEvent) => {
-          // Previne que o clique capture o foco e exiba a caixa delimitadora retangular
-          event.originalEvent?.preventDefault();
-        },
-        click: (event: LeafletMouseEvent) => {
-          // Repassa o clique para o território (estado/município) abaixo do rio
-          const orig = event.originalEvent;
-          if (orig && typeof document !== 'undefined' && document.elementsFromPoint) {
-            const elements = document.elementsFromPoint(orig.clientX, orig.clientY);
-            for (const el of elements) {
-              if (el instanceof SVGElement && el.classList.contains('territory-shape')) {
-                el.dispatchEvent(new MouseEvent('click', orig));
-                break;
-              }
-            }
-          }
-        },
-        dblclick: (event: LeafletMouseEvent) => {
-          // Repassa também o duplo clique para drill-down territorial
-          const orig = event.originalEvent;
-          if (orig && typeof document !== 'undefined' && document.elementsFromPoint) {
-            const elements = document.elementsFromPoint(orig.clientX, orig.clientY);
-            for (const el of elements) {
-              if (el instanceof SVGElement && el.classList.contains('territory-shape')) {
-                el.dispatchEvent(new MouseEvent('dblclick', orig));
-                break;
-              }
-            }
-          }
-        },
       });
     },
     [],
   );
-
-  if (!collection || collection.features.length === 0) {
-    return null;
-  }
-
+  if (!collection?.features.length) return null;
+  const interactive = zoom >= 8 && !fireActive;
   return (
-    <Pane name="hydrography" style={{ zIndex: 425 }}>
-      {collection.features.map((feature: HydroFeature) => (
-        <GeoJSON
-          key={feature.id}
-          data={feature}
-          interactive={true}
-          style={() => getHydroStyle(feature.properties)}
-          onEachFeature={onEachFeature}
-        />
-      ))}
+    <Pane name="hydrography" style={{ zIndex: 425, pointerEvents: interactive ? 'auto' : 'none' }}>
+      <GeoJSON
+        key={`${collection.metadata.level}:${collection.metadata.parentCode}:${collection.bbox}:${zoom}:${interactive}:${collection.features.map((f) => f.id).join(',')}`}
+        data={collection}
+        interactive={interactive}
+        style={(feature) =>
+          getHydroStyle(feature!.properties as HydroFeatureProperties, fireActive)
+        }
+        onEachFeature={interactive ? onEachFeature : undefined}
+      />
     </Pane>
   );
 }
-

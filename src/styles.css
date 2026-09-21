@@ -82,6 +82,15 @@ body {
     stroke-width var(--motion-fast) var(--ease-out);
 }
 
+/* Mantém a espessura das divisas durante o zoom animado do Leaflet. */
+.territory-shape,
+.territory-selection-halo,
+.territory-selection-outline,
+.state-selected-halo,
+.state-selected-outline {
+  vector-effect: non-scaling-stroke;
+}
+
 /* O foco acompanha a geografia, nunca o retângulo que contém o polígono. */
 .territory-shape:focus {
   outline: none;
@@ -305,16 +314,12 @@ body {
     opacity var(--motion-fast) var(--ease-out);
 }
 
-.hydro-shape:hover {
-  opacity: 1 !important;
-}
-
 .hydro-river:hover {
-  stroke-width: 4px !important;
+  stroke-opacity: 0.65;
 }
 
 .hydro-water-body:hover {
-  fill-opacity: 0.55 !important;
+  fill-opacity: 0.28;
 }
 
 .hydro-tooltip .hydro-tooltip-content {
@@ -1197,16 +1202,15 @@ body {
 
 .weather-legend-bar {
   display: flex;
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin: 0 0 2px;
-  box-shadow: inset 0 0 0 1px rgb(18 26 36 / 10%);
+  gap: 2px;
+  margin: 7px 0 4px;
 }
 
 .weather-legend-segment {
   flex: 1;
-  height: 100%;
+  height: 9px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(18 26 36 / 8%);
   cursor: pointer;
   transition:
     filter var(--motion-fast) var(--ease-out),
@@ -1217,6 +1221,16 @@ body {
 .weather-legend-segment.is-active {
   filter: brightness(1.15);
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.95);
+}
+
+.weather-legend-bounds {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-numeric);
+  animation: ink-reveal var(--motion-ui) var(--ease-out);
 }
 
 .weather-legend-ticks {
@@ -1906,7 +1920,9 @@ body {
   white-space: nowrap;
   pointer-events: none;
   animation: ink-reveal var(--motion-ui) var(--ease-out);
-  transition: opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
 .weather-stage-dot {
@@ -1918,7 +1934,8 @@ body {
 }
 
 @keyframes weather-dot-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.3;
     transform: scale(0.85);
   }
@@ -2069,5 +2086,221 @@ body {
   .icon-button {
     min-width: 36px;
     min-height: 36px;
+  }
+}
+
+/* Focos INPE: uma indicação compacta; os detalhes só aparecem na seleção. */
+.leaflet-fire-hotspots-pane,
+.leaflet-fire-hotspots-pane img {
+  pointer-events: none;
+}
+.fire-layer-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0;
+  color: var(--text-soft);
+  font-size: 11.5px;
+}
+.fire-layer-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #c8462a;
+}
+.fire-popup .leaflet-popup-content-wrapper {
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.fire-popup .leaflet-popup-content {
+  font-family: inherit;
+  margin: 14px 16px;
+  line-height: 1.45;
+}
+.fire-popup-title {
+  display: block;
+  font-size: 13px;
+}
+.fire-popup-meta {
+  display: block;
+  color: var(--text-soft);
+  font-size: 11px;
+}
+.fire-popup .leaflet-popup-content p {
+  margin: 8px 0;
+}
+.fire-metrics {
+  margin: 12px 0;
+  font-size: 11.5px;
+}
+.fire-metrics > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 5px 0;
+}
+.fire-metrics dt {
+  color: var(--text-soft);
+}
+.fire-metrics dd {
+  margin: 0;
+  font-weight: 500;
+  text-align: right;
+}
+.fire-nearby {
+  padding-left: 15px;
+  color: var(--text-soft);
+  font-size: 10.5px;
+}
+
+.hydro-shape {
+  animation: layer-soft-in 600ms ease-out;
+}
+@keyframes layer-soft-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fire-density-bar {
+  height: 6px;
+  border-radius: 6px;
+  margin: 10px 0 6px;
+}
+.fire-density-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted, #7b858b);
+}
+.fire-legend-ramp {
+  display: flex;
+  gap: 2px;
+  margin: 7px 0 4px;
+}
+.fire-legend-step {
+  flex: 1;
+  height: 9px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(18 26 36 / 8%);
+}
+.fire-legend-bounds {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-numeric);
+}
+.fire-ranking {
+  margin: 0 24px;
+}
+.fire-ranking ol {
+  padding: 0;
+  margin: 4px 0;
+  list-style: none;
+}
+.fire-ranking-city {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  padding: 7px 0;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+}
+.fire-ranking-city > span:nth-child(2) {
+  flex: 1;
+}
+.fire-ranking-city small {
+  color: var(--text-muted, #7b858b);
+}
+.fire-ranking-city strong {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.fire-ranking-city:hover {
+  color: var(--accent, #426b76);
+}
+.fire-ranking-city:focus-visible {
+  outline: 2px solid var(--accent, #426b76);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hydro-shape {
+    animation: none;
+  }
+}
+
+.search-tools {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.search-tools .search-box {
+  flex: 1;
+  min-width: 0;
+}
+.search-slot {
+  width: 266px;
+  max-width: calc(100% - 2 * var(--gutter));
+}
+.location-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.location-button:hover {
+  color: var(--text);
+  border-color: #9badb2;
+}
+.location-button:focus-visible {
+  outline: 2px solid #9badb2;
+  outline-offset: 2px;
+}
+.location-button.is-locating svg {
+  animation: location-pulse 900ms ease-in-out infinite alternate;
+}
+.location-error {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+@keyframes location-pulse {
+  to {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .location-button.is-locating svg {
+    animation: none;
   }
 }

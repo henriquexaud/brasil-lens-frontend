@@ -122,14 +122,14 @@ test('AlertsLayer renderiza em Pane com zIndex 450 acima da coropleta', async ()
   );
 });
 
-test('avisos do INMET são consultados imediatamente e exibidos diretamente no painel', async () => {
+test('avisos do INMET aguardam a base e permanecem disponíveis no painel', async () => {
   const appSource = await readFile(
     new URL('../src/App.tsx', import.meta.url),
     'utf8',
   );
   assert(
-    appSource.includes('useWeatherAlerts(isClimate && showWeatherAlerts)'),
-    'App.tsx deve consultar avisos imediatamente sem aguardar backgroundReady',
+    appSource.includes('useWeatherAlerts(isClimate && showWeatherAlerts && climateBaseReady)'),
+    'App.tsx deve consultar avisos depois do mapa base',
   );
 
   const weatherOptionsSource = await readFile(

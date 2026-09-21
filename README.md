@@ -164,7 +164,8 @@ Compartilha mapa, busca, seleção, destaque e navegação entre estados e
 municípios com o contexto sociopolítico. O Brasil exibe temperaturas nas
 capitais; selecionar uma UF mostra as condições da capital como referência.
 Ao entrar na UF, `/weather/municipalities` carrega as condições atuais de
-todos os municípios em lotes de até 40, com cinco segundos entre lotes.
+todos os municípios em lotes de 16, sem o antigo limite de duas etapas.
+As 27 capitais chegam em lotes de seis, começando com referências das cinco regiões.
 As consultas começam depois do mapa, usam os momentos ociosos do navegador
 e pausam enquanto uma seleção ou previsão carrega. Sair do recorte cancela
 o lote pendente; os já concluídos permanecem no cache.
@@ -190,3 +191,43 @@ ao expandir **Mais detalhes**. Ajustes de ano, informações da fonte e ações 
 visualizações salvas ficam recolhidos. Painéis de detalhe e camadas climáticas
 têm bundles separados, carregados quando entram em uso. Hover, seleção,
 busca e botões contextuais orientam a navegação, sem textos instrucionais fixos.
+
+### Clima, focos de calor e hidrografia
+
+O clima é carregado primeiro, após a base cartográfica. **Camadas e fontes → Focos de
+calor (INPE)** liga/desliga a pintura dominante, preservando a escolha na sessão.
+No Brasil, ela pinta estados; dentro da UF, pinta municípios. Ambos usam a mesma
+escala fixa de focos por 1.000 km², com áreas canônicas IBGE e totais INPE de 48h.
+Ao desligar fogo, a temperatura volta a preencher o mapa. No zoom próximo (≥9),
+os pontos WMS acrescentam os detalhes reais de cada detecção.
+
+Tooltips informam contagens 24h/48h, densidade, área e última detecção. O ranking
+fica recolhido por padrão. Detalhes de satélite, FRP e risco são buscados ao clicar
+no ponto; não são tratados como área queimada ou probabilidade de incêndio.
+
+O botão ao lado direito da busca solicita localização somente após clique, resolve
+o município no backend e aproxima o mapa. Selecionar uma cidade pela busca ou pelo
+mapa também a enquadra. No zoom ≥8 dentro de uma UF, malhas e clima de todos os
+municípios visíveis são carregados em lotes, inclusive vizinhos de outros estados.
+Arrastar cancela pedidos do viewport anterior e reaproveita dados já consultados.
+O backend usa Redis para compartilhar e persistir temporariamente esses resultados.
+
+Hidrografia permanece por último, depois das consultas principais e de um período
+ocioso; rios simplificados chegam primeiro, lagos depois, sem loader invasivo. A
+escala limita os dados baixados, e azul/espessura são secundários. Busca, seleção,
+contornos e duplo clique territorial permanecem disponíveis.
+
+### Contornos oficiais e atualização progressiva
+
+No clima, a malha municipal usa o LOD `canonical` do IBGE, sem simplificação
+adicional no navegador. Páginas de 24 municípios substituem o download integral
+do estado. A capital vem primeiro na visão estadual; no zoom próximo, o centro
+do viewport tem prioridade. Busca e seleção carregam uma geometria individual
+quando necessário e reutilizam as que já chegaram.
+
+Cada lote acrescenta os caminhos SVG ao mapa existente, preservando foco e
+interação. Municípios sem clima carregado permanecem neutros, sem temperatura
+emprestada de vizinhos. Movimento e seleção pausam os próximos lotes; mudança
+de área cancela consultas antigas, e abas ocultas suspendem o trabalho secundário.
+Alertas e camadas opcionais não bloqueiam o primeiro desenho nem aguardam todos
+os municípios. A busca é antecipada após o primeiro lote climático.

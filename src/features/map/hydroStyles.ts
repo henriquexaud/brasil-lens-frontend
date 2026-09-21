@@ -1,57 +1,48 @@
-/**
- * Estilos e formatação da malha hidrográfica (ANA / SNIRH).
- *
- * Calibra a hierarquia visual de rios completos e massas d'água:
- * - Rios monumentais (Amazonas, Paraná, São Francisco, Tocantins) ganham destaque expressivo;
- * - Rios regionais e estaduais mantêm traçado nítido e contínuo;
- * - Tributários locais mantêm espessura leve para não poluir a tela;
- * - Lagos e represas recebem preenchimento translúcido com contorno definido.
- */
 import type { PathOptions } from 'leaflet';
 import type { HydroFeatureProperties } from '@/api/types';
 
-export function getHydroStyle(properties: HydroFeatureProperties): PathOptions {
+export function getHydroStyle(properties: HydroFeatureProperties, fireActive = false): PathOptions {
   if (properties.category === 'water_body') {
     return {
       fill: true,
-      fillColor: '#38bdf8',
-      fillOpacity: 0.35,
-      color: '#0284c7',
-      weight: 1.2,
-      opacity: 0.85,
+      fillColor: '#7fabb6',
+      fillOpacity: fireActive ? 0.12 : 0.22,
+      color: '#6c98a7',
+      weight: 0.6,
+      opacity: 0.4,
       className: 'hydro-shape hydro-water-body',
     };
   }
 
   // category === 'river'
   const area = properties.drainageAreaKm2 ?? 0;
-  let weight = 1.2;
-  let color = '#7dd3fc';
-  let opacity = 0.75;
+  let weight = 0.45;
+  let color = '#9fbac2';
+  let opacity = 0.3;
 
   if (area >= 200000) {
-    weight = 3.8;
-    color = '#0284c7';
-    opacity = 0.95;
+    weight = 1.5;
+    color = '#6c98a7';
+    opacity = 0.58;
   } else if (area >= 50000) {
-    weight = 2.8;
-    color = '#0284c7';
-    opacity = 0.9;
+    weight = 1.1;
+    color = '#6c98a7';
+    opacity = 0.5;
   } else if (area >= 10000) {
-    weight = 2.1;
-    color = '#0ea5e9';
-    opacity = 0.85;
+    weight = 0.85;
+    color = '#80a4b0';
+    opacity = 0.42;
   } else if (area >= 2000) {
-    weight = 1.6;
-    color = '#38bdf8';
-    opacity = 0.8;
+    weight = 0.65;
+    color = '#7fabb6';
+    opacity = 0.35;
   }
 
   return {
     fill: false,
     color,
     weight,
-    opacity,
+    opacity: fireActive ? opacity * 0.7 : opacity,
     lineCap: 'round',
     lineJoin: 'round',
     className: 'hydro-shape hydro-river',

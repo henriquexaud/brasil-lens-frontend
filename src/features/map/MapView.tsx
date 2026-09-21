@@ -3,14 +3,22 @@
  */
 import 'leaflet/dist/leaflet.css';
 
-import { latLngBounds } from 'leaflet';
+import { latLngBounds, geoJSON } from 'leaflet';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { GeoJSON, MapContainer, Pane, TileLayer, useMap } from 'react-leaflet';
 
-import type { BoundingBox, MapFeature, MapFeatureCollection, WeatherCity } from '@/api/types';
+import type {
+  BoundingBox,
+  MapFeature,
+  MapFeatureCollection,
+  WeatherCity,
+  FireMunicipality,
+} from '@/api/types';
 
 import { ChoroplethLayer } from './ChoroplethLayer';
+import { ViewportObserver, type MapViewport } from './ViewportObserver';
+import type { FireMode } from '@/features/fire/fireDensity';
 import { scopeInsets } from './viewport';
 
 // Enquadramento inicial do Brasil, usado antes da primeira resposta.
@@ -28,32 +36,58 @@ interface Props {
   /** Camadas de dado que não são a coroplética territorial (ex.: estações e alertas). */
   children?: ReactNode;
   weatherByCode?: Map<string, WeatherCity>;
+  fireByCode?: Map<string, FireMunicipality>;
+  fireMode?: FireMode;
+  fireHours?: number;
+  onViewportChange?: (viewport: MapViewport) => void;
   /** Contorno persistente do Brasil (ex.: sempre visível no contexto de Clima). */
   brazilOutline?: MapFeatureCollection;
   /** Contorno da fronteira do estado quando o usuário está dentro de um estado exibindo cidades. */
   stateOutline?: MapFeature | null;
+  locationTarget?: {
+    code: string;
+    latitude: number;
+    longitude: number;
+    requestedAt: number;
+  } | null;
 }
 
 /** Ajusta o enquadramento quando o escopo muda (ex.: drill-down em uma UF). */
-function FitToScope({ bbox, scopeKey }: { bbox: BoundingBox | undefined; scopeKey: string }) {
+function FitToScope({
+  bbox,
+  scopeKey,
+  selectedFeature,
+  locationTarget,
+}: {
+  bbox: BoundingBox | undefined;
+  scopeKey: string;
+  selectedFeature?: MapFeature;
+  locationTarget?: Props['locationTarget'];
+}) {
   const map = useMap();
 
   useEffect(() => {
     if (!bbox) return;
     const [west, south, east, north] = bbox;
-    const bounds = latLngBounds([south, west], [north, east]);
+    const bounds = selectedFeature
+      ? geoJSON(selectedFeature).getBounds()
+      : latLngBounds([south, west], [north, east]);
 
     const fit = (animate: boolean) => {
       const insets = scopeInsets(map);
+      if (locationTarget && selectedFeature?.id === locationTarget.code) {
+        map.setView([locationTarget.latitude, locationTarget.longitude], 10, { animate: false });
+        return;
+      }
       if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        map.fitBounds(bounds, { ...insets, animate: false });
+        map.fitBounds(bounds, { ...insets, maxZoom: 10, animate: false });
         return;
       }
       // `flyToBounds` faz um arco de zoom-out/zoom-in em vez do pan+zoom direto
       // do fitBounds — o movimento comunica "saindo de um recorte, entrando em
       // outro" melhor que um deslocamento em linha reta, sobretudo ao pular de
       // UF para UF sem passar pelo mapa do Brasil.
-      map.flyToBounds(bounds, { ...insets, duration: 0.6, easeLinearity: 0.15 });
+      map.flyToBounds(bounds, { ...insets, maxZoom: 10, duration: 0.6, easeLinearity: 0.15 });
     };
 
     fit(true);
@@ -70,7 +104,7 @@ function FitToScope({ bbox, scopeKey }: { bbox: BoundingBox | undefined; scopeKe
     // mesmo escopo não muda, e reenquadrar o mapa a cada troca de indicador
     // ou de ano tiraria o usuário do lugar onde ele estava olhando.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, scopeKey]);
+  }, [map, scopeKey, selectedFeature?.id, locationTarget?.requestedAt]);
 
   return null;
 }
@@ -83,8 +117,13 @@ export function MapView({
   onDrillDown,
   children,
   weatherByCode,
+  fireByCode,
+  fireMode,
+  fireHours,
+  onViewportChange,
   brazilOutline,
   stateOutline,
+  locationTarget,
 }: Props) {
   const scopeKey = collection
     ? `${collection.scope.level}:${collection.scope.parent ?? 'root'}`
@@ -139,6 +178,7 @@ export function MapView({
           attribution='<a href="https://www.esri.com/">Esri</a>, USGS, NOAA'
         />
       </Pane>
+      {onViewportChange && <ViewportObserver onChange={onViewportChange} scopeKey={scopeKey} />}
       <Pane name="territory-selection" style={{ zIndex: 480, pointerEvents: 'none' }} />
       {brazilOutline && (
         <Pane name="brazil-outline" style={{ zIndex: 420, pointerEvents: 'none' }}>
@@ -165,8 +205,20 @@ export function MapView({
             onDrillDown={onDrillDown}
             selectedCode={selectedCode}
             weatherByCode={weatherByCode}
+            fireByCode={fireByCode}
+            fireMode={fireMode}
+            fireHours={fireHours}
           />
-          <FitToScope bbox={collection.bbox} scopeKey={scopeKey} />
+          <FitToScope
+            bbox={collection.bbox}
+            scopeKey={scopeKey}
+            selectedFeature={
+              collection.scope.level === 'municipality'
+                ? collection.features.find((f) => f.id === selectedCode)
+                : undefined
+            }
+            locationTarget={locationTarget}
+          />
         </>
       )}
       {stateOutline && (

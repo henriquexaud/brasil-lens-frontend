@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { TEMPERATURE_SCALE, type TemperatureBand } from '@/features/map/colors';
 
+const TEMPERATURE_TICK_LABELS = ['0', '10', '20', '40'];
+
 export function WeatherLegend({ notice }: { municipal?: boolean; notice?: string }) {
   const [activeBand, setActiveBand] = useState<TemperatureBand | null>(null);
 
@@ -44,31 +46,10 @@ export function WeatherLegend({ notice }: { municipal?: boolean; notice?: string
           );
         })}
       </div>
-      <div className="weather-legend-ticks">
-        {TEMPERATURE_SCALE.map((band) => {
-          const isActive = activeBand?.label === band.label;
-          return (
-            <span
-              key={band.label}
-              className={`weather-legend-tick ${isActive ? 'is-active' : ''}`}
-              onClick={() => toggleBand(band)}
-              onMouseEnter={() => setActiveBand(band)}
-              onMouseLeave={() => setActiveBand(null)}
-            >
-              <span className="weather-legend-pip" />
-              <span className="weather-legend-tick-text">
-                {band.label.endsWith('°') ? (
-                  <>
-                    {band.label.slice(0, -1)}
-                    <span className="weather-legend-deg">°</span>
-                  </>
-                ) : (
-                  band.label
-                )}
-              </span>
-            </span>
-          );
-        })}
+      <div className="weather-legend-bounds">
+        {TEMPERATURE_TICK_LABELS.map((label) => (
+          <span key={label}>{label}</span>
+        ))}
       </div>
       {notice && (
         <p className="weather-legend-notice" role="status">

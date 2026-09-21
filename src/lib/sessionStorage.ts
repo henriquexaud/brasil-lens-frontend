@@ -12,6 +12,7 @@ export interface AppSessionState {
   year?: string;
   showWeatherAlerts?: boolean;
   showHydrography?: boolean;
+  showFireHotspots?: boolean;
 }
 
 function getStorage(): Storage | null {

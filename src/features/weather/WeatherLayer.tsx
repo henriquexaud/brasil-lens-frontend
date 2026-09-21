@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { CircleMarker, Pane, Tooltip, useMap } from 'react-leaflet';
 import type { WeatherCity } from '@/api/types';
 import { colorForTemperature } from '@/features/map/colors';
@@ -17,26 +17,56 @@ export function WeatherLayer({
   municipal: boolean;
 }) {
   const map = useMap();
-  const [zoom, setZoom] = useState(() => map.getZoom());
+  const [viewport, setViewport] = useState(() => ({ zoom: map.getZoom(), revision: 0 }));
+  const { zoom } = viewport;
 
   useEffect(() => {
     map.attributionControl.addAttribution(ATTRIBUTION);
-    const onZoom = () => setZoom(map.getZoom());
-    map.on('zoomend', onZoom);
+    const onMove = () =>
+      setViewport((previous) => ({ zoom: map.getZoom(), revision: previous.revision + 1 }));
+    map.on('moveend resize', onMove);
     return () => {
       map.attributionControl.removeAttribution(ATTRIBUTION);
-      map.off('zoomend', onZoom);
+      map.off('moveend resize', onMove);
     };
   }, [map]);
 
   // Ordena para que o território selecionado fique sempre no topo da pilha visual.
-  const sortedCities = useMemo(() => {
-    return [...cities].sort((a, b) => {
+  const sortedCities = (() => {
+    const candidates = cities.filter(
+      (city) => city.temperatureC != null && Number.isFinite(city.temperatureC),
+    );
+    if (municipal) {
+      // Todas as cores continuam no mapa; os rótulos disputam espaço, não dados.
+      // O município selecionado tem prioridade e os demais reaparecem ao aproximar.
+      const size = map.getSize();
+      const occupied: Array<{ x: number; y: number }> = [];
+      const priority = [...candidates].sort(
+        (a, b) => Number(b.id === selectedId) - Number(a.id === selectedId),
+      );
+      const visible = new Set<string>();
+      for (const city of priority) {
+        const point = map.latLngToContainerPoint([city.latitude, city.longitude]);
+        if (point.x < 0 || point.y < 0 || point.x > size.x || point.y > size.y) continue;
+        if (
+          occupied.some(
+            (other) => Math.abs(point.x - other.x) < 96 && Math.abs(point.y - other.y) < 48,
+          )
+        )
+          continue;
+        occupied.push(point);
+        visible.add(city.id);
+      }
+      return candidates
+        .filter((city) => visible.has(city.id))
+        .sort((a, b) => Number(a.id === selectedId) - Number(b.id === selectedId));
+    }
+    return [...candidates].sort((a, b) => {
       if (a.id === selectedId) return 1;
       if (b.id === selectedId) return -1;
       return 0;
     });
-  }, [cities, selectedId]);
+  })();
 
   // No mapa do Brasil, modo compacto apenas em zoom muito afastado (< 4.8) para evitar sobreposição na costa.
   // No mapa estadual, exibe os pills a partir do zoom 6.0; abaixo disso foca na capital e selecionado.

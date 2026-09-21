@@ -22,8 +22,10 @@ const scratch = await mkdtemp(join(frontend, 'node_modules', '.progressive-tests
 const modulePath = join(scratch, 'harness.mjs');
 const compiled = await build({
   stdin: {
-    contents: `export { useMunicipalityWeather, useWeatherCurrent, weatherCurrentOptions, useSearchIndex } from './src/api/queries';
-    export { Disclosure } from './src/components/Disclosure';`,
+    contents: `export { useMunicipalityWeather, useWeatherCurrent, weatherCurrentOptions, useSearchIndex, useFireHotspots, useFireHotspotDetails, useFireSummary, useHydrography, useViewportWeather, useCapitalsWeather, useVisibleMunicipalities, useSelectedBoundary } from './src/api/queries';
+    export { useDeferredReady } from './src/lib/useDeferredReady';
+    export { Disclosure } from './src/components/Disclosure';
+    export { LocationButton } from './src/features/search/LocationButton';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -43,6 +45,16 @@ const {
   weatherCurrentOptions,
   useMunicipalityWeather,
   useSearchIndex,
+  useFireHotspots,
+  useFireHotspotDetails,
+  useFireSummary,
+  useHydrography,
+  useDeferredReady,
+  useViewportWeather,
+  useCapitalsWeather,
+  useVisibleMunicipalities,
+  useSelectedBoundary,
+  LocationButton,
 } = await import(pathToFileURL(modulePath).href);
 let root, client, requests, respond, idle;
 const city = (id) => ({
@@ -148,7 +160,8 @@ test('lotes esperam o mapa, pausam durante a seleção e aquecem somente condiç
   respond = async (url) =>
     new Response(
       JSON.stringify(
-        url.searchParams.get('offset') === '0' ? page(['3500105'], 16) : page(['3500204'], 32),
+        url.searchParams.get('offset') === '0' ? page(['3500105'], 16) :
+          url.searchParams.get('offset') === '16' ? page(['3500204'], 32) : page(['3500303']),
       ),
       { status: 200 },
     );
@@ -173,7 +186,10 @@ test('lotes esperam o mapa, pausam durante a seleção e aquecem somente condiç
   assert.equal(requests.length, 2, 'selecionar um município já carregado reutiliza o cache');
   await tick(1300);
   await runIdle();
-  assert.equal(requests.length, 2, 'pausa após atingir o limite de etapas de cobertura');
+  await until(() => client.getQueryData(weatherCurrentOptions('3500303').queryKey));
+  assert.equal(requests.length, 3, 'continua além das antigas duas etapas');
+  await tick(400); await runIdle();
+  assert.equal(requests.length, 3, 'encerra quando não há próxima página');
 });
 
 test('sair do recorte cancela a requisição de fundo em andamento', async () => {
@@ -210,4 +226,217 @@ test('busca não carrega o catálogo enquanto estiver sem foco e antes do mapa',
     'municipality',
     'state',
   ]);
+});
+
+test('focos só consultam metadados quando ativos; detalhes esperam o clique', async () => {
+  function Fire({ enabled, location }) {
+    useFireHotspots({ level: 'state', parent: '15' }, enabled);
+    useFireHotspotDetails({ level: 'state', parent: '15' }, location);
+    return null;
+  }
+  respond = async () =>
+    new Response(
+      JSON.stringify({
+        type: 'FeatureCollection',
+        features: [],
+        metadata: { hotspotCount: 0 },
+        matchedCount: 0,
+      }),
+      { status: 200 },
+    );
+  await render(h(Fire, { enabled: false, location: null }));
+  await tick();
+  assert.equal(requests.length, 0);
+  await render(h(Fire, { enabled: true, location: null }));
+  await until(() => requests.length === 1);
+  assert.equal(requests[0].url.pathname, '/api/v1/fire-hotspots');
+  assert.equal(requests[0].url.searchParams.get('parent'), '15');
+  assert.equal(requests[0].url.searchParams.get('hours'), '24');
+  await render(
+    h(Fire, {
+      enabled: true,
+      location: {
+        latitude: -2.46,
+        longitude: -49.21,
+        tolerance: 0.01,
+        at: '2026-09-20T00:00:00Z',
+      },
+    }),
+  );
+  await until(() => requests.length === 2);
+  assert.equal(requests[1].url.pathname, '/api/v1/fire-hotspots/identify');
+  assert.equal(requests[1].url.searchParams.get('at'), '2026-09-20T00:00:00Z');
+});
+
+test('sair da camada cancela INPE e trocar de estado não reapresenta o recorte anterior', async () => {
+  let visible;
+  function Fire({ enabled, parent }) {
+    visible = useFireHotspots({ level: 'state', parent }, enabled).data;
+    return null;
+  }
+  respond = async () =>
+    new Response(JSON.stringify({ metadata: { parentCode: '15' }, features: [] }), { status: 200 });
+  await render(h(Fire, { enabled: true, parent: '15' }));
+  await until(() => visible?.metadata.parentCode === '15');
+  respond = async (_url, options) =>
+    new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () =>
+        reject(new DOMException('Cancelado', 'AbortError')),
+      );
+    });
+  await render(h(Fire, { enabled: true, parent: '35' }));
+  await until(() => requests.length === 2);
+  assert.equal(visible, undefined);
+  await render(h(Fire, { enabled: false, parent: '35' }));
+  assert.equal(requests[1].signal.aborted, true);
+});
+
+
+test('hidrografia espera os dados principais e idle; não reutiliza geometrias de outro zoom', async () => {
+  let visible;
+  function Hydro({ primarySettled, zoom = 4 }) {
+    const ready = useDeferredReady(`hydro:${zoom}`, primarySettled);
+    visible = useHydrography({ level: 'country', zoom, bbox: '-60,-20,-40,0', includeWaterBodies: false }, ready).data;
+    return null;
+  }
+  respond = async () => new Response(JSON.stringify({ features: [], metadata: { level: 'country' } }), { status: 200 });
+  await render(h(Hydro, { primarySettled: false }));
+  await tick(200); await runIdle();
+  assert.equal(requests.length, 0);
+  await render(h(Hydro, { primarySettled: true }));
+  await tick(200);
+  assert.equal(requests.length, 0, 'espera a agenda de baixa prioridade');
+  await runIdle(); await until(() => requests.length === 1 && visible);
+  assert.equal(requests[0].url.searchParams.get('zoom'), '4');
+  assert.equal(requests[0].url.searchParams.get('include_water_bodies'), 'false');
+  await render(h(Hydro, { primarySettled: true, zoom: 8 }));
+  assert.equal(visible, undefined, 'não mantém rios de outra escala ou viewport');
+});
+
+test('resumo de fogo espera o período dos metadados e cancela ao desligar a camada', async () => {
+  function Summary({ at, enabled }) { useFireSummary({ level: 'country' }, at, enabled); return null; }
+  respond = async (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => reject(new DOMException('Cancelado', 'AbortError')));
+  });
+  await render(h(Summary, { enabled: true })); await tick();
+  assert.equal(requests.length, 0);
+  await render(h(Summary, { enabled: true, at: '2026-09-20T10:00:00Z' }));
+  await until(() => requests.length === 1);
+  assert.equal(requests[0].url.searchParams.get('at'), '2026-09-20T10:00:00Z');
+  await render(h(Summary, { enabled: false, at: '2026-09-20T10:00:00Z' }));
+  assert.equal(requests[0].signal.aborted, true);
+});
+
+
+test('localização só pede permissão após clique e resolve o município sem geocoder externo', async () => {
+  let gpsCalls = 0, located;
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { geolocation: {
+    getCurrentPosition(resolve) { gpsCalls++; resolve({ coords: { latitude: -23.55, longitude: -46.63 } }); },
+  } } });
+  respond = async (url, options) => {
+    assert.equal(url.pathname, '/api/v1/territories/locate');
+    assert.equal(options.method, 'POST');
+    assert.deepEqual(JSON.parse(options.body), { latitude: -23.55, longitude: -46.63 });
+    return new Response(JSON.stringify({ ibgeCode: '3550308', name: 'São Paulo', parent: { ibgeCode: '35', name: 'São Paulo' } }), { status: 200 });
+  };
+  await render(h(LocationButton, { onLocated: (value) => { located = value; } }));
+  assert.equal(gpsCalls, 0);
+  assert.equal(requests.length, 0);
+  await act(async () => document.querySelector('button[aria-label="Minha localização"]').click());
+  await until(() => located);
+  assert.equal(gpsCalls, 1);
+  assert.equal(located.territory.ibgeCode, '3550308');
+  assert.equal(located.latitude, -23.55);
+});
+
+test('permissão de localização negada mantém busca disponível e não consulta API', async () => {
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { geolocation: {
+    getCurrentPosition(_resolve, reject) { reject({ code: 1 }); },
+  } } });
+  await render(h(LocationButton, { onLocated: () => assert.fail('não pode navegar sem localização') }));
+  await act(async () => document.querySelector('button').click());
+  assert.match(document.querySelector('[role="alert"]').textContent, /Permita.*ou use a busca/);
+  assert.equal(requests.length, 0);
+  assert.equal(document.querySelector('button').disabled, false);
+});
+
+test('zoom próximo carrega automaticamente todos os lotes visíveis e aquece seleção', async () => {
+  let response;
+  function Viewport({ bbox, enabled }) {
+    response = useViewportWeather(bbox, enabled, false);
+    return null;
+  }
+  respond = async (url) => new Response(JSON.stringify(url.searchParams.get('offset') === '0' ? page(['3550308'], 20) : page(['3548708'])), { status: 200 });
+  await render(h(Viewport, { bbox: '-47,-24,-46,-23', enabled: false }));
+  await tick(); assert.equal(requests.length, 0);
+  await render(h(Viewport, { bbox: '-47,-24,-46,-23', enabled: true }));
+  await until(() => response.data?.pages.length === 1);
+  await tick(220); await runIdle();
+  await until(() => response.data?.pages.length === 2);
+  assert.equal(response.hasNextPage, false);
+  assert.ok(client.getQueryData(weatherCurrentOptions('3548708').queryKey));
+  assert.ok(requests.every((r) => r.url.pathname.endsWith('/weather/viewport')));
+  assert.ok(requests.every((r) => !r.url.searchParams.has('forecast')));
+});
+
+test('capitais aparecem por lote e carregamento nacional pausa para a seleção', async () => {
+  let result;
+  function Capitals({ pause = false, enabled = true }) {
+    result = useCapitalsWeather(enabled, pause);
+    return null;
+  }
+  respond = async (url) => new Response(JSON.stringify(
+    page([url.searchParams.get('offset') === '0' ? 'SP' : 'RJ'],
+      url.searchParams.get('offset') === '0' ? 6 : null),
+  ));
+  await render(h(Capitals));
+  await until(() => result.data?.cities.length === 1);
+  assert.equal(requests[0].url.pathname, '/api/v1/weather/capitals');
+  await render(h(Capitals, { pause: true }));
+  await tick(280); await runIdle();
+  assert.equal(requests.length, 1);
+  await render(h(Capitals));
+  await tick(280); await runIdle();
+  await until(() => result.data?.cities.length === 2);
+  assert.deepEqual(result.data.cities.map((c) => c.id), ['SP', 'RJ']);
+  assert.equal(result.hasNextPage, false);
+});
+
+test('malha oficial chega em páginas, preserva contornos e cancela o viewport antigo', async () => {
+  let result;
+  const boundary = (id) => ({ id, type: 'Feature', properties: { ibgeCode: id },
+    geometry: { type: 'MultiPolygon', coordinates: [[[[-47.123456789, -23], [-47, -23], [-47, -22], [-47.123456789, -23]]]] } });
+  function Boundaries({ bbox, parent = '35', enabled = true, pause = false }) {
+    result = useVisibleMunicipalities(bbox, enabled, parent, pause);
+    return null;
+  }
+  respond = async (url) => new Response(JSON.stringify({
+    type: 'FeatureCollection', scope: { level: 'municipality', lod: 'canonical', parent: '35' },
+    features: [boundary(url.searchParams.get('offset') === '0' ? '3500105' : '3500204')],
+    nextOffset: url.searchParams.get('offset') === '0' ? 24 : null,
+  }));
+  await render(h(Boundaries));
+  await until(() => result.data?.features.length === 1);
+  const first = result.data.features[0];
+  await render(h(Boundaries, { pause: true }));
+  await tick(100); await runIdle();
+  assert.equal(requests.length, 1);
+  await render(h(Boundaries));
+  await tick(100); await runIdle();
+  await until(() => result.data?.features.length === 2);
+  assert.equal(result.data.features[0], first);
+  assert.equal(first.geometry.coordinates[0][0][0][0], -47.123456789);
+  assert.equal(result.data.scope.lod, 'canonical');
+  respond = async (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => reject(new DOMException('Cancelado', 'AbortError')));
+  });
+  await render(h(Boundaries, { bbox: '-48,-24,-46,-22' }));
+  await until(() => requests.length === 3);
+  assert.equal(requests[2].url.searchParams.get('parent'), '35');
+  assert.equal(result.data.features[0], first, 'mantém desenho enquanto o próximo viewport carrega');
+  await render(h(Boundaries, { bbox: '-49,-24,-47,-22' }));
+  await until(() => requests.length === 4);
+  assert.equal(requests[2].signal.aborted, true);
+  await render(h(Boundaries, { parent: '31', enabled: false }));
+  assert.equal(result.data, undefined, 'não apresenta uma UF como se fosse outra');
 });

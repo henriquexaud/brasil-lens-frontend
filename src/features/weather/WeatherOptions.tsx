@@ -1,17 +1,27 @@
 import { useWeatherAlerts, useWeatherSources } from '@/api/queries';
-import type { WeatherAlertCollection, WeatherCurrentResponse } from '@/api/types';
+import type {
+  FireHotspotCollection,
+  WeatherAlertCollection,
+  WeatherCurrentResponse,
+} from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
 import { ErrorMessage } from '@/components/Feedback';
 import { formatRelativeTime } from '@/lib/format';
 import { getAlertStyle } from './alertStyles';
 import { SourceStatusPanel } from './SourceStatusPanel';
+import { formatFireDate } from '@/features/fire/fireStyles';
 
 export interface WeatherOptionsProps {
   showAlerts: boolean;
   onToggleAlerts: (show: boolean) => void;
   showHydrography?: boolean;
   onToggleHydrography?: (show: boolean) => void;
-  hydrographyLoading?: boolean;
+  hydrographyPartial?: boolean;
+  showFireHotspots?: boolean;
+  onToggleFireHotspots?: (show: boolean) => void;
+  fireHotspotsLoading?: boolean;
+  fireHotspots?: FireHotspotCollection;
+  fireHotspotsError?: boolean;
   code: string | null;
   current: WeatherCurrentResponse | undefined;
   error: unknown;
@@ -19,6 +29,8 @@ export interface WeatherOptionsProps {
   onRefresh: () => void;
   alertsData?: WeatherAlertCollection;
   alertsPending?: boolean;
+  /** Fontes auxiliares só entram depois da primeira carga meteorológica. */
+  weatherReady?: boolean;
 }
 
 export function WeatherOptions({
@@ -26,7 +38,12 @@ export function WeatherOptions({
   onToggleAlerts,
   showHydrography,
   onToggleHydrography,
-  hydrographyLoading,
+  hydrographyPartial,
+  showFireHotspots,
+  onToggleFireHotspots,
+  fireHotspotsLoading,
+  fireHotspots,
+  fireHotspotsError,
   code,
   current,
   error,
@@ -34,9 +51,9 @@ export function WeatherOptions({
   onRefresh,
   alertsData,
   alertsPending,
+  weatherReady = true,
 }: WeatherOptionsProps) {
-  const fallbackAlerts = useWeatherAlerts(showAlerts && !alertsData);
-  const sources = useWeatherSources(true);
+  const fallbackAlerts = useWeatherAlerts(showAlerts && alertsPending === undefined && !alertsData);
 
   const activeAlerts = alertsData ?? fallbackAlerts.data;
   const isAlertsPending = alertsPending ?? fallbackAlerts.isPending;
@@ -51,7 +68,10 @@ export function WeatherOptions({
   );
 
   return (
-    <section className="panel-section weather-options-section" aria-label="Avisos e fontes de clima">
+    <section
+      className="panel-section weather-options-section"
+      aria-label="Avisos e fontes de clima"
+    >
       {/* Quando houver avisos e o checkbox estiver ativo, os avisos ficam SEMPRE visíveis diretamente no painel */}
       {showAlerts && (
         <div className="weather-alerts-container">
@@ -115,6 +135,18 @@ export function WeatherOptions({
         </div>
       )}
 
+      {showFireHotspots && (
+        <p className="fire-layer-status" role="status">
+          <span className="fire-layer-dot" aria-hidden="true" />
+          {fireHotspotsError
+            ? 'Focos indisponíveis'
+            : !fireHotspots
+              ? 'Carregando focos…'
+              : fireHotspots?.metadata.status === 'stale'
+                ? 'Focos · dados anteriores'
+                : `Focos de calor · ${fireHotspots?.metadata.hours ?? 24}h`}
+        </p>
+      )}
       {/* O checkselector de ligar/desligar avisos e camada de rios/lagos fica discretamente dentro de Camadas e fontes */}
       <Disclosure title="Camadas e fontes" className="weather-sources-disclosure">
         <div className="weather-toggles-group">
@@ -134,8 +166,18 @@ export function WeatherOptions({
                 onChange={(event) => onToggleHydrography(event.target.checked)}
               />{' '}
               Rios e lagos no mapa (ANA)
-              {hydrographyLoading && (
-                <span className="hydro-spinner-inline" aria-label="Carregando cursos d'água" />
+            </label>
+          )}
+          {onToggleFireHotspots && (
+            <label className="weather-toggle">
+              <input
+                type="checkbox"
+                checked={showFireHotspots ?? false}
+                onChange={(event) => onToggleFireHotspots(event.target.checked)}
+              />{' '}
+              Focos de calor (INPE)
+              {fireHotspotsLoading && (
+                <span className="hydro-spinner-inline" aria-label="Carregando focos de incêndio" />
               )}
             </label>
           )}
@@ -146,7 +188,45 @@ export function WeatherOptions({
             ANA / SNIRH
           </a>
           . Grandes rios e corpos hídricos.
+          {hydrographyPartial && ' Alguns elementos estão temporariamente indisponíveis.'}
         </p>
+        {showFireHotspots && (
+          <div className="fire-source-details" role="status">
+            {fireHotspotsError ? (
+              <p className="source-note">
+                Focos temporariamente indisponíveis
+                {fireHotspots ? ' · última consulta preservada' : ''}.
+              </p>
+            ) : (
+              fireHotspots && (
+                <p className="source-note">
+                  {fireHotspots.metadata.hotspotCount.toLocaleString('pt-BR')} detecções no Brasil
+                  nas últimas {fireHotspots.metadata.hours}h
+                  {fireHotspots.metadata.status === 'stale' ? ' · dados anteriores' : ''}.
+                </p>
+              )
+            )}
+            <p className="source-note">
+              <a href="https://data.inpe.br/queimadas/" target="_blank" rel="noreferrer">
+                INPE / Programa Queimadas
+              </a>
+              {fireHotspots
+                ? ` · consultado ${formatRelativeTime(fireHotspots.metadata.fetchedAt)}`
+                : ''}
+              . Atualização automática a cada 10 min enquanto a camada estiver ativa.
+            </p>
+            {fireHotspots?.metadata.latestDetectionAt && (
+              <p className="source-note">
+                Última detecção: {formatFireDate(fireHotspots.metadata.latestDetectionAt)}.
+              </p>
+            )}
+            <p className="source-note">
+              Densidade por 1.000 km² calculada sobre a malha original do IBGE. Focos detectados por
+              satélite; uma área pode ser registrada mais de uma vez. A detecção não confirma que o
+              fogo continua ativo e não representa área queimada.
+            </p>
+          </div>
+        )}
         <p className="source-note">
           Condições e previsão:{' '}
           <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
@@ -155,15 +235,24 @@ export function WeatherOptions({
           . Estimativas de modelos meteorológicos
           {current ? ` · consultado ${formatRelativeTime(current.fetchedAt)}` : ''}.
         </p>
-        <SourceStatusPanel sources={sources.data} />
+        <WeatherSources enabled={weatherReady} />
         {error != null && (
           <p className="source-note">Não foi possível atualizar todo o clima deste recorte.</p>
         )}
-        {sources.error && <p className="source-note">Estado da fonte de avisos indisponível.</p>}
         <button className="text-button" onClick={onRefresh} disabled={loading}>
           {loading ? 'Atualizando…' : 'Atualizar dados'}
         </button>
       </Disclosure>
     </section>
+  );
+}
+
+function WeatherSources({ enabled }: { enabled: boolean }) {
+  const sources = useWeatherSources(enabled);
+  return (
+    <>
+      <SourceStatusPanel sources={sources.data} />
+      {sources.error && <p className="source-note">Estado da fonte de avisos indisponível.</p>}
+    </>
   );
 }

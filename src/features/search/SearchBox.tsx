@@ -17,15 +17,18 @@ import { useSearchIndex } from '@/api/queries';
 import { AnimatedText } from '@/components/AnimatedText';
 import { searchTerritories, type SearchResult } from '@/lib/searchIndex';
 
+import { LocationButton, type LocatedMunicipality } from './LocationButton';
+
 const MIN_QUERY_LENGTH = 2;
 
 interface Props {
   onSelect: (result: SearchResult) => void;
   backgroundReady?: boolean;
   onPreview?: (code: string) => void;
+  onLocated: (location: LocatedMunicipality) => void;
 }
 
-export function SearchBox({ onSelect, backgroundReady = false, onPreview }: Props) {
+export function SearchBox({ onSelect, backgroundReady = false, onPreview, onLocated }: Props) {
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -98,55 +101,65 @@ export function SearchBox({ onSelect, backgroundReady = false, onPreview }: Prop
 
   return (
     <div ref={rootRef} className="search-slot">
-      <div className="search-box">
-        <svg className="search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-          <path
-            d="M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10Zm4.6-.9 3 3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-          />
-        </svg>
-        <input
-          ref={inputRef}
-          type="text"
-          className="search-input"
-          placeholder="Buscar estado ou município"
-          aria-label="Buscar estado ou município"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onFocus={() => setFocused(true)}
-          onKeyDown={onKeyDown}
-          role="combobox"
-          aria-expanded={showDropdown}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          aria-activedescendant={
-            showDropdown && results[activeIndex] ? `${listId}-${activeIndex}` : undefined
-          }
-        />
-        {query && (
-          <button
-            type="button"
-            className="search-clear"
-            aria-label="Limpar busca"
-            onClick={() => {
-              setQuery('');
-              inputRef.current?.focus();
-            }}
+      <div className="search-tools">
+        <div className="search-box">
+          <svg
+            className="search-icon"
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            aria-hidden="true"
           >
-            <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
-              <path
-                d="M4 4l8 8M12 4l-8 8"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-          </button>
-        )}
+            <path
+              d="M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10Zm4.6-.9 3 3"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          </svg>
+          <input
+            ref={inputRef}
+            type="text"
+            className="search-input"
+            placeholder="Buscar estado ou município"
+            aria-label="Buscar estado ou município"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onFocus={() => setFocused(true)}
+            onKeyDown={onKeyDown}
+            role="combobox"
+            aria-expanded={showDropdown}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              showDropdown && results[activeIndex] ? `${listId}-${activeIndex}` : undefined
+            }
+          />
+          {query && (
+            <button
+              type="button"
+              className="search-clear"
+              aria-label="Limpar busca"
+              onClick={() => {
+                setQuery('');
+                inputRef.current?.focus();
+              }}
+            >
+              <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+                <path
+                  d="M4 4l8 8M12 4l-8 8"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <LocationButton onLocated={onLocated} />
       </div>
 
       {showDropdown && results.length > 0 && (

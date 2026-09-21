@@ -98,6 +98,10 @@ export interface IndicatorValue {
   source: string | null;
 }
 
+export interface TerritoryDetail extends TerritorySummary {
+  bbox: BoundingBox | null;
+}
+
 export interface TerritoryOverview extends TerritorySummary {
   capital: TerritoryRef | null;
   childrenCount: number;
@@ -160,6 +164,7 @@ export interface MapFeature {
 }
 
 export interface MapFeatureCollection {
+  nextOffset?: number | null;
   type: 'FeatureCollection';
   scope: MapScope;
   indicator: MapIndicatorMeta | null;
@@ -344,6 +349,7 @@ export interface HydroFeatureProperties {
   name: string;
   category: HydroCategory;
   drainageAreaKm2: number | null;
+  areaKm2?: number | null;
   dominion: string | null;
   management: string | null;
   bodyType: string | null;
@@ -358,6 +364,7 @@ export interface HydroFeature {
 }
 
 export interface HydroMetadata {
+  status?: 'ok' | 'partial';
   level: string;
   parentCode: string | null;
   riverCount: number;
@@ -376,5 +383,92 @@ export interface HydroQuery {
   level: 'country' | 'state' | 'municipality';
   parent?: string | null;
   includeWaterBodies?: boolean;
+  includeRivers?: boolean;
+  zoom?: number;
+  bbox?: string;
 }
 
+export interface FireHotspotProperties {
+  id: string;
+  detectedAt: string;
+  satellite: string;
+  state: string | null;
+  municipality: string | null;
+  municipalityCode: string | null;
+  biome: string | null;
+  daysWithoutRain: number | null;
+  precipitationMm: number | null;
+  fireRisk: number | null;
+  frp: number | null;
+}
+
+export interface FireHotspotFeature {
+  type: 'Feature';
+  id: string;
+  properties: FireHotspotProperties;
+  geometry: Point;
+}
+
+export interface FireHotspotMetadata {
+  level: FireHotspotQuery['level'];
+  parentCode: string | null;
+  hotspotCount: number;
+  hours: number;
+  source: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  windowStart: string;
+  windowEnd: string;
+  latestDetectionAt: string | null;
+  status: 'ok' | 'stale';
+  wmsUrl: string;
+  wmsLayer: string;
+  cqlFilter: string;
+}
+
+export interface FireHotspotCollection {
+  type: 'FeatureCollection';
+  metadata: FireHotspotMetadata;
+  features: FireHotspotFeature[];
+}
+
+export interface FireHotspotQuery {
+  level: 'country' | 'state' | 'municipality';
+  parent?: string | null;
+  hours?: number;
+}
+
+export interface FireHotspotLocation {
+  latitude: number;
+  longitude: number;
+  tolerance: number;
+  at: string;
+}
+
+export interface FireHotspotDetails {
+  type: 'FeatureCollection';
+  features: FireHotspotFeature[];
+  matchedCount: number;
+}
+
+export interface FireMunicipality {
+  ibgeCode: string;
+  name: string;
+  state: string;
+  areaKm2: number | null;
+  count: number;
+  count24h: number;
+  density: number | null;
+  latestDetectionAt: string | null;
+}
+
+export interface FireSummary {
+  windowStart: string;
+  windowEnd: string;
+  hours: number;
+  total: number;
+  municipalities: FireMunicipality[];
+  states: FireMunicipality[];
+  unassignedCount: number;
+  areaSource: string;
+}
