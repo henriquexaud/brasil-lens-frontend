@@ -2,6 +2,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { geoJSON } from 'leaflet';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
+import { clearSourcePauses } from '@/api/client';
 import {
   useContexts,
   weatherCurrentOptions,
@@ -154,6 +155,9 @@ export default function App() {
   const showClimate = activeThematicLayer === 'climate';
   const showFireHotspots = activeThematicLayer === 'fire';
   const showRainfall = activeThematicLayer === 'rainfall';
+  // Clima e chuva vêm da mesma resposta da Open-Meteo: ligar um ou outro é a
+  // mesma consulta, nunca duas.
+  const weatherLayerActive = showClimate || showRainfall;
 
   const handleToggleClimate = useCallback((show: boolean) => {
     setActiveThematicLayer(show ? 'climate' : 'none');
@@ -395,9 +399,10 @@ export default function App() {
   );
   const fireLayerRequested = isClimate && showFireHotspots && territoryReady && pageVisible;
   const fireHotspotsLayer = useFireHotspots(fireHotspotQuery, fireLayerRequested);
-  const fireLayerSettled =
-    !fireLayerRequested || Boolean(fireHotspotsLayer.data || fireHotspotsLayer.error);
-  const weatherStageReady = isClimate && territoryReady && fireLayerSettled && pageVisible;
+  const fireLayerSettled = Boolean(fireHotspotsLayer.data || fireHotspotsLayer.error);
+  // As camadas temáticas são exclusivas também na rede: com focos ativos nada
+  // de clima é consultado, e com clima ou chuva o INPE não é consultado.
+  const weatherStageReady = isClimate && weatherLayerActive && territoryReady && pageVisible;
 
   const fireSummaryReady = useDeferredReady(
     `fire-summary:${scope.parent ?? 'BR'}:${fireHotspotsLayer.data?.metadata.windowEnd ?? 'none'}`,
@@ -442,10 +447,12 @@ export default function App() {
     closeMunicipalView || pauseNearbyWeather || viewportWeatherBusy > 0;
 
   const stateWeather = useUserStateWeather(scope.parent, weatherStageReady && isDrilledDown);
-  // Lotes municipais são o caminho alternativo ao clima do estado inteiro:
-  // quando `/weather/state` responde, ele já cobre todos os municípios e os
-  // lotes seriam dezenas de consultas à Open-Meteo descartadas pela tela.
-  const municipalBatchingEnabled = weatherStageReady && !stateWeather.data;
+  // Lotes municipais são o caminho alternativo ao clima do estado inteiro e só
+  // começam se `/weather/state` falhar: quando ele responde, já cobre todos os
+  // municípios, e um lote disparado junto seria uma consulta à Open-Meteo
+  // descartada pela tela.
+  const municipalBatchingEnabled =
+    weatherStageReady && !stateWeather.data && stateWeather.isError && !stateWeather.isFetching;
   const municipalities = useMunicipalityWeather(
     scope.parent,
     municipalBatchingEnabled,
@@ -477,7 +484,14 @@ export default function App() {
         nearbyWeather.isError ||
         selectedWeather.isError
       : Boolean(nationalWeather.data) || nationalWeather.isError);
-  const alerts = useWeatherAlerts(isClimate && showWeatherAlerts && climateBaseReady);
+  // Primeira carga da camada temática ativa: é o que avisos, hidrografia e o
+  // prefetch do hover esperam para não disputar a rede com ela.
+  const layerBaseReady = weatherLayerActive
+    ? climateBaseReady
+    : showFireHotspots
+      ? fireLayerRequested && fireLayerSettled
+      : territoryReady;
+  const alerts = useWeatherAlerts(isClimate && showWeatherAlerts && layerBaseReady);
   const fireByCode = useMemo(
     () =>
       new Map(
@@ -493,7 +507,7 @@ export default function App() {
   const rainVisualActive = Boolean(isClimate && showRainfall);
   // As camadas opcionais aguardam o primeiro lote, não todos os municípios.
   const primarySettled =
-    climateBaseReady &&
+    layerBaseReady &&
     !viewport.moving &&
     !selectedWeather.isFetching &&
     !alerts.isFetching &&
@@ -729,10 +743,11 @@ export default function App() {
   const onPreview = useCallback(
     (code: string) => {
       if (isClimate) {
-        if (!weatherByCode.has(code)) prefetchWeather(code);
+        // O hover só aquece o clima quando é o clima (ou a chuva) que está na tela.
+        if (weatherLayerActive && !weatherByCode.has(code)) prefetchWeather(code);
       } else prefetchOverview(code);
     },
-    [isClimate, weatherByCode, prefetchWeather, prefetchOverview],
+    [isClimate, weatherLayerActive, weatherByCode, prefetchWeather, prefetchOverview],
   );
   const city = selectedCode
     ? (selectedWeather.data?.cities[0] ?? weatherByCode.get(selectedCode))
@@ -757,11 +772,25 @@ export default function App() {
         ? visibleMunicipalities.error
         : mapLayer.error
       : (indicatorsQuery.error ?? mapLayer.error));
-  const weatherError = isDrilledDown
-    ? closeMunicipalView
-      ? nearbyWeather.error
-      : municipalities.error
-    : nationalWeather.error;
+  // Consultas desligadas guardam o último erro: só conta o da camada na tela.
+  // Com o estado inteiro carregado, os lotes (desligados) não entram; sem ele,
+  // vale o lote que falhou ou, antes de qualquer lote, o próprio estado.
+  const weatherError = !weatherLayerActive
+    ? null
+    : isDrilledDown
+      ? closeMunicipalView
+        ? nearbyWeather.error
+        : stateWeather.data
+          ? null
+          : (municipalities.error ?? (municipalities.data ? null : stateWeather.error))
+      : nationalWeather.error;
+  const fireError = !showFireHotspots
+    ? null
+    : (fireHotspotsLayer.error ??
+      fireSummary.error ??
+      (activeFireMode === 'points' && fireMapError
+        ? 'O mapa de focos do INPE não carregou. Tente novamente em instantes.'
+        : null));
   const weatherOutdated = isDrilledDown
     ? closeMunicipalView
       ? nearbyWeather.data?.pages.some((page) => page.status === 'stale')
@@ -826,7 +855,7 @@ export default function App() {
 
   // Prefetch de detalhes também respeita a fila: no clima, o hover só pode
   // aquecer outra cidade depois que a camada meteorológica principal chegou.
-  const previewReady = isClimate ? climateBaseReady : backgroundReady;
+  const previewReady = isClimate ? layerBaseReady : backgroundReady;
 
   return (
     <div className="app">
@@ -950,7 +979,7 @@ export default function App() {
                     city={city}
                     data={selectedWeather.data}
                     error={selectedWeather.error}
-                    loading={selectedWeather.isPending}
+                    loading={weatherLayerActive && selectedWeather.isPending}
                     onClose={() => setSelectedCode(null)}
                     onDrillDown={drillIntoState}
                     fireMunicipality={selectedCode ? fireByCode.get(selectedCode) : undefined}
@@ -979,15 +1008,11 @@ export default function App() {
               )}
             </Suspense>
           </ErrorBoundary>
-          {isClimate &&
-            !fireVisualActive &&
-            !rainVisualActive &&
-            !selectedCode &&
-            weatherCities.length === 0 && (
-              <p className="panel-section navigation-hint" role="status">
-                {weatherError ? 'Clima indisponível no momento.' : 'Carregando clima…'}
-              </p>
-            )}
+          {climateVisualActive && !selectedCode && weatherCities.length === 0 && (
+            <p className="panel-section navigation-hint" role="status">
+              {weatherError ? 'Clima indisponível no momento.' : 'Carregando clima…'}
+            </p>
+          )}
           <Suspense fallback={null}>
             {isClimate && (
               <>
@@ -1030,24 +1055,34 @@ export default function App() {
                   onToggleFireHotspots={handleToggleFireHotspots}
                   fireHotspotsLoading={fireHotspotsLayer.isFetching}
                   fireHotspots={fireHotspotsLayer.data}
-                  fireHotspotsError={
-                    fireHotspotsLayer.error != null ||
-                    fireSummary.error != null ||
-                    (activeFireMode === 'points' && fireMapError)
-                  }
+                  fireHotspotsError={fireError != null}
                   showRainfall={showRainfall}
                   onToggleRainfall={handleToggleRainfall}
                   maxRainfall={maxRainfall}
                   code={selectedCode ?? scope.parent}
                   current={currentWeather}
-                  error={weatherError}
+                  error={weatherError ?? fireError}
+                  hydrographyError={showHydrography && hydrographyLayer.error != null}
                   loading={isViewUpdating}
                   alertsData={alerts.data}
                   alertsPending={alerts.isPending}
-                  weatherReady={climateBaseReady}
+                  weatherReady={layerBaseReady}
                   scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
                   onRefresh={() => {
-                    void client.invalidateQueries({ queryKey: ['weather'] });
+                    // Pedido explícito do usuário: libera também as fontes pausadas,
+                    // inclusive por cota esgotada.
+                    clearSourcePauses();
+                    // Os lotes municipais só rodam se o estado falhar: refazê-los junto
+                    // com ele seria uma segunda consulta à mesma fonte. Ficam apenas
+                    // marcados como desatualizados.
+                    void client.invalidateQueries({
+                      queryKey: ['weather', 'municipalities'],
+                      refetchType: 'none',
+                    });
+                    void client.invalidateQueries({
+                      queryKey: ['weather'],
+                      predicate: (query) => query.queryKey[1] !== 'municipalities',
+                    });
                     void client.invalidateQueries({ queryKey: ['fire-hotspots'], exact: false });
                     void client.invalidateQueries({ queryKey: ['hydrography'], exact: false });
                   }}

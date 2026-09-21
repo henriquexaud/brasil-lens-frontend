@@ -235,7 +235,6 @@ export function useHydrography(query: HydroQuery, enabled = true) {
     enabled,
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
-    retry: false,
     refetchOnWindowFocus: false,
   });
 }
@@ -261,7 +260,6 @@ export function useFireHotspots(query: FireHotspotQuery, enabled = true) {
     gcTime: 15 * 60 * 1000,
     refetchInterval: enabled ? 10 * 60 * 1000 : false,
     refetchOnWindowFocus: true,
-    retry: 1,
   });
 }
 
@@ -285,7 +283,6 @@ export function useFireHotspotDetails(
     enabled: Boolean(location),
     staleTime: 10 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
-    retry: 1,
   });
 }
 
@@ -308,7 +305,6 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
     enabled: enabled && Boolean(at),
     staleTime: Infinity,
     gcTime: 30 * 60 * 1000,
-    retry: 1,
   });
 }
 
@@ -508,7 +504,6 @@ export function useMunicipalityWeather(parent: string | null, enabled: boolean, 
     staleTime: 5 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1,
   });
   useEffect(() => {
     for (const page of query.data?.pages ?? []) seedCityWeather(client, page);
@@ -530,14 +525,15 @@ export function useMunicipalityWeather(parent: string | null, enabled: boolean, 
  */
 export function useUserStateWeather(parent: string | null, enabled: boolean) {
   const client = useQueryClient();
+  const queryKey = ['weather', 'state', parent];
+  useCancelWhenDisabled(queryKey, enabled);
   const query = useQuery({
-    queryKey: ['weather', 'state', parent],
+    queryKey,
     queryFn: ({ signal }) => apiGet<WeatherCurrentResponse>('/weather/state', { parent }, signal),
     enabled: enabled && Boolean(parent),
     staleTime: 5 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1,
   });
 
   useEffect(() => {
@@ -572,6 +568,9 @@ export function useWeatherAlerts(enabled = true) {
     queryKey: queryKeys.weatherAlerts(),
     queryFn: ({ signal }) => apiGet<WeatherAlertCollection>('/weather/alerts', undefined, signal),
     enabled,
+    // Religar a camada ou trocar de recorte não refaz a consulta antes do
+    // próximo ciclo de atualização.
+    staleTime: WEATHER_POLL_INTERVAL_MS,
     refetchInterval: WEATHER_POLL_INTERVAL_MS,
     placeholderData: (previous) => previous,
   });
@@ -582,6 +581,9 @@ export function useWeatherSources(enabled = true) {
     queryKey: queryKeys.weatherSources(),
     queryFn: ({ signal }) => apiGet<WeatherSourcesResponse>('/weather/sources', undefined, signal),
     enabled,
+    // Religar a camada ou trocar de recorte não refaz a consulta antes do
+    // próximo ciclo de atualização.
+    staleTime: WEATHER_POLL_INTERVAL_MS,
     refetchInterval: WEATHER_POLL_INTERVAL_MS,
     placeholderData: (previous) => previous,
   });
@@ -613,7 +615,6 @@ export function useVisibleMunicipalities(
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1,
     // Mantém apenas contornos oficiais do mesmo estado durante um deslocamento.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === parent ? previous : undefined,
@@ -681,7 +682,6 @@ export function useCapitalsWeather(enabled: boolean, pause: boolean) {
     gcTime: 20 * 60 * 1000,
     refetchInterval: enabled ? 5 * 60 * 1000 : false,
     refetchOnWindowFocus: false,
-    retry: 1,
   });
   const pageCount = query.data?.pages.length ?? 0;
   useIdleNextPage(query, enabled && !pause, pageCount, 250);
@@ -722,7 +722,6 @@ export function useViewportWeather(
     enabled: enabled && Boolean(bbox) && !pause,
     staleTime: 5 * 60 * 1000,
     gcTime: 20 * 60 * 1000,
-    retry: 1,
     refetchOnWindowFocus: false,
   });
   useIdleNextPage(query, enabled && !pause, query.data?.pages.length ?? 0, 200);

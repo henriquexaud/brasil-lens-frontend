@@ -6,7 +6,7 @@ import type {
   WeatherCurrentResponse,
 } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
-import { ErrorMessage } from '@/components/Feedback';
+import { describeError, ErrorMessage } from '@/components/Feedback';
 import { formatRelativeTime } from '@/lib/format';
 import { getAlertStyle } from './alertStyles';
 import { SourceStatusPanel } from './SourceStatusPanel';
@@ -21,6 +21,7 @@ export interface WeatherOptionsProps {
   showHydrography?: boolean;
   onToggleHydrography?: (show: boolean) => void;
   hydrographyPartial?: boolean;
+  hydrographyError?: boolean;
   showFireHotspots?: boolean;
   onToggleFireHotspots?: (show: boolean) => void;
   fireHotspotsLoading?: boolean;
@@ -31,6 +32,7 @@ export interface WeatherOptionsProps {
   maxRainfall?: number;
   code: string | null;
   current: WeatherCurrentResponse | undefined;
+  /** Falha da camada temática ativa (clima, chuva ou focos), exibida no rodapé. */
   error: unknown;
   loading: boolean;
   onRefresh: () => void;
@@ -51,6 +53,7 @@ export function WeatherOptions({
   showHydrography,
   onToggleHydrography,
   hydrographyPartial,
+  hydrographyError = false,
   showFireHotspots,
   onToggleFireHotspots,
   fireHotspotsLoading,
@@ -120,7 +123,10 @@ export function WeatherOptions({
                 <span className="weather-layer-source">Open-Meteo</span>
               </div>
             </label>
-            {showClimate && (
+            {showClimate && error != null && !calculatedRange && (
+              <span className="weather-layer-badge badge-error">Indisponível</span>
+            )}
+            {showClimate && (error == null || calculatedRange) && (
               <span className="weather-layer-badge badge-climate">
                 {calculatedRange
                   ? Math.round(calculatedRange.min) === Math.round(calculatedRange.max)
@@ -146,7 +152,10 @@ export function WeatherOptions({
                 <span className="weather-layer-source">Open-Meteo / 24h</span>
               </div>
             </label>
-            {showRainfall && (
+            {showRainfall && error != null && !current && (
+              <span className="weather-layer-badge badge-error">Indisponível</span>
+            )}
+            {showRainfall && (error == null || current) && (
               <span className="weather-layer-badge badge-rain">
                 {maxRainfall != null && maxRainfall > 0
                   ? `Máx: ${maxRainfall.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`
@@ -233,10 +242,14 @@ export function WeatherOptions({
             {showHydrography && (
               <span
                 className={`weather-layer-badge ${
-                  hydrographyPartial ? 'badge-warning' : 'badge-hydro'
+                  hydrographyError
+                    ? 'badge-error'
+                    : hydrographyPartial
+                      ? 'badge-warning'
+                      : 'badge-hydro'
                 }`}
               >
-                {hydrographyPartial ? 'Parcial' : 'Ativo'}
+                {hydrographyError ? 'Indisponível' : hydrographyPartial ? 'Parcial' : 'Ativo'}
               </span>
             )}
           </div>
@@ -307,13 +320,18 @@ export function WeatherOptions({
       {/* Rodapé Inteligente e Compacto */}
       <div className="weather-footer-bar">
         <div className="weather-sync-status">
-          <span className={`weather-sync-dot ${loading ? 'syncing' : ''}`} aria-hidden="true" />
+          <span
+            className={`weather-sync-dot ${loading ? 'syncing' : error != null ? 'failed' : ''}`}
+            aria-hidden="true"
+          />
           <span>
             {loading
               ? 'Sincronizando dados…'
-              : current
-                ? `Atualizado ${formatRelativeTime(current.fetchedAt)}`
-                : 'Sincronizado'}
+              : error != null
+                ? 'Sem atualização'
+                : current
+                  ? `Atualizado ${formatRelativeTime(current.fetchedAt)}`
+                  : 'Sincronizado'}
           </span>
         </div>
         <button
@@ -322,14 +340,10 @@ export function WeatherOptions({
           disabled={loading}
           title="Recarregar dados meteorológicos e de satélite"
         >
-          {loading ? 'Atualizando…' : 'Atualizar dados'}
+          {loading ? 'Atualizando…' : error != null ? 'Tentar novamente' : 'Atualizar dados'}
         </button>
       </div>
-      {error != null && (
-        <p className="weather-error-note">
-          Não foi possível sincronizar todos os dados deste recorte.
-        </p>
-      )}
+      {error != null && <LayerErrorNote error={error} />}
 
       {/* Detalhes de Metodologia e Fontes (Apenas sob demanda) */}
       <Disclosure title="Fontes e metodologia" className="weather-sources-disclosure">
@@ -381,6 +395,17 @@ export function WeatherOptions({
         <WeatherSources enabled={weatherReady} />
       </Disclosure>
     </section>
+  );
+}
+
+/** A causa real da falha (a mensagem do backend) e o que acontece a seguir. */
+function LayerErrorNote({ error }: { error: unknown }) {
+  const { message, hint } = describeError(error);
+  return (
+    <p className="weather-error-note" role="status">
+      {message}
+      {hint && <span className="weather-error-hint">{hint}</span>}
+    </p>
   );
 }
 

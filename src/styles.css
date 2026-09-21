@@ -1942,6 +1942,10 @@ body {
   opacity: 0.85;
 }
 
+.weather-sync-dot.failed {
+  background: #c8462a;
+}
+
 .weather-refresh-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -1969,6 +1973,13 @@ body {
   font-size: 10.5px;
   color: #c8462a;
   margin: 4px 0 0 0;
+}
+
+/* O que acontece a seguir (nova tentativa automática ou pelo botão). */
+.weather-error-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-faint);
 }
 
 /* Lista sintética de metodologia */

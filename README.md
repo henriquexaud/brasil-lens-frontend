@@ -163,8 +163,9 @@ TypeScript roda em `strict`, com `noUnusedLocals`, `noUncheckedIndexedAccess` e
 Compartilha mapa, busca, seleção, destaque e navegação entre estados e
 municípios com o contexto sociopolítico. O Brasil exibe temperaturas nas
 capitais; selecionar uma UF mostra as condições da capital como referência.
-Ao entrar na UF, `/weather/municipalities` carrega as condições atuais de
-todos os municípios em lotes de 16, sem o antigo limite de duas etapas.
+Ao entrar na UF, `/weather/state` traz o estado inteiro em uma requisição
+(amostra medida e demais municípios estimados no servidor); só se ele falhar
+`/weather/municipalities` completa o mapa em lotes de 16.
 As 27 capitais chegam em lotes de seis, começando com referências das cinco regiões.
 As consultas começam depois do mapa, usam os momentos ociosos do navegador
 e pausam enquanto uma seleção ou previsão carrega. Sair do recorte cancela
@@ -236,4 +237,18 @@ medida. Se o estado não responder, lotes municipais completam o mapa, e
 municípios ainda sem clima permanecem neutros. Movimento e seleção pausam os próximos lotes; mudança
 de área cancela consultas antigas, e abas ocultas suspendem o trabalho secundário.
 Alertas e camadas opcionais não bloqueiam o primeiro desenho nem aguardam todos
-os municípios. A busca é antecipada após o primeiro lote climático.
+os municípios.
+
+### Camadas exclusivas, falhas e novas tentativas
+
+Clima, chuva e focos de calor são exclusivos também na rede: com focos ativos
+nenhuma consulta de clima sai (nem o prefetch do hover), e com clima ou chuva o
+INPE não é consultado. Clima e chuva vêm da mesma resposta da Open-Meteo, então
+nunca geram duas consultas. Avisos e hidrografia seguem os próprios interruptores.
+
+Falhas mostram a mensagem real do backend no rodapé das camadas, com o próximo
+passo. Só falhas passageiras (rede, servidor reiniciando) são repetidas pelo
+React Query, até duas vezes. Quando uma fonte externa falha, `api/client.ts`
+pausa todas as rotas dela: fonte indisponível espera 30 s, 1 min, 2 min… até
+5 min e volta sozinha; cota esgotada (`provider_rate_limited`) fica pausada até
+o usuário clicar em **Tentar novamente**.

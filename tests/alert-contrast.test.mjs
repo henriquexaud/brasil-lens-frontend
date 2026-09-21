@@ -128,8 +128,8 @@ test('avisos do INMET aguardam a base e permanecem disponíveis no painel', asyn
     'utf8',
   );
   assert(
-    appSource.includes('useWeatherAlerts(isClimate && showWeatherAlerts && climateBaseReady)'),
-    'App.tsx deve consultar avisos depois do mapa base',
+    appSource.includes('useWeatherAlerts(isClimate && showWeatherAlerts && layerBaseReady)'),
+    'App.tsx deve consultar avisos depois da carga base da camada temática ativa',
   );
 
   const weatherOptionsSource = await readFile(

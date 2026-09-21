@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { ApiError } from './src/api/client';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -48,6 +48,7 @@ const compiled = await build({
 const path = join(scratch, 'fire.mjs');
 await writeFile(path, compiled.outputFiles[0].text);
 const {
+  ApiError,
   FireHotspotsLayer,
   formatFireValue,
   formatFireDate,
@@ -863,4 +864,41 @@ test('WeatherPanel mostra o valor estimado com uma nota discreta', async () => {
   await draw({ ...city, isInferred: true });
   assert.match(document.querySelector('.weather-current').textContent, /23°/);
   assert.match(document.querySelector('.weather-current').textContent, /≈ Estimado a partir de cidades próximas/);
+});
+
+test('rodapé das camadas mostra a causa real e só retenta a cota esgotada pelo botão', async () => {
+  const rateLimited = new ApiError(
+    503,
+    'provider_rate_limited',
+    'O limite diário de consultas da fonte de clima (Open-Meteo) foi atingido. Os dados voltam quando a cota for renovada.',
+    { retryAfterSeconds: 900 },
+  );
+  rateLimited.retryAt = null;
+  let retried = 0;
+  const draw = (error) => act(async () => root.render(h(QueryClientProvider, { client },
+    h(WeatherOptions, {
+      showAlerts: false, onToggleAlerts: () => {},
+      showClimate: true, onToggleClimate: () => {},
+      code: '35', current: undefined, error, loading: false,
+      onRefresh: () => { retried += 1; },
+    }))));
+
+  await draw(rateLimited);
+  const note = document.querySelector('.weather-error-note');
+  assert.match(note.textContent, /limite diário de consultas da fonte de clima \(Open-Meteo\)/);
+  assert.match(note.textContent, /pausadas até você tentar novamente/);
+  assert.equal(document.querySelector('.badge-error').textContent, 'Indisponível');
+  const button = document.querySelector('.weather-refresh-btn');
+  assert.equal(button.textContent, 'Tentar novamente');
+  await act(async () => button.click());
+  assert.equal(retried, 1);
+
+  const outage = new ApiError(502, 'provider_error', 'Não foi possível consultar o clima na Open-Meteo.');
+  outage.retryAt = new Date(2026, 8, 21, 15, 42).getTime();
+  await draw(outage);
+  assert.match(document.querySelector('.weather-error-note').textContent, /Nova tentativa automática às 15:42/);
+
+  await draw(null);
+  assert.equal(document.querySelector('.weather-error-note'), null);
+  assert.equal(document.querySelector('.weather-refresh-btn').textContent, 'Atualizar dados');
 });
