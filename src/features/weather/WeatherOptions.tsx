@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useWeatherAlerts, useWeatherSources } from '@/api/queries';
+import { useWeatherAlerts } from '@/api/queries';
 import type {
   FireHotspotCollection,
   WeatherAlertCollection,
@@ -9,7 +9,6 @@ import { Disclosure } from '@/components/Disclosure';
 import { describeError, ErrorMessage } from '@/components/Feedback';
 import { formatRelativeTime } from '@/lib/format';
 import { getAlertStyle } from './alertStyles';
-import { SourceStatusPanel } from './SourceStatusPanel';
 
 export interface WeatherOptionsProps {
   showAlerts: boolean;
@@ -38,8 +37,6 @@ export interface WeatherOptionsProps {
   onRefresh: () => void;
   alertsData?: WeatherAlertCollection;
   alertsPending?: boolean;
-  /** Fontes auxiliares só entram depois da primeira carga meteorológica. */
-  weatherReady?: boolean;
   scopeName?: string;
 }
 
@@ -69,7 +66,6 @@ export function WeatherOptions({
   onRefresh,
   alertsData,
   alertsPending,
-  weatherReady = true,
   scopeName,
 }: WeatherOptionsProps) {
   const fallbackAlerts = useWeatherAlerts(showAlerts && alertsPending === undefined && !alertsData);
@@ -392,7 +388,6 @@ export function WeatherOptions({
             . Modelos numéricos de alta resolução e estações de superfície.
           </li>
         </ul>
-        <WeatherSources enabled={weatherReady} />
       </Disclosure>
     </section>
   );
@@ -406,15 +401,5 @@ function LayerErrorNote({ error }: { error: unknown }) {
       {message}
       {hint && <span className="weather-error-hint">{hint}</span>}
     </p>
-  );
-}
-
-function WeatherSources({ enabled }: { enabled: boolean }) {
-  const sources = useWeatherSources(enabled);
-  return (
-    <>
-      <SourceStatusPanel sources={sources.data} />
-      {sources.error && <p className="source-note">Estado da fonte de avisos indisponível.</p>}
-    </>
   );
 }

@@ -298,18 +298,6 @@ export interface WeatherAlertCollection {
 
 export type WeatherSourceStatusValue = 'ok' | 'stale' | 'unavailable';
 
-export interface WeatherSourceStatus {
-  key: string;
-  name: string;
-  lastUpdatedAt: string | null;
-  status: WeatherSourceStatusValue;
-  updateFrequencySeconds: number;
-}
-
-export interface WeatherSourcesResponse {
-  sources: WeatherSourceStatus[];
-}
-
 export interface WeatherForecastDay {
   date: string;
   weatherCode: number | null;

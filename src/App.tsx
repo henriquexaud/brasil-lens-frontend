@@ -1066,7 +1066,6 @@ export default function App() {
                   loading={isViewUpdating}
                   alertsData={alerts.data}
                   alertsPending={alerts.isPending}
-                  weatherReady={layerBaseReady}
                   scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
                   onRefresh={() => {
                     // Pedido explícito do usuário: libera também as fontes pausadas,

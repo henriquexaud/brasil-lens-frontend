@@ -46,7 +46,6 @@ import type {
   WeatherAlertCollection,
   WeatherCity,
   WeatherCurrentResponse,
-  WeatherSourcesResponse,
 } from './types';
 
 /** Dados mudam só quando a ingestão roda: cache longo é correto, não preguiça. */
@@ -89,7 +88,6 @@ export const queryKeys = {
   territories: (level: TerritoryLevel) => ['territories', level] as const,
   savedViews: () => ['saved-views'] as const,
   weatherAlerts: () => ['weather', 'alerts'] as const,
-  weatherSources: () => ['weather', 'sources'] as const,
 };
 
 /* ------------------------------------------------------------ auxiliares --
@@ -567,19 +565,6 @@ export function useWeatherAlerts(enabled = true) {
   return useQuery({
     queryKey: queryKeys.weatherAlerts(),
     queryFn: ({ signal }) => apiGet<WeatherAlertCollection>('/weather/alerts', undefined, signal),
-    enabled,
-    // Religar a camada ou trocar de recorte não refaz a consulta antes do
-    // próximo ciclo de atualização.
-    staleTime: WEATHER_POLL_INTERVAL_MS,
-    refetchInterval: WEATHER_POLL_INTERVAL_MS,
-    placeholderData: (previous) => previous,
-  });
-}
-
-export function useWeatherSources(enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.weatherSources(),
-    queryFn: ({ signal }) => apiGet<WeatherSourcesResponse>('/weather/sources', undefined, signal),
     enabled,
     // Religar a camada ou trocar de recorte não refaz a consulta antes do
     // próximo ciclo de atualização.
