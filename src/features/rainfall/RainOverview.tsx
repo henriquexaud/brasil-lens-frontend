@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import type { WeatherCity } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
+import { ESTIMATE_DESCRIPTION, EstimateMark } from '@/features/weather/EstimateMark';
+
 import { rainColor } from './rainScale';
 
 export interface RainOverviewProps {
@@ -56,6 +58,7 @@ export function RainOverview({
                   {city.name} <small>{city.stateAbbreviation}</small>
                 </span>
                 <strong>
+                  <EstimateMark city={city} />
                   {Number(rainMm).toLocaleString('pt-BR', {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1,
@@ -69,8 +72,8 @@ export function RainOverview({
       </ol>
       <p className="source-note">
         Acumulado estimado em 24h · Modelagem numérica e dados de superfície.
+        {ranked.some((city) => city.isInferred) && ` ≈ ${ESTIMATE_DESCRIPTION.toLowerCase()}.`}
       </p>
     </Disclosure>
   );
 }
-

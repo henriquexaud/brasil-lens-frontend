@@ -10,16 +10,30 @@
  * O estado da *interface* (indicador escolhido, território selecionado) fica em
  * `useState`/hook local, como deve.
  */
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  hashKey,
+  type QueryClient,
+  type QueryKey,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { scheduleIdle } from '@/lib/idle';
 
-import { buildSearchIndex, type SearchableTerritory } from '@/lib/searchIndex';
+import { scheduleIdle } from '@/lib/idle';
 
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 import type {
   ContextListResponse,
   DataContext,
+  FireHotspotCollection,
+  FireHotspotDetails,
+  FireHotspotLocation,
+  FireHotspotQuery,
+  FireSummary,
+  HydroFeatureCollection,
+  HydroQuery,
   IndicatorListResponse,
   MapFeatureCollection,
   MapQuery,
@@ -29,18 +43,10 @@ import type {
   TerritoryLevel,
   TerritoryListResponse,
   TerritoryOverview,
-  TerritorySummary,
   WeatherAlertCollection,
+  WeatherCity,
   WeatherCurrentResponse,
   WeatherSourcesResponse,
-  WeatherStationCollection,
-  HydroFeatureCollection,
-  HydroQuery,
-  FireHotspotCollection,
-  FireSummary,
-  FireHotspotQuery,
-  FireHotspotDetails,
-  FireHotspotLocation,
 } from './types';
 
 /** Dados mudam só quando a ingestão roda: cache longo é correto, não preguiça. */
@@ -72,16 +78,85 @@ export const queryKeys = {
       query.bbox,
     ] as const,
   fireHotspots: (query: FireHotspotQuery) =>
-    ['fire-hotspots', query.level, query.parent ?? null, query.hours ?? FIRE_HOTSPOT_HOURS] as const,
+    [
+      'fire-hotspots',
+      query.level,
+      query.parent ?? null,
+      query.hours ?? FIRE_HOTSPOT_HOURS,
+    ] as const,
   overview: (ibgeCode: string, year?: string | number) =>
     ['overview', ibgeCode, year ?? 'latest'] as const,
   territories: (level: TerritoryLevel) => ['territories', level] as const,
-  searchIndex: () => ['search-index'] as const,
   savedViews: () => ['saved-views'] as const,
-  weatherStations: () => ['weather', 'stations'] as const,
   weatherAlerts: () => ['weather', 'alerts'] as const,
   weatherSources: () => ['weather', 'sources'] as const,
 };
+
+/* ------------------------------------------------------------ auxiliares --
+ *
+ * Três disciplinas se repetem nas camadas carregadas em segundo plano: cancelar
+ * a requisição quando a camada sai de cena, completar páginas só na ociosidade
+ * do navegador e reaproveitar a leitura de um lote no cache de cada cidade.
+ */
+
+/**
+ * Cancela a requisição em voo quando a consulta é desligada ou deixa a tela.
+ *
+ * A chave entra nas dependências pelo hash: um array novo a cada render não
+ * pode reexecutar o efeito — e cancelar — sem que a chave tenha mudado. O
+ * `JSON.parse` reconstrói uma chave com o mesmo hash, que é o que o filtro
+ * `exact` compara.
+ */
+function useCancelWhenDisabled(queryKey: QueryKey, enabled: boolean) {
+  const client = useQueryClient();
+  const hash = hashKey(queryKey);
+  useEffect(() => {
+    const filters = { queryKey: JSON.parse(hash) as QueryKey, exact: true };
+    if (!enabled) void client.cancelQueries(filters);
+    return () => {
+      void client.cancelQueries(filters);
+    };
+  }, [client, enabled, hash]);
+}
+
+interface PagedQueryState {
+  hasNextPage: boolean;
+  isFetching: boolean;
+  isError: boolean;
+  fetchNextPage: () => Promise<unknown>;
+}
+
+/** Completa as páginas seguintes na ociosidade, uma por vez, enquanto `active`. */
+function useIdleNextPage(
+  { hasNextPage, isFetching, isError, fetchNextPage }: PagedQueryState,
+  active: boolean,
+  pageCount: number,
+  delay: number,
+) {
+  useEffect(() => {
+    if (!active || !hasNextPage || isFetching || isError) return;
+    return scheduleIdle(() => {
+      void fetchNextPage();
+    }, delay);
+  }, [active, hasNextPage, isFetching, isError, fetchNextPage, pageCount, delay]);
+}
+
+/**
+ * Aquece o cache individual de cada cidade com a leitura do lote: a seleção
+ * aparece sem nova ida à rede. Nunca sobrescreve uma leitura mais recente.
+ */
+function seedCityWeather(
+  client: QueryClient,
+  response: WeatherCurrentResponse,
+  cities: WeatherCity[] = response.cities,
+) {
+  const updatedAt = Date.parse(response.fetchedAt);
+  for (const city of cities) {
+    const key = weatherCurrentOptions(city.id).queryKey;
+    if ((client.getQueryState(key)?.dataUpdatedAt ?? 0) >= updatedAt) continue;
+    client.setQueryData(key, { ...response, cities: [city], nextOffset: null }, { updatedAt });
+  }
+}
 
 /**
  * Contextos de dados disponíveis (sociopolítico, clima/ambiente,
@@ -140,24 +215,10 @@ export function useMapLayer(query: MapQuery, enabled = true) {
  * Carrega cursos d'água e massas d'água com resolução e detalhes progressivos.
  */
 export function useHydrography(query: HydroQuery, enabled = true) {
-  const client = useQueryClient();
-  const { level, parent, zoom, bbox, includeWaterBodies, includeRivers } = query;
-  useEffect(() => {
-    const key = queryKeys.hydrography({
-      level,
-      parent,
-      zoom,
-      bbox,
-      includeWaterBodies,
-      includeRivers,
-    });
-    if (!enabled) void client.cancelQueries({ queryKey: key, exact: true });
-    return () => {
-      void client.cancelQueries({ queryKey: key, exact: true });
-    };
-  }, [client, enabled, level, parent, zoom, bbox, includeWaterBodies, includeRivers]);
+  const queryKey = queryKeys.hydrography(query);
+  useCancelWhenDisabled(queryKey, enabled);
   return useQuery({
-    queryKey: queryKeys.hydrography(query),
+    queryKey,
     queryFn: ({ signal }) =>
       apiGet<HydroFeatureCollection>(
         '/hydrography',
@@ -181,24 +242,17 @@ export function useHydrography(query: HydroQuery, enabled = true) {
 
 /** A camada só consulta o INPE enquanto ativa; detalhes não entram no carregamento inicial. */
 export function useFireHotspots(query: FireHotspotQuery, enabled = true) {
-  const client = useQueryClient();
-  const { level, parent, hours } = query;
-  useEffect(() => {
-    const key = queryKeys.fireHotspots({ level, parent, hours });
-    if (!enabled) void client.cancelQueries({ queryKey: key, exact: true });
-    return () => {
-      void client.cancelQueries({ queryKey: key, exact: true });
-    };
-  }, [client, enabled, level, parent, hours]);
+  const queryKey = queryKeys.fireHotspots(query);
+  useCancelWhenDisabled(queryKey, enabled);
   return useQuery({
-    queryKey: queryKeys.fireHotspots(query),
+    queryKey,
     queryFn: ({ signal }) =>
       apiGet<FireHotspotCollection>(
         '/fire-hotspots',
         {
-          level,
-          parent,
-          hours: hours ?? FIRE_HOTSPOT_HOURS,
+          level: query.level,
+          parent: query.parent,
+          hours: query.hours ?? FIRE_HOTSPOT_HOURS,
         },
         signal,
       ),
@@ -231,6 +285,29 @@ export function useFireHotspotDetails(
     enabled: Boolean(location),
     staleTime: 10 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+export function useFireSummary(query: FireHotspotQuery, at: string | undefined, enabled: boolean) {
+  const queryKey = [...queryKeys.fireHotspots(query), 'summary', at];
+  useCancelWhenDisabled(queryKey, enabled);
+  return useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      apiGet<FireSummary>(
+        '/fire-hotspots/summary',
+        {
+          level: query.level,
+          parent: query.parent,
+          hours: query.hours ?? FIRE_HOTSPOT_HOURS,
+          at,
+        },
+        signal,
+      ),
+    enabled: enabled && Boolean(at),
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000,
     retry: 1,
   });
 }
@@ -309,79 +386,9 @@ export function useTerritories(level: TerritoryLevel, enabled = true) {
   });
 }
 
-/** Maior página que a API aceita por requisição (`Query(ge=1, le=1000)`). */
-const SEARCH_PAGE_SIZE = 1000;
-
-function toSearchable(row: TerritorySummary): SearchableTerritory {
-  return {
-    ibgeCode: row.ibgeCode,
-    name: row.name,
-    level: row.level,
-    abbreviation: row.abbreviation,
-    parentCode: row.parent?.ibgeCode ?? null,
-    parentName: row.parent?.name ?? null,
-  };
-}
-
 /**
- * Todos os municípios, paginados — são ~5.600, e a API limita a 1000 por
- * página. As páginas seguintes (offset conhecido de antemão pelo `total` da
- * primeira) saem em paralelo: é uma tela cheia de nomes, não uma corrente de
- * dependências.
- */
-async function fetchAllMunicipalities(signal?: AbortSignal): Promise<TerritorySummary[]> {
-  const first = await apiGet<TerritoryListResponse>(
-    '/territories',
-    { level: 'municipality', limit: SEARCH_PAGE_SIZE, offset: 0 },
-    signal,
-  );
-  const remaining: Promise<TerritoryListResponse>[] = [];
-  for (let offset = SEARCH_PAGE_SIZE; offset < first.pagination.total; offset += SEARCH_PAGE_SIZE) {
-    remaining.push(
-      apiGet<TerritoryListResponse>(
-        '/territories',
-        { level: 'municipality', limit: SEARCH_PAGE_SIZE, offset },
-        signal,
-      ),
-    );
-  }
-  const rest = await Promise.all(remaining);
-  return [first, ...rest].flatMap((page) => page.territories);
-}
-
-/**
- * Índice de busca: todo estado e todo município, uma vez só.
- *
- * A busca por nome que a API já tem (`/territories?search=`) é um `ILIKE` que
- * não ignora acento — "sao paulo" não encontra "São Paulo" (ver
- * `@/lib/searchIndex`). Resolver isso no cliente, contra o catálogo inteiro,
- * evita mexer no banco por um problema de comparação de texto: 27 estados e
- * ~5.600 municípios cabem tranquilos em memória e a busca fica instantânea, a
- * cada tecla, sem round-trip.
- *
- * `staleTime` bem mais longo que o das outras projeções: isso muda apenas
- * quando o IBGE cria ou funde um município, evento raro o bastante para não
- * merecer refetch dentro da mesma sessão.
- */
-export function useSearchIndex(enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.searchIndex(),
-    enabled,
-    queryFn: async ({ signal }) => {
-      const [statesRes, municipalities] = await Promise.all([
-        apiGet<TerritoryListResponse>('/territories', { level: 'state', limit: 1000 }, signal),
-        fetchAllMunicipalities(signal),
-      ]);
-      const rows = [...statesRes.territories, ...municipalities];
-      return buildSearchIndex(rows.map(toSearchable));
-    },
-    staleTime: 30 * 60 * 1000,
-  });
-}
-
-/**
- * Busca remota de territórios delegada ao backend.
- * O backend realiza a filtragem insensível a acentos e a ordenação por relevância.
+ * Busca de territórios delegada ao backend, que compara nome e sigla sem
+ * acento (colunas normalizadas na ingestão) e ordena por relevância.
  */
 export function useTerritorySearch(query: string, enabled = true, limit = 8) {
   const clean = query.trim();
@@ -451,14 +458,17 @@ export function useDeleteSavedView() {
 /* ------------------------------------------------------------------ clima --
  *
  * Diferente de tudo acima: o dado muda sozinho, sem nenhuma ação do usuário
- * — uma estação ou um alerta pode ser atualizado pelo scheduler do backend a
- * qualquer momento (ver `app/jobs/weather_scheduler.py`). `staleTime` estático
- * faria a tela nunca perceber isso; `refetchInterval` é o desvio deliberado
- * do padrão "dado só muda na ingestão" que o resto deste arquivo documenta.
- * `enabled` mantém o polling fora do ar enquanto o contexto Clima não está
- * em tela — a mesma disciplina de `useMapLayer` para não pagar rede à toa.
+ * — um alerta pode ser atualizado pelo scheduler do backend a qualquer
+ * momento (ver `app/jobs/weather_scheduler.py`) e as condições atuais vêm da
+ * Open-Meteo. `staleTime` estático faria a tela nunca perceber isso;
+ * `refetchInterval` é o desvio deliberado do padrão "dado só muda na
+ * ingestão" que o resto deste arquivo documenta. `enabled` mantém o polling
+ * fora do ar enquanto o contexto Clima não está em tela — a mesma disciplina
+ * de `useMapLayer` para não pagar rede à toa.
  */
 const WEATHER_POLL_INTERVAL_MS = 90 * 1000;
+/** Municípios por lote de condições atuais (o backend aceita até 60). */
+const COVERAGE_STAGE_LIMIT = 16;
 
 export function weatherCurrentOptions(territory: string | null, forecast = false) {
   return {
@@ -479,24 +489,17 @@ export function useWeatherCurrent(territory: string | null, enabled = true, fore
   });
 }
 
-export const COVERAGE_STAGE_LIMIT = 16;
-export const MAX_COVERAGE_STAGES = Infinity;
-
 /** Capital e cobertura regional primeiro; depois completa o estado durante a ociosidade. */
-export function useMunicipalityWeather(
-  parent: string | null,
-  enabled: boolean,
-  pause: boolean,
-  stageLimit = COVERAGE_STAGE_LIMIT,
-  maxStages = MAX_COVERAGE_STAGES,
-) {
+export function useMunicipalityWeather(parent: string | null, enabled: boolean, pause: boolean) {
   const client = useQueryClient();
+  const queryKey = ['weather', 'municipalities', parent, COVERAGE_STAGE_LIMIT];
+  useCancelWhenDisabled(queryKey, enabled);
   const query = useInfiniteQuery({
-    queryKey: ['weather', 'municipalities', parent, stageLimit],
+    queryKey,
     queryFn: ({ signal, pageParam }) =>
       apiGet<WeatherCurrentResponse>(
         '/weather/municipalities',
-        { parent, offset: pageParam, limit: stageLimit },
+        { parent, offset: pageParam, limit: COVERAGE_STAGE_LIMIT },
         signal,
       ),
     initialPageParam: 0,
@@ -508,59 +511,28 @@ export function useMunicipalityWeather(
     retry: 1,
   });
   useEffect(() => {
-    for (const page of query.data?.pages ?? []) {
-      const updatedAt = Date.parse(page.fetchedAt);
-      for (const city of page.cities) {
-        const key = weatherCurrentOptions(city.id).queryKey;
-        if ((client.getQueryState(key)?.dataUpdatedAt ?? 0) >= updatedAt) continue;
-        client.setQueryData(key, { ...page, cities: [city], nextOffset: null }, { updatedAt });
-      }
-    }
+    for (const page of query.data?.pages ?? []) seedCityWeather(client, page);
   }, [client, query.data]);
-  useEffect(() => {
-    const key = ['weather', 'municipalities', parent, stageLimit];
-    if (!enabled) void client.cancelQueries({ queryKey: key, exact: true });
-    return () => {
-      void client.cancelQueries({ queryKey: key, exact: true });
-    };
-  }, [client, parent, enabled, stageLimit]);
-  const { fetchNextPage, hasNextPage, isFetching, isError, data } = query;
-  const pageCount = data?.pages.length ?? 0;
-  const reachedMaxStages = pageCount >= maxStages;
-  const shouldFetchNext =
-    enabled &&
-    !pause &&
-    Boolean(parent) &&
-    hasNextPage &&
-    !isFetching &&
-    !isError &&
-    !reachedMaxStages;
-
-  useEffect(() => {
-    if (!shouldFetchNext) return;
-    return scheduleIdle(() => {
-      void fetchNextPage();
-    }, 350);
-  }, [shouldFetchNext, fetchNextPage, pageCount]);
-
-  const totalCoverageCities = data?.pages.reduce((acc, p) => acc + p.cities.length, 0) ?? 0;
+  const pageCount = query.data?.pages.length ?? 0;
+  useIdleNextPage(query, enabled && !pause && Boolean(parent), pageCount, 350);
 
   return {
     ...query,
-    stage: Math.min(maxStages, Math.max(1, pageCount + (isFetching ? 1 : 0))),
-    completedStages: pageCount,
-    maxStages,
-    isCoverageComplete: reachedMaxStages || (!hasNextPage && pageCount > 0),
-    totalCoverageCities,
+    isCoverageComplete: !query.hasNextPage && pageCount > 0,
   };
 }
 
+/**
+ * O estado inteiro em uma requisição: uma amostra medida e os demais
+ * municípios interpolados no servidor. Só as leituras medidas aquecem o cache
+ * de cada cidade — uma estimativa não pode se passar pela condição atual do
+ * município quando ele for selecionado.
+ */
 export function useUserStateWeather(parent: string | null, enabled: boolean) {
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ['weather', 'state', parent],
-    queryFn: ({ signal }) =>
-      apiGet<WeatherCurrentResponse>('/weather/state', { parent }, signal),
+    queryFn: ({ signal }) => apiGet<WeatherCurrentResponse>('/weather/state', { parent }, signal),
     enabled: enabled && Boolean(parent),
     staleTime: 5 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
@@ -570,12 +542,11 @@ export function useUserStateWeather(parent: string | null, enabled: boolean) {
 
   useEffect(() => {
     if (!query.data) return;
-    const updatedAt = Date.parse(query.data.fetchedAt);
-    for (const city of query.data.cities) {
-      const key = weatherCurrentOptions(city.id).queryKey;
-      if ((client.getQueryState(key)?.dataUpdatedAt ?? 0) >= updatedAt) continue;
-      client.setQueryData(key, { ...query.data, cities: [city], nextOffset: null }, { updatedAt });
-    }
+    seedCityWeather(
+      client,
+      query.data,
+      query.data.cities.filter((city) => !city.isInferred),
+    );
   }, [client, query.data]);
 
   return query;
@@ -594,17 +565,6 @@ export function usePrefetchWeatherCurrent() {
     },
     [client],
   );
-}
-
-export function useWeatherStations(enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.weatherStations(),
-    queryFn: ({ signal }) =>
-      apiGet<WeatherStationCollection>('/weather/stations', undefined, signal),
-    enabled,
-    refetchInterval: WEATHER_POLL_INTERVAL_MS,
-    placeholderData: (previous) => previous,
-  });
 }
 
 export function useWeatherAlerts(enabled = true) {
@@ -627,36 +587,6 @@ export function useWeatherSources(enabled = true) {
   });
 }
 
-export function useFireSummary(query: FireHotspotQuery, at: string | undefined, enabled: boolean) {
-  const client = useQueryClient();
-  const { level, parent, hours } = query;
-  useEffect(() => {
-    const key = [...queryKeys.fireHotspots({ level, parent, hours }), 'summary', at];
-    if (!enabled) void client.cancelQueries({ queryKey: key, exact: true });
-    return () => {
-      void client.cancelQueries({ queryKey: key, exact: true });
-    };
-  }, [client, level, parent, hours, at, enabled]);
-  return useQuery({
-    queryKey: [...queryKeys.fireHotspots(query), 'summary', at],
-    queryFn: ({ signal }) =>
-      apiGet<FireSummary>(
-        '/fire-hotspots/summary',
-        {
-          level,
-          parent,
-          hours: hours ?? FIRE_HOTSPOT_HOURS,
-          at,
-        },
-        signal,
-      ),
-    enabled: enabled && Boolean(at),
-    staleTime: Infinity,
-    gcTime: 30 * 60 * 1000,
-    retry: 1,
-  });
-}
-
 /** Páginas oficiais adicionadas sem esperar a malha inteira do estado. */
 export function useVisibleMunicipalities(
   bbox: string | undefined,
@@ -665,8 +595,10 @@ export function useVisibleMunicipalities(
   pause = false,
 ) {
   const client = useQueryClient();
+  const queryKey = ['municipal-boundaries', parent, bbox ?? null];
+  useCancelWhenDisabled(queryKey, enabled);
   const query = useInfiniteQuery({
-    queryKey: ['municipal-boundaries', parent, bbox ?? null],
+    queryKey,
     queryFn: ({ signal, pageParam }) =>
       apiGet<MapFeatureCollection>(
         '/weather/municipal-boundaries',
@@ -687,13 +619,6 @@ export function useVisibleMunicipalities(
       previousQuery?.queryKey[1] === parent ? previous : undefined,
   });
   useEffect(() => {
-    const key = ['municipal-boundaries', parent, bbox ?? null];
-    if (!enabled) void client.cancelQueries({ queryKey: key, exact: true });
-    return () => {
-      void client.cancelQueries({ queryKey: key, exact: true });
-    };
-  }, [client, enabled, parent, bbox]);
-  useEffect(() => {
     if (query.isPlaceholderData) return;
     for (const page of query.data?.pages ?? []) {
       for (const feature of page.features) {
@@ -712,23 +637,8 @@ export function useVisibleMunicipalities(
       }
     }
   }, [client, query.data, query.dataUpdatedAt, query.isPlaceholderData]);
-  const { fetchNextPage, hasNextPage, isFetching, isError, isPlaceholderData } = query;
   const pageCount = query.data?.pages.length ?? 0;
-  useEffect(() => {
-    if (!enabled || pause || !hasNextPage || isFetching || isError || isPlaceholderData) return;
-    return scheduleIdle(() => {
-      void fetchNextPage();
-    }, 80);
-  }, [
-    enabled,
-    pause,
-    hasNextPage,
-    isFetching,
-    isError,
-    isPlaceholderData,
-    fetchNextPage,
-    pageCount,
-  ]);
+  useIdleNextPage(query, enabled && !pause && !query.isPlaceholderData, pageCount, 80);
   const data = useMemo(() => {
     const first = query.data?.pages[0];
     if (!first) return undefined;
@@ -758,8 +668,10 @@ export function useSelectedBoundary(code: string | null, enabled: boolean) {
 
 /** Mostra as primeiras capitais e completa a visão nacional em segundo plano. */
 export function useCapitalsWeather(enabled: boolean, pause: boolean) {
+  const queryKey = ['weather', 'capitals-progressive'];
+  useCancelWhenDisabled(queryKey, enabled);
   const query = useInfiniteQuery({
-    queryKey: ['weather', 'capitals-progressive'],
+    queryKey,
     queryFn: ({ signal, pageParam }) =>
       apiGet<WeatherCurrentResponse>('/weather/capitals', { offset: pageParam, limit: 6 }, signal),
     initialPageParam: 0,
@@ -771,22 +683,8 @@ export function useCapitalsWeather(enabled: boolean, pause: boolean) {
     refetchOnWindowFocus: false,
     retry: 1,
   });
-  const client = useQueryClient();
-  useEffect(() => {
-    const key = ['weather', 'capitals-progressive'];
-    if (!enabled) void client.cancelQueries({ queryKey: key, exact: true });
-    return () => {
-      void client.cancelQueries({ queryKey: key, exact: true });
-    };
-  }, [client, enabled]);
-  const { fetchNextPage, hasNextPage, isFetching, isError } = query;
   const pageCount = query.data?.pages.length ?? 0;
-  useEffect(() => {
-    if (!enabled || pause || !hasNextPage || isFetching || isError) return;
-    return scheduleIdle(() => {
-      void fetchNextPage();
-    }, 250);
-  }, [enabled, pause, hasNextPage, isFetching, isError, fetchNextPage, pageCount]);
+  useIdleNextPage(query, enabled && !pause, pageCount, 250);
   const data = useMemo(() => {
     const first = query.data?.pages[0];
     if (!first) return undefined;
@@ -804,18 +702,15 @@ export function useCapitalsWeather(enabled: boolean, pause: boolean) {
 /** Condições atuais de todos os municípios visíveis, começando pelo centro do mapa, restritas ao estado se informado. */
 export function useViewportWeather(
   bbox: string | undefined,
-  parentOrEnabled: string | null | boolean = null,
-  enabledOrPause: boolean = true,
-  maybePause = false,
+  parent: string | null | undefined,
+  enabled: boolean,
+  pause: boolean,
 ) {
-  const isLegacySignature = typeof parentOrEnabled === 'boolean';
-  const parent = isLegacySignature ? null : parentOrEnabled;
-  const enabled = isLegacySignature ? parentOrEnabled : enabledOrPause;
-  const pause = isLegacySignature ? enabledOrPause : maybePause;
-
   const client = useQueryClient();
+  const queryKey = ['weather', 'viewport', parent ?? 'all', bbox];
+  useCancelWhenDisabled(queryKey, enabled);
   const query = useInfiniteQuery({
-    queryKey: ['weather', 'viewport', parent ?? 'all', bbox],
+    queryKey,
     queryFn: ({ signal, pageParam }) =>
       apiGet<WeatherCurrentResponse>(
         '/weather/viewport',
@@ -830,28 +725,9 @@ export function useViewportWeather(
     retry: 1,
     refetchOnWindowFocus: false,
   });
+  useIdleNextPage(query, enabled && !pause, query.data?.pages.length ?? 0, 200);
   useEffect(() => {
-    const key = ['weather', 'viewport', parent ?? 'all', bbox];
-    if (!enabled) void client.cancelQueries({ queryKey: key, exact: true });
-    return () => {
-      void client.cancelQueries({ queryKey: key, exact: true });
-    };
-  }, [client, parent, bbox, enabled]);
-  const { data, isFetching, hasNextPage, isError, fetchNextPage } = query;
-  useEffect(() => {
-    if (!enabled || pause || !hasNextPage || isFetching || isError) return;
-    return scheduleIdle(() => {
-      void fetchNextPage();
-    }, 200);
-  }, [enabled, pause, hasNextPage, isFetching, isError, fetchNextPage, data?.pages.length]);
-  useEffect(() => {
-    for (const page of data?.pages ?? [])
-      for (const city of page.cities) {
-        const key = weatherCurrentOptions(city.id).queryKey;
-        const updatedAt = Date.parse(page.fetchedAt);
-        if ((client.getQueryState(key)?.dataUpdatedAt ?? 0) < updatedAt)
-          client.setQueryData(key, { ...page, cities: [city], nextOffset: null }, { updatedAt });
-      }
-  }, [client, data]);
+    for (const page of query.data?.pages ?? []) seedCityWeather(client, page);
+  }, [client, query.data]);
   return query;
 }

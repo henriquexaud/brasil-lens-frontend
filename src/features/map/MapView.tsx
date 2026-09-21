@@ -103,6 +103,11 @@ function FitToScope({
       : latLngBounds([south, west], [north, east]);
 
     const fit = (animate: boolean) => {
+      // Contêiner ainda sem área (ex.: aba oculta ao montar): enquadrar agora
+      // produz coordenadas NaN e derruba o app. O `resize` abaixo enquadra
+      // assim que o mapa ganhar tamanho.
+      const size = map.getSize();
+      if (size.x === 0 || size.y === 0) return;
       const insets = scopeInsets(map);
       if (locationTarget) {
         if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

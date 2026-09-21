@@ -100,10 +100,16 @@ function fillTooltipContent(
   };
   add('tooltip-name', properties.name);
   if (properties.parentName) add('tooltip-meta', properties.parentName);
+  // Valor interpolado de cidades próximas: marcado de leve, sem esconder o dado.
+  const estimatePrefix = weather?.isInferred ? '≈ ' : '';
+  const estimateSuffix = weather?.isInferred ? ' · estimado' : '';
   if (fireActive) {
     if (fire) {
       const count24h = Number(
-        fire.count24h ?? fire.count24H ?? (fire as unknown as Record<string, unknown>).count_24h ?? 0,
+        fire.count24h ??
+          fire.count24H ??
+          (fire as unknown as Record<string, unknown>).count_24h ??
+          0,
       );
       const count = Number(fire.count ?? 0);
       add(
@@ -136,10 +142,10 @@ function fillTooltipContent(
       dot.style.backgroundColor = rainColor(rainVal);
       valEl.append(dot);
       const textSpan = document.createElement('span');
-      textSpan.textContent = `${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
+      textSpan.textContent = `${estimatePrefix}${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
       valEl.append(textSpan);
       el.append(valEl);
-      add('tooltip-meta', rainDescription(rainVal));
+      add('tooltip-meta', rainDescription(rainVal) + estimateSuffix);
       if (weather.precipitationProbabilityPct != null) {
         add('tooltip-meta', `Probabilidade: ${weather.precipitationProbabilityPct}%`);
       }
@@ -154,10 +160,10 @@ function fillTooltipContent(
     dot.style.backgroundColor = colorForTemperature(weather.temperatureC);
     valEl.append(dot);
     const textSpan = document.createElement('span');
-    textSpan.textContent = measurement(weather.temperatureC, ' °C');
+    textSpan.textContent = estimatePrefix + measurement(weather.temperatureC, ' °C');
     valEl.append(textSpan);
     el.append(valEl);
-    add('tooltip-meta', weatherDescription(weather.weatherCode));
+    add('tooltip-meta', weatherDescription(weather.weatherCode) + estimateSuffix);
   }
   if (collection.indicator) {
     const { unit, decimalPlaces } = collection.indicator;
@@ -462,64 +468,69 @@ function Territories({
     });
   }, [cancelHide]);
 
-  const showTooltipFor = useCallback((properties: MapFeatureProperties, fixedPoint?: Point) => {
-    cancelHide();
-    const el = tooltipElRef.current;
-    if (!el) return;
-    const {
-      weatherByCode: wb,
-      fireByCode: fb,
-      fireMode: fm,
-      fireHours: fh,
-      rainMode: rm,
-      climateMode: cm = true,
-      collection: col,
-    } = propsRef.current;
-    const weather = wb?.get(properties.ibgeCode);
-    const content = JSON.stringify([
-      properties.name,
-      properties.parentName,
-      properties.value,
-      fb?.get(properties.ibgeCode),
-      fm,
-      rm,
-      cm,
-      col.indicator,
-      weather?.temperatureC,
-      weather?.weatherCode,
-      weather?.precipitationSumMm,
-      weather?.precipitationMm,
-    ]);
-    if (
-      activeTooltipCodeRef.current !== properties.ibgeCode ||
-      activeTooltipContentRef.current !== content
-    ) {
-      tooltipCleanupRef.current?.();
-      tooltipCleanupRef.current = fillTooltipContent(
-        el,
-        properties,
-        col,
-        weather,
+  const showTooltipFor = useCallback(
+    (properties: MapFeatureProperties, fixedPoint?: Point) => {
+      cancelHide();
+      const el = tooltipElRef.current;
+      if (!el) return;
+      const {
+        weatherByCode: wb,
+        fireByCode: fb,
+        fireMode: fm,
+        fireHours: fh,
+        rainMode: rm,
+        climateMode: cm = true,
+        collection: col,
+      } = propsRef.current;
+      const weather = wb?.get(properties.ibgeCode);
+      const content = JSON.stringify([
+        properties.name,
+        properties.parentName,
+        properties.value,
         fb?.get(properties.ibgeCode),
-        fh,
-        Boolean(fm),
-        Boolean(rm),
-        Boolean(cm),
-      );
-      activeTooltipContentRef.current = content;
-      const size = map.getSize();
-      const anchor = fixedPoint ?? pointerRef.current;
-      tooltipSizeRef.current = { width: el.offsetWidth, height: el.offsetHeight };
-      offsetRef.current = {
-        dx: anchor && anchor.x + el.offsetWidth + 16 > size.x ? -el.offsetWidth - 16 : 16,
-        dy: anchor && anchor.y < 90 ? 20 : -14,
-      };
-      activeTooltipCodeRef.current = properties.ibgeCode;
-    }
-    fixedAnchorRef.current = fixedPoint ?? null;
-    el.style.opacity = '1';
-    requestReposition.current();
-  }, [cancelHide, map]);
+        fm,
+        rm,
+        cm,
+        col.indicator,
+        weather?.temperatureC,
+        weather?.weatherCode,
+        weather?.precipitationSumMm,
+        weather?.precipitationMm,
+        weather?.precipitationProbabilityPct,
+        weather?.isInferred,
+      ]);
+      if (
+        activeTooltipCodeRef.current !== properties.ibgeCode ||
+        activeTooltipContentRef.current !== content
+      ) {
+        tooltipCleanupRef.current?.();
+        tooltipCleanupRef.current = fillTooltipContent(
+          el,
+          properties,
+          col,
+          weather,
+          fb?.get(properties.ibgeCode),
+          fh,
+          Boolean(fm),
+          Boolean(rm),
+          Boolean(cm),
+        );
+        activeTooltipContentRef.current = content;
+        const size = map.getSize();
+        const anchor = fixedPoint ?? pointerRef.current;
+        tooltipSizeRef.current = { width: el.offsetWidth, height: el.offsetHeight };
+        offsetRef.current = {
+          dx: anchor && anchor.x + el.offsetWidth + 16 > size.x ? -el.offsetWidth - 16 : 16,
+          dy: anchor && anchor.y < 90 ? 20 : -14,
+        };
+        activeTooltipCodeRef.current = properties.ibgeCode;
+      }
+      fixedAnchorRef.current = fixedPoint ?? null;
+      el.style.opacity = '1';
+      requestReposition.current();
+    },
+    [cancelHide, map],
+  );
 
   // Amarração de eventos aos nós SVG — executada UMA VEZ por layer para evitar recriação de listeners
   useEffect(() => {
@@ -618,7 +629,10 @@ function Territories({
       element?.setAttribute('tabindex', '0');
       element?.setAttribute('role', 'button');
       element?.setAttribute('aria-label', properties.name);
-      element?.setAttribute('aria-pressed', String(properties.ibgeCode === propsRef.current.selectedCode));
+      element?.setAttribute(
+        'aria-pressed',
+        String(properties.ibgeCode === propsRef.current.selectedCode),
+      );
       element?.setAttribute('aria-keyshortcuts', 'Enter Space Shift+Enter');
       element?.setAttribute(
         'aria-description',

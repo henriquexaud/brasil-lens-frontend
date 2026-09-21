@@ -46,7 +46,12 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
         {...props}
       >
         <circle cx="7.5" cy="7.5" r="3" fill="#f59e0b" stroke="#d97706" strokeWidth="1.2" />
-        <path d="M7.5 2.5v1.5M3.5 5.5l1.2.9M2.5 8.5h1.5M11.5 5l.9-1.2" stroke="#d97706" strokeWidth="1.3" strokeLinecap="round" />
+        <path
+          d="M7.5 2.5v1.5M3.5 5.5l1.2.9M2.5 8.5h1.5M11.5 5l.9-1.2"
+          stroke="#d97706"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+        />
         <path
           d="M6 16h8a3 3 0 0 0 .5-5.96 4 4 0 0 0-7.5-1.54A3 3 0 0 0 6 16z"
           fill="#cbd5e1"
@@ -209,8 +214,12 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
       {...props}
     >
       <circle cx="10" cy="10" r="4" fill="#f59e0b" stroke="#d97706" strokeWidth="1.2" />
-      <path d="M10 3v2M10 15v2M3 10h2M15 10h2" stroke="#d97706" strokeWidth="1.4" strokeLinecap="round" />
+      <path
+        d="M10 3v2M10 15v2M3 10h2M15 10h2"
+        stroke="#d97706"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
-

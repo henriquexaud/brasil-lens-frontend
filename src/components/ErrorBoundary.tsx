@@ -47,7 +47,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <strong>Não foi possível exibir estas informações.</strong>
           </p>
           <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-            <button className="drill-button" style={{ padding: '0.35rem 0.75rem' }} onClick={this.reset}>
+            <button
+              className="drill-button"
+              style={{ padding: '0.35rem 0.75rem' }}
+              onClick={this.reset}
+            >
               Tentar novamente
             </button>
             {this.props.onReset && (

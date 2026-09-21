@@ -77,7 +77,6 @@ export const TEMPERATURE_SCALE = [
   { max: Infinity, color: '#F04432', label: '>35°', min: 35, name: 'Acima de 35°C' },
 ] as const;
 
-export const TEMPERATURE_BANDS = TEMPERATURE_SCALE;
 export type TemperatureBand = (typeof TEMPERATURE_SCALE)[number];
 
 export function colorForTemperature(temp: number | null | undefined): string {
@@ -164,37 +163,4 @@ export function colorForClass(
   if (classIndex === null || classification === null) return NO_DATA_COLOR;
   const colors = classColors(classification.classes, ramp);
   return colors[classIndex] ?? NO_DATA_COLOR;
-}
-
-/**
- * Interpolação contínua sobre uma família de 5 tons — para dado pontual sem
- * classe de quantil (ex.: cor de estação meteorológica por temperatura). `t`
- * é a posição normalizada em [0, 1]; valores fora do intervalo são presos nas
- * pontas.
- */
-export function interpolatePalette(ramp: readonly string[], t: number): string {
-  const clamped = Math.min(1, Math.max(0, t));
-  const scaled = clamped * (ramp.length - 1);
-  const lowerIndex = Math.floor(scaled);
-  const upperIndex = Math.min(ramp.length - 1, lowerIndex + 1);
-  const localT = scaled - lowerIndex;
-
-  const lower = hexToRgb(ramp[lowerIndex] ?? ramp[0] ?? NO_DATA_COLOR);
-  const upper = hexToRgb(ramp[upperIndex] ?? ramp[ramp.length - 1] ?? NO_DATA_COLOR);
-  const mix = (a: number, b: number) => Math.round(a + (b - a) * localT);
-
-  return rgbToHex(mix(lower[0], upper[0]), mix(lower[1], upper[1]), mix(lower[2], upper[2]));
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  const value = hex.replace('#', '');
-  return [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ];
-}
-
-function rgbToHex(r: number, g: number, b: number): string {
-  return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
 }

@@ -1817,7 +1817,9 @@ body {
   border-radius: var(--radius-sm);
   background: var(--surface);
   border: 1px solid var(--border);
-  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
 }
 
 .weather-layer-card:hover {
@@ -1988,7 +1990,7 @@ body {
 }
 
 .weather-methodology-item::before {
-  content: "•";
+  content: '•';
   position: absolute;
   left: 0;
   color: var(--text-soft);
@@ -2174,6 +2176,14 @@ body {
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+}
+
+/* Valor interpolado de cidades próximas: um "≈" apagado antes do número, sem
+   competir com o valor em si. */
+.estimate-mark {
+  margin-right: 1px;
+  font-weight: 400;
+  color: var(--text-faint);
 }
 
 .weather-pill-desc {

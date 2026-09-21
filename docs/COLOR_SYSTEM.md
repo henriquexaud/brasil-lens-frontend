@@ -198,12 +198,11 @@ se esse indicador ganhar um lugar definido na nova experiência de clima.
 ## Dois usos diferentes da mesma paleta
 
 A maioria das famílias é consumida por `classColors`/`colorForClass`
-(coroplética: N classes de quantil, calculadas pelo backend). As famílias de
-clima com uso real hoje (`temperature`, `rain`) também são consumidas por
-`interpolatePalette` (estações meteorológicas: um valor contínuo — ex. 18,4°C
-— mapeado para um ponto entre os 5 tons, sem "classe"). São dois algoritmos
-diferentes sobre o mesmo array de 5 cores — a família é a mesma fonte da
-verdade, o consumidor decide como amostrá-la.
+(coroplética: N classes de quantil, calculadas pelo backend). O clima não usa
+quantis: temperatura e chuva são valores contínuos (ex. 18,4°C) mapeados para
+faixas fixas — `TEMPERATURE_SCALE`/`colorForTemperature` em `colors.ts` e
+`rainColor` em `features/rainfall/rainScale.ts` —, para que a mesma cor
+signifique o mesmo valor em qualquer recorte.
 
 ## Notas de UX (do pedido original, para quando forem relevantes)
 

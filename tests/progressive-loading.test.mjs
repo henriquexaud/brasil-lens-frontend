@@ -22,7 +22,7 @@ const scratch = await mkdtemp(join(frontend, 'node_modules', '.progressive-tests
 const modulePath = join(scratch, 'harness.mjs');
 const compiled = await build({
   stdin: {
-    contents: `export { useMunicipalityWeather, useWeatherCurrent, weatherCurrentOptions, useSearchIndex, useFireHotspots, useFireHotspotDetails, useFireSummary, useHydrography, useViewportWeather, useCapitalsWeather, useVisibleMunicipalities, useSelectedBoundary } from './src/api/queries';
+    contents: `export { useMunicipalityWeather, useUserStateWeather, useWeatherCurrent, weatherCurrentOptions, useFireHotspots, useFireHotspotDetails, useFireSummary, useHydrography, useViewportWeather, useCapitalsWeather, useVisibleMunicipalities, useSelectedBoundary } from './src/api/queries';
     export { useDeferredReady } from './src/lib/useDeferredReady';
     export { Disclosure } from './src/components/Disclosure';
     export { LocationButton } from './src/features/search/LocationButton';`,
@@ -44,7 +44,7 @@ const {
   useWeatherCurrent,
   weatherCurrentOptions,
   useMunicipalityWeather,
-  useSearchIndex,
+  useUserStateWeather,
   useFireHotspots,
   useFireHotspotDetails,
   useFireSummary,
@@ -192,6 +192,21 @@ test('lotes esperam o mapa, pausam durante a seleção e aquecem somente condiç
   assert.equal(requests.length, 3, 'encerra quando não há próxima página');
 });
 
+test('clima do estado só aquece o cache das cidades medidas, nunca das estimadas', async () => {
+  function State() {
+    useUserStateWeather('35', true);
+    return null;
+  }
+  const measured = city('3550308');
+  const inferred = { ...city('3509502'), isInferred: true };
+  respond = async () =>
+    new Response(JSON.stringify({ ...page([]), cities: [measured, inferred] }), { status: 200 });
+  await render(h(State));
+  await until(() => client.getQueryData(weatherCurrentOptions('3550308').queryKey));
+  assert.equal(requests[0].url.pathname, '/api/v1/weather/state');
+  assert.equal(client.getQueryData(weatherCurrentOptions('3509502').queryKey), undefined);
+});
+
 test('sair do recorte cancela a requisição de fundo em andamento', async () => {
   function Batch({ ready }) {
     useMunicipalityWeather('35', ready, false);
@@ -208,24 +223,6 @@ test('sair do recorte cancela a requisição de fundo em andamento', async () =>
   assert.equal(requests[0].signal.aborted, false);
   await render(h(Batch, { ready: false }));
   assert.equal(requests[0].signal.aborted, true);
-});
-
-test('busca não carrega o catálogo enquanto estiver sem foco e antes do mapa', async () => {
-  function Search({ enabled }) {
-    useSearchIndex(enabled);
-    return null;
-  }
-  respond = async () =>
-    new Response(JSON.stringify({ territories: [], pagination: { total: 0 } }), { status: 200 });
-  await render(h(Search, { enabled: false }));
-  await tick();
-  assert.equal(requests.length, 0);
-  await render(h(Search, { enabled: true }));
-  await until(() => requests.length === 2);
-  assert.deepEqual(requests.map((request) => request.url.searchParams.get('level')).sort(), [
-    'municipality',
-    'state',
-  ]);
 });
 
 test('focos só consultam metadados quando ativos; detalhes esperam o clique', async () => {
@@ -363,7 +360,7 @@ test('permissão de localização negada mantém busca disponível e não consul
 test('zoom próximo carrega automaticamente todos os lotes visíveis e aquece seleção', async () => {
   let response;
   function Viewport({ bbox, enabled }) {
-    response = useViewportWeather(bbox, enabled, false);
+    response = useViewportWeather(bbox, null, enabled, false);
     return null;
   }
   respond = async (url) => new Response(JSON.stringify(url.searchParams.get('offset') === '0' ? page(['3550308'], 20) : page(['3548708'])), { status: 200 });

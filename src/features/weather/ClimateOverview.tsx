@@ -3,6 +3,8 @@ import type { WeatherCity } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
 import { colorForTemperature } from '@/features/map/colors';
 
+import { ESTIMATE_DESCRIPTION, EstimateMark } from './EstimateMark';
+
 export interface ClimateOverviewProps {
   cities?: WeatherCity[];
   hottest?: WeatherCity[];
@@ -24,9 +26,7 @@ export function ClimateOverview({
     if (precalculatedHottest && precalculatedColdest) {
       return { hottest: precalculatedHottest, coldest: precalculatedColdest };
     }
-    const valid = cities.filter(
-      (c) => c.temperatureC != null && Number.isFinite(c.temperatureC),
-    );
+    const valid = cities.filter((c) => c.temperatureC != null && Number.isFinite(c.temperatureC));
     const first = valid[0];
     if (!first) {
       return { hottest: [], coldest: [] };
@@ -57,6 +57,7 @@ export function ClimateOverview({
     return null;
   }
 
+  const hasEstimate = [...hottest, ...coldest].some((city) => city.isInferred);
   const title = isDrilledDown
     ? scopeName
       ? `Cidade mais quente e mais fria · ${scopeName}`
@@ -89,9 +90,14 @@ export function ClimateOverview({
                     />
                     <span>
                       {city.name}{' '}
-                      <small>{city.stateAbbreviation ?? (city.id.length === 2 ? city.id : '')}</small>
+                      <small>
+                        {city.stateAbbreviation ?? (city.id.length === 2 ? city.id : '')}
+                      </small>
                     </span>
-                    <strong>{Math.round(city.temperatureC)}°C</strong>
+                    <strong>
+                      <EstimateMark city={city} />
+                      {Math.round(city.temperatureC)}°C
+                    </strong>
                   </button>
                 </li>
               ))}
@@ -122,9 +128,14 @@ export function ClimateOverview({
                     />
                     <span>
                       {city.name}{' '}
-                      <small>{city.stateAbbreviation ?? (city.id.length === 2 ? city.id : '')}</small>
+                      <small>
+                        {city.stateAbbreviation ?? (city.id.length === 2 ? city.id : '')}
+                      </small>
                     </span>
-                    <strong>{Math.round(city.temperatureC)}°C</strong>
+                    <strong>
+                      <EstimateMark city={city} />
+                      {Math.round(city.temperatureC)}°C
+                    </strong>
                   </button>
                 </li>
               ))}
@@ -134,6 +145,7 @@ export function ClimateOverview({
       </div>
       <p className="source-note">
         Leituras e previsão horária · Modelagem numérica Open-Meteo e dados de superfície.
+        {hasEstimate && ` ≈ ${ESTIMATE_DESCRIPTION.toLowerCase()}.`}
       </p>
     </Disclosure>
   );

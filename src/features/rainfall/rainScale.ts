@@ -57,4 +57,3 @@ export function rainBadgeText(mm: number | null | undefined): string {
   if (mm < 50) return 'Forte';
   return 'Alerta de chuva';
 }
-

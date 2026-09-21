@@ -12,6 +12,7 @@ import { formatFireDate } from '@/features/fire/fireStyles';
 import { densityColor } from '@/features/fire/fireDensity';
 import { rainColor, rainDescription, rainBadgeText } from '@/features/rainfall/rainScale';
 import { measurement, weatherDescription, WeatherIcon } from './conditions';
+import { ESTIMATE_DESCRIPTION } from './EstimateMark';
 
 function Forecast({ code }: { code: string }) {
   const query = useWeatherCurrent(code, true, true);
@@ -97,11 +98,7 @@ function FireStatusSection({
     <div className={`fire-detail-card ${highlight ? 'is-highlight' : ''}`}>
       <div className="fire-detail-header">
         <div className="fire-detail-status">
-          <span
-            className="fire-layer-dot"
-            style={{ backgroundColor: color }}
-            aria-hidden="true"
-          />
+          <span className="fire-layer-dot" style={{ backgroundColor: color }} aria-hidden="true" />
           <strong>
             {hasFocos
               ? `${fire.density != null ? Number(fire.density).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—'} focos / 1.000 km²`
@@ -183,11 +180,7 @@ function RainStatusSection({
     <div className={`rain-detail-card ${highlight ? 'is-highlight' : ''}`}>
       <div className="rain-detail-header">
         <div className="rain-detail-status">
-          <span
-            className="rain-layer-dot"
-            style={{ backgroundColor: color }}
-            aria-hidden="true"
-          />
+          <span className="rain-layer-dot" style={{ backgroundColor: color }} aria-hidden="true" />
           <strong>{desc}</strong>
         </div>
         <span className={`weather-layer-badge ${hasRain ? 'badge-rain' : 'badge-neutral'}`}>
@@ -214,25 +207,32 @@ function RainStatusSection({
         )}
       </div>
 
-      {city.forecast && city.forecast.length > 0 && city.forecast[0]?.precipitationSumMm != null && (
-        <p className="rain-forecast-note">
-          Previsão para hoje:{' '}
-          <strong>
-            {Number(city.forecast[0].precipitationSumMm).toLocaleString('pt-BR', {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            })}{' '}
-            mm
-          </strong>
-          {city.forecast[0].precipitationProbabilityPct != null
-            ? ` (${city.forecast[0].precipitationProbabilityPct}% de chance)`
-            : ''}
-        </p>
-      )}
+      {city.forecast &&
+        city.forecast.length > 0 &&
+        city.forecast[0]?.precipitationSumMm != null && (
+          <p className="rain-forecast-note">
+            Previsão para hoje:{' '}
+            <strong>
+              {Number(city.forecast[0].precipitationSumMm).toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}{' '}
+              mm
+            </strong>
+            {city.forecast[0].precipitationProbabilityPct != null
+              ? ` (${city.forecast[0].precipitationProbabilityPct}% de chance)`
+              : ''}
+          </p>
+        )}
 
       {!hasRain && (
         <p className="source-note" style={{ margin: '4px 0 0' }}>
           Sem volume significativo de chuva acumulado nas últimas 24h.
+        </p>
+      )}
+      {city.isInferred && (
+        <p className="source-note" style={{ margin: '4px 0 0' }}>
+          ≈ {ESTIMATE_DESCRIPTION}.
         </p>
       )}
     </div>
@@ -353,6 +353,7 @@ export function WeatherPanel({
           <span className="weather-note">
             Sensação de {measurement(city.apparentTemperatureC, '°')}
           </span>
+          {city.isInferred && <span className="weather-note">≈ {ESTIMATE_DESCRIPTION}</span>}
         </div>
       </div>
       {(error != null || data?.status === 'stale') && (
@@ -432,11 +433,7 @@ export function WeatherPanel({
       {/* Quando a camada de chuva está ativa, Chuva é o elemento primário (Hero) com previsão diária */}
       {!fireActive && rainActive && (
         <>
-          <RainStatusSection
-            city={city}
-            loading={loading}
-            highlight
-          />
+          <RainStatusSection city={city} loading={loading} highlight />
           {city && <RainForecastSection city={city} />}
         </>
       )}

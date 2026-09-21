@@ -4,6 +4,7 @@ import type { WeatherCity } from '@/api/types';
 import { colorForTemperature } from '@/features/map/colors';
 import { rainColor } from '@/features/rainfall/rainScale';
 import { WeatherIcon } from '@/features/weather/conditions';
+import { EstimateMark } from '@/features/weather/EstimateMark';
 
 const ATTRIBUTION =
   'Clima: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>';
@@ -40,7 +41,9 @@ export function WeatherLayer({
   const sortedCities = (() => {
     const candidates = cities.filter((city) =>
       isRain
-        ? city.precipitationSumMm != null || city.precipitationMm != null || city.temperatureC != null
+        ? city.precipitationSumMm != null ||
+          city.precipitationMm != null ||
+          city.temperatureC != null
         : city.temperatureC != null && Number.isFinite(city.temperatureC),
     );
     if (municipal) {
@@ -56,7 +59,8 @@ export function WeatherLayer({
           const rainB = b.precipitationSumMm ?? b.precipitationMm ?? 0;
           return rainB - rainA;
         }
-        return 0;
+        // Leituras medidas ganham a disputa por espaço; estimativas preenchem o resto.
+        return Number(Boolean(a.isInferred)) - Number(Boolean(b.isInferred));
       });
       const visible = new Set<string>();
       for (const city of priority) {
@@ -142,14 +146,20 @@ export function WeatherLayer({
                           style={{ backgroundColor: color }}
                           aria-hidden="true"
                         />
-                        <span className="weather-pill-temp">{formattedRain}</span>
+                        <span className="weather-pill-temp">
+                          <EstimateMark city={city} />
+                          {formattedRain}
+                        </span>
                       </>
                     ) : (
                       <>
                         <span className="weather-pill-icon">
                           <WeatherIcon code={city.weatherCode} size={13} />
                         </span>
-                        <span className="weather-pill-temp">{Math.round(city.temperatureC)}°</span>
+                        <span className="weather-pill-temp">
+                          <EstimateMark city={city} />
+                          {Math.round(city.temperatureC)}°
+                        </span>
                       </>
                     )}
                   </div>
@@ -165,14 +175,20 @@ export function WeatherLayer({
                           style={{ backgroundColor: color }}
                           aria-hidden="true"
                         />
-                        <span className="weather-pill-temp">{formattedRain}</span>
+                        <span className="weather-pill-temp">
+                          <EstimateMark city={city} />
+                          {formattedRain}
+                        </span>
                       </>
                     ) : (
                       <>
                         <span className="weather-pill-icon">
                           <WeatherIcon code={city.weatherCode} size={14} />
                         </span>
-                        <span className="weather-pill-temp">{Math.round(city.temperatureC)}°</span>
+                        <span className="weather-pill-temp">
+                          <EstimateMark city={city} />
+                          {Math.round(city.temperatureC)}°
+                        </span>
                       </>
                     )}
                   </div>

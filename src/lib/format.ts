@@ -103,27 +103,21 @@ export function levelLabel(level: TerritoryLevel): string {
   return LEVEL_LABEL[level];
 }
 
-const CHILDREN_LABEL: Record<TerritoryLevel, [singular: string, plural: string]> = {
-  country: ['país', 'países'],
-  region: ['região', 'regiões'],
-  state: ['estado', 'estados'],
-  municipality: ['município', 'municípios'],
-};
-
-export function childrenLabel(level: TerritoryLevel, count: number): string {
-  const [singular, plural] = CHILDREN_LABEL[level];
-  return count === 1 ? singular : plural;
-}
-
 /**
  * Plural do nível, capitalizado ("Estados", "Municípios").
  *
- * Reaproveita a tabela de plurais acima em vez de colar um "s" no rótulo
- * singular — que produziria "Regiãos" e "Paíss".
+ * Tabela explícita em vez de colar um "s" no rótulo singular — que produziria
+ * "Regiãos" e "Paíss".
  */
+const LEVEL_PLURAL_LABEL: Record<TerritoryLevel, string> = {
+  country: 'Países',
+  region: 'Regiões',
+  state: 'Estados',
+  municipality: 'Municípios',
+};
+
 export function levelPluralLabel(level: TerritoryLevel): string {
-  const plural = CHILDREN_LABEL[level][1];
-  return plural.charAt(0).toUpperCase() + plural.slice(1);
+  return LEVEL_PLURAL_LABEL[level];
 }
 
 /**

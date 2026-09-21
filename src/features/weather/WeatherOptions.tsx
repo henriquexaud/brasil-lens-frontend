@@ -326,7 +326,9 @@ export function WeatherOptions({
         </button>
       </div>
       {error != null && (
-        <p className="weather-error-note">Não foi possível sincronizar todos os dados deste recorte.</p>
+        <p className="weather-error-note">
+          Não foi possível sincronizar todos os dados deste recorte.
+        </p>
       )}
 
       {/* Detalhes de Metodologia e Fontes (Apenas sob demanda) */}
@@ -351,7 +353,8 @@ export function WeatherOptions({
             <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
               Open-Meteo
             </a>
-            . Precipitação acumulada em 24h e probabilidade estimada por modelo numérico e estações de superfície.
+            . Precipitação acumulada em 24h e probabilidade estimada por modelo numérico e estações
+            de superfície.
           </li>
           <li className="weather-methodology-item">
             <strong>Avisos meteorológicos:</strong>{' '}

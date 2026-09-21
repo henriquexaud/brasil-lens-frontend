@@ -11,9 +11,7 @@ export function findStateOutline(
   if (!isDrilledDown || !parentCode) return null;
   return (
     features?.find(
-      (f) =>
-        f.properties.ibgeCode === parentCode ||
-        f.properties.abbreviation === parentCode,
+      (f) => f.properties.ibgeCode === parentCode || f.properties.abbreviation === parentCode,
     ) ?? null
   );
 }

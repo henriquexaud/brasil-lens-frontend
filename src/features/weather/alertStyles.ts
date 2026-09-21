@@ -58,7 +58,7 @@ export const ALERT_STYLES: Record<AlertSeverityTier, AlertStyle> = {
     tier: 'potential',
     label: 'Perigo Potencial',
     fillColor: '#F59E0B', // Âmbar alerta
-    fillOpacity: 0.10,
+    fillOpacity: 0.1,
     strokeColor: ALERT_BORDER_COLOR, // Linha sólida e laranja
     strokeWeight: 1.25,
     strokeOpacity: 0.9,
@@ -70,7 +70,7 @@ export const ALERT_STYLES: Record<AlertSeverityTier, AlertStyle> = {
     tier: 'other',
     label: 'Aviso Meteorológico',
     fillColor: '#8B5CF6',
-    fillOpacity: 0.10,
+    fillOpacity: 0.1,
     strokeColor: ALERT_BORDER_COLOR, // Linha sólida e laranja
     strokeWeight: 1.25,
     strokeOpacity: 0.9,
@@ -80,7 +80,10 @@ export const ALERT_STYLES: Record<AlertSeverityTier, AlertStyle> = {
   },
 };
 
-export function resolveAlertTier(severity?: string | null, color?: string | null): AlertSeverityTier {
+export function resolveAlertTier(
+  severity?: string | null,
+  color?: string | null,
+): AlertSeverityTier {
   const sev = (severity ?? '').toLowerCase();
   const col = (color ?? '').toLowerCase();
 
@@ -96,12 +99,7 @@ export function resolveAlertTier(severity?: string | null, color?: string | null
   }
 
   // 2. Perigo Potencial (amarelo) - checado antes de "perigo" para não colidir
-  if (
-    sev.includes('potencial') ||
-    col === '#fffe00' ||
-    col === '#ffff00' ||
-    col === '#ffd700'
-  ) {
+  if (sev.includes('potencial') || col === '#fffe00' || col === '#ffff00' || col === '#ffd700') {
     return 'potential';
   }
 
@@ -119,7 +117,10 @@ export function resolveAlertTier(severity?: string | null, color?: string | null
   return 'other';
 }
 
-export function getAlertStyle(properties?: { severity?: string | null; color?: string | null }): AlertStyle {
+export function getAlertStyle(properties?: {
+  severity?: string | null;
+  color?: string | null;
+}): AlertStyle {
   if (!properties) {
     return ALERT_STYLES.other;
   }

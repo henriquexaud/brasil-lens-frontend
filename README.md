@@ -184,8 +184,9 @@ de API é necessária; a atribuição da Open-Meteo permanece no mapa.
 
 ### Hierarquia e carregamento
 
-Mapa e catálogo do indicador iniciam juntos. O índice de busca é antecipado
-depois do mapa, ou imediatamente quando a busca recebe foco. O valor principal
+Mapa e catálogo do indicador iniciam juntos. A busca consulta o backend
+(sem acento, ordenada por relevância) só a partir de duas letras digitadas,
+com um debounce curto. O valor principal
 sociopolítico vem do próprio mapa; os demais indicadores só são consultados
 ao expandir **Mais detalhes**. Ajustes de ano, informações da fonte e ações de
 visualizações salvas ficam recolhidos. Painéis de detalhe e camadas climáticas
@@ -226,8 +227,13 @@ do viewport tem prioridade. Busca e seleção carregam uma geometria individual
 quando necessário e reutilizam as que já chegaram.
 
 Cada lote acrescenta os caminhos SVG ao mapa existente, preservando foco e
-interação. Municípios sem clima carregado permanecem neutros, sem temperatura
-emprestada de vizinhos. Movimento e seleção pausam os próximos lotes; mudança
+interação. O clima do estado chega em uma requisição (`/weather/state`): uma
+amostra de municípios é medida e os demais são estimados no servidor a partir
+das cidades próximas. Estimativas aparecem com um "≈" discreto antes do valor
+(marcadores, rankings), "estimado" no tooltip e uma nota curta no painel;
+selecionar ou aproximar de um município troca a estimativa pela leitura
+medida. Se o estado não responder, lotes municipais completam o mapa, e
+municípios ainda sem clima permanecem neutros. Movimento e seleção pausam os próximos lotes; mudança
 de área cancela consultas antigas, e abas ocultas suspendem o trabalho secundário.
 Alertas e camadas opcionais não bloqueiam o primeiro desenho nem aguardam todos
 os municípios. A busca é antecipada após o primeiro lote climático.

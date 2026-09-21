@@ -3,27 +3,32 @@
  *
  * Ocupa o canto superior esquerdo do mapa, onde antes ficava o controle de
  * zoom (ver MapView) — zoom continua disponível por scroll, pinça e +/- do
- * teclado, só perdeu o botão dedicado. O motor de busca em si (normalização,
- * pontuação) mora em `@/lib/searchIndex`; este componente só é a caixa de
- * texto e a lista de resultados.
- *
- * Sem debounce de propósito: o índice já está em memória (ver
- * `useSearchIndex`), e casar ~5.600 nomes contra uma string é da ordem de
- * frações de milissegundo — mais barato que o próprio re-render do React.
+ * teclado, só perdeu o botão dedicado. A busca em si (sem acento, ordenada por
+ * relevância) é do backend (ver `useTerritorySearch`); este componente só é a
+ * caixa de texto e a lista de resultados, com um debounce curto para não
+ * consultar a cada tecla.
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useTerritorySearch } from '@/api/queries';
+import type { TerritoryLevel } from '@/api/types';
 import { AnimatedText } from '@/components/AnimatedText';
-import type { SearchResult } from '@/lib/searchIndex';
 
 import { LocationButton, type LocatedMunicipality } from './LocationButton';
 
 const MIN_QUERY_LENGTH = 2;
 
+export interface SearchResult {
+  ibgeCode: string;
+  name: string;
+  level: TerritoryLevel;
+  abbreviation: string | null;
+  parentCode: string | null;
+  parentName: string | null;
+}
+
 interface Props {
   onSelect: (result: SearchResult) => void;
-  backgroundReady?: boolean;
   onPreview?: (code: string) => void;
   onLocated: (location: LocatedMunicipality) => void;
 }
@@ -48,14 +53,13 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
 
   const results: SearchResult[] = useMemo(() => {
     if (!searchResultsQuery.data?.territories) return [];
-    return searchResultsQuery.data.territories.map((row, idx) => ({
+    return searchResultsQuery.data.territories.map((row) => ({
       ibgeCode: row.ibgeCode,
       name: row.name,
       level: row.level,
       abbreviation: row.abbreviation,
       parentCode: row.parent?.ibgeCode ?? null,
       parentName: row.parent?.name ?? null,
-      score: idx,
     }));
   }, [searchResultsQuery.data]);
 
@@ -218,9 +222,10 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
           Não foi possível carregar a busca.
         </p>
       )}
-      {showDropdown && results.length === 0 && !searchResultsQuery.isLoading && !searchResultsQuery.isError && (
-        <p className="search-empty">Nada encontrado</p>
-      )}
+      {showDropdown &&
+        results.length === 0 &&
+        !searchResultsQuery.isLoading &&
+        !searchResultsQuery.isError && <p className="search-empty">Nada encontrado</p>}
     </div>
   );
 }

@@ -193,3 +193,20 @@ test('ClimateOverview renderiza dados pré-calculados do servidor sem precisar p
 });
 
 
+
+test('ClimateOverview marca cidades estimadas com ≈ e explica no rodapé', async () => {
+  const hottest = [{ id: '3509502', name: 'Campinas', temperatureC: 31, stateAbbreviation: 'SP', isInferred: true }];
+  const coldest = [{ id: '3550308', name: 'São Paulo', temperatureC: 19, stateAbbreviation: 'SP' }];
+  await act(async () =>
+    root.render(h(ClimateOverview, { hottest, coldest, onSelect: () => {}, isDrilledDown: true })),
+  );
+  const details = document.querySelector('details');
+  await act(async () => {
+    details.open = true;
+    details.dispatchEvent(new dom.window.Event('toggle'));
+  });
+  const [estimated, measured] = document.querySelectorAll('.climate-ranking-city strong');
+  assert.equal(estimated.textContent, '≈estimado:31°C');
+  assert.equal(measured.textContent, '19°C');
+  assert.match(document.querySelector('.source-note').textContent, /≈ estimado a partir de cidades próximas\./);
+});

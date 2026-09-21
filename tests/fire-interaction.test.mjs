@@ -811,3 +811,56 @@ test('WeatherOptions exibe faixa de temperatura mínima e máxima no badge da ca
   assert.equal(singleBadge.textContent, '24°C · Campinas');
 });
 
+
+test('tooltip do mapa marca de leve a temperatura estimada e não marca a medida', async () => {
+  const municipality = (code, west) => ({
+    type: 'Feature', id: code,
+    properties: { ibgeCode: code, name: `Município ${code}`, level: 'municipality', value: null },
+    geometry: { type: 'MultiPolygon', coordinates: [[[
+      [west, -12], [west + 1, -12], [west + 1, -11], [west, -11], [west, -12],
+    ]]] },
+  });
+  const weatherByCode = new Map([
+    ['5100001', { id: '5100001', temperatureC: 32, weatherCode: 0 }],
+    ['5100002', { id: '5100002', temperatureC: 30, weatherCode: 0, isInferred: true }],
+  ]);
+  await act(async () => root.render(h(MapContainer,
+    { center: [-11.5, -54], zoom: 7, zoomControl: false }, h(CaptureMap),
+    h(ChoroplethLayer, {
+      collection: { type: 'FeatureCollection', indicator: null,
+        features: [municipality('5100001', -55), municipality('5100002', -54)],
+        scope: { level: 'municipality', parent: '51', lod: 'canonical' } },
+      selectedCode: null, onSelect: () => {}, weatherByCode,
+    }),
+  )));
+  const tooltip = () => document.getElementById('map-hover-tooltip').textContent;
+  const measured = document.querySelector('[aria-label="Município 5100001"]');
+  await act(async () => measured.dispatchEvent(new dom.window.FocusEvent('focus')));
+  assert.match(tooltip(), /32 °C/);
+  assert.doesNotMatch(tooltip(), /≈|estimado/);
+  const estimated = document.querySelector('[aria-label="Município 5100002"]');
+  await act(async () => estimated.dispatchEvent(new dom.window.FocusEvent('focus')));
+  assert.match(tooltip(), /≈ 30 °C/);
+  assert.match(tooltip(), /Céu limpo · estimado/);
+});
+
+test('WeatherPanel mostra o valor estimado com uma nota discreta', async () => {
+  const city = {
+    id: '3509502', name: 'Campinas', stateAbbreviation: 'SP', temperatureC: 23,
+    apparentTemperatureC: 23, humidityPct: 60, windSpeedKmh: 10, weatherCode: 1,
+    precipitationMm: 0, precipitationIntervalMinutes: 15,
+    observedAt: '2026-09-20T12:00:00Z', timezone: 'America/Sao_Paulo', forecast: [],
+  };
+  const draw = (value) => act(async () => root.render(h(QueryClientProvider, { client },
+    h(WeatherPanel, {
+      code: '3509502',
+      territory: { ibgeCode: '3509502', name: 'Campinas', parentName: 'São Paulo', level: 'municipality', value: null },
+      city: value, data: undefined, error: null, loading: false,
+      onClose: () => {}, onDrillDown: () => {},
+    }))));
+  await draw(city);
+  assert.doesNotMatch(document.querySelector('.weather-current').textContent, /Estimado/);
+  await draw({ ...city, isInferred: true });
+  assert.match(document.querySelector('.weather-current').textContent, /23°/);
+  assert.match(document.querySelector('.weather-current').textContent, /≈ Estimado a partir de cidades próximas/);
+});

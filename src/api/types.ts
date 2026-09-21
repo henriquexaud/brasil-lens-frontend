@@ -182,7 +182,8 @@ export interface MapQuery {
   indicator?: string | null;
   /** Ano ou `'latest'`. */
   year?: string;
-  lod?: GeometryLod;
+  /** A API não serve a malha canônica em `/map` (ver `MapLod` no backend). */
+  lod?: Exclude<GeometryLod, 'canonical'>;
 }
 
 /**
