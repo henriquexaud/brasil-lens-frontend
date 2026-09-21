@@ -3,7 +3,7 @@
  */
 import 'leaflet/dist/leaflet.css';
 
-import { latLngBounds, geoJSON } from 'leaflet';
+import { latLngBounds, geoJSON, type PathOptions, type PolylineOptions } from 'leaflet';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { GeoJSON, MapContainer, Pane, TileLayer, useMap } from 'react-leaflet';
@@ -24,6 +24,33 @@ import { scopeInsets } from './viewport';
 // Enquadramento inicial do Brasil, usado antes da primeira resposta.
 const BRAZIL_CENTER: [number, number] = [-14.5, -52];
 const BRAZIL_ZOOM = 4;
+
+const BRAZIL_OUTLINE_STYLE: PolylineOptions = {
+  smoothFactor: 0,
+  fill: false,
+  color: 'rgba(80, 105, 115, 0.45)',
+  weight: 1.5,
+  opacity: 0.85,
+  className: 'brazil-national-outline',
+};
+
+const STATE_HALO_STYLE: PolylineOptions = {
+  smoothFactor: 0,
+  fill: false,
+  color: '#ffffff',
+  weight: 4.2,
+  opacity: 0.75,
+  className: 'state-selected-halo',
+};
+
+const STATE_OUTLINE_STYLE: PolylineOptions = {
+  smoothFactor: 0,
+  fill: false,
+  color: 'rgba(30, 58, 75, 0.85)',
+  weight: 2.0,
+  opacity: 0.95,
+  className: 'state-selected-outline',
+};
 
 interface Props {
   /** Ausente para contextos sem coroplética (ex.: Clima) — ver `children`. */
@@ -179,13 +206,12 @@ export function MapView({
         style={{
           zIndex: 200,
           pointerEvents: 'none',
-          filter: 'grayscale(1) contrast(0.65) brightness(1.2)',
         }}
       >
         <TileLayer
           url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}"
           maxNativeZoom={9}
-          opacity={0.45}
+          opacity={0.32}
           attribution='<a href="https://www.esri.com/">Esri</a>, USGS, NOAA'
         />
       </Pane>
@@ -197,13 +223,7 @@ export function MapView({
             key="brazil-national-boundary"
             data={brazilOutline}
             interactive={false}
-            style={{
-              fill: false,
-              color: 'rgba(80, 105, 115, 0.45)',
-              weight: 1.5,
-              opacity: 0.85,
-              className: 'brazil-national-outline',
-            }}
+            style={BRAZIL_OUTLINE_STYLE as PathOptions}
           />
         </Pane>
       )}
@@ -240,25 +260,13 @@ export function MapView({
             key={`state-outline-${stateOutline.id ?? stateOutline.properties.ibgeCode}:halo`}
             data={stateOutline}
             interactive={false}
-            style={{
-              fill: false,
-              color: '#ffffff',
-              weight: 4.2,
-              opacity: 0.75,
-              className: 'state-selected-halo',
-            }}
+            style={STATE_HALO_STYLE as PathOptions}
           />
           <GeoJSON
             key={`state-outline-${stateOutline.id ?? stateOutline.properties.ibgeCode}:stroke`}
             data={stateOutline}
             interactive={false}
-            style={{
-              fill: false,
-              color: 'rgba(30, 58, 75, 0.85)',
-              weight: 2.0,
-              opacity: 0.95,
-              className: 'state-selected-outline',
-            }}
+            style={STATE_OUTLINE_STYLE as PathOptions}
           />
         </Pane>
       )}

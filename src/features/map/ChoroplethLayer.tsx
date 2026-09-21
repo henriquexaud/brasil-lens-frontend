@@ -5,6 +5,7 @@ import {
   type LeafletMouseEvent,
   type Layer,
   Path,
+  type PathOptions,
   Polygon,
   type PolylineOptions,
 } from 'leaflet';
@@ -32,6 +33,24 @@ import { densityColor, type FireMode } from '@/features/fire/fireDensity';
 import { formatFireDate } from '@/features/fire/fireStyles';
 import { rainColor, rainDescription } from '@/features/rainfall/rainScale';
 import { measurement, weatherDescription } from '@/features/weather/conditions';
+
+const SELECTION_HALO_STYLE: PolylineOptions = {
+  smoothFactor: 0,
+  fill: false,
+  color: '#ffffff',
+  weight: 4.5,
+  opacity: 0.8,
+  className: 'territory-selection-halo',
+};
+
+const SELECTION_OUTLINE_STYLE: PolylineOptions = {
+  smoothFactor: 0,
+  fill: false,
+  color: SELECTED_COLOR,
+  weight: 1.8,
+  opacity: 0.95,
+  className: 'territory-selection-outline',
+};
 
 interface Props {
   collection: MapFeatureCollection;
@@ -332,7 +351,7 @@ function Territories({
           className: 'territory-shape climate-territory-shape',
         };
       }
-      if (isClimate && climateMode) {
+      if (isClimate && (climateMode || (!fireMode && !rainMode))) {
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
         const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
         const hasColor = hasDirectTemp;
@@ -599,7 +618,7 @@ function Territories({
       element?.setAttribute('tabindex', '0');
       element?.setAttribute('role', 'button');
       element?.setAttribute('aria-label', properties.name);
-      element?.setAttribute('aria-pressed', String(properties.ibgeCode === selectedCode));
+      element?.setAttribute('aria-pressed', String(properties.ibgeCode === propsRef.current.selectedCode));
       element?.setAttribute('aria-keyshortcuts', 'Enter Space Shift+Enter');
       element?.setAttribute(
         'aria-description',
@@ -684,13 +703,7 @@ function Territories({
 
             pane="territory-selection"
             interactive={false}
-            style={{
-              fill: false,
-              color: '#ffffff',
-              weight: 4.5,
-              opacity: 0.8,
-              className: 'territory-selection-halo',
-            }}
+            style={SELECTION_HALO_STYLE as PathOptions}
           />
           <GeoJSON
             ref={selectionOutlineRef}
@@ -700,13 +713,7 @@ function Territories({
 
             pane="territory-selection"
             interactive={false}
-            style={{
-              fill: false,
-              color: SELECTED_COLOR,
-              weight: 1.8,
-              opacity: 0.95,
-              className: 'territory-selection-outline',
-            }}
+            style={SELECTION_OUTLINE_STYLE as PathOptions}
           />
         </>
       )}

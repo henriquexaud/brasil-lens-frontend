@@ -14,6 +14,7 @@ export function FireOverview({
 }) {
   const ranked = useMemo(
     () =>
+      summary.rankedMunicipalities ??
       summary.municipalities
         .filter((city) => city.density != null && city.count > 0)
         .sort((a, b) => b.density! - a.density!)

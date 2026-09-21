@@ -622,12 +622,80 @@ test('WeatherPanel em camada de chuva exibe métricas de precipitação e oculta
   assert.ok(rainCard);
   assert.match(rainCard.textContent, /45,2\s*mm/);
   assert.match(rainCard.textContent, /90%/);
+  const forecastCard = document.querySelector('.rain-forecast-card');
+  assert.ok(forecastCard);
+  assert.match(forecastCard.textContent, /Previsão diária de chuva/);
+  assert.match(forecastCard.textContent, /45,2\s*mm/);
   // Não deve conter clima geral (°C, Sensação, Umidade) nem disclosure de focos de calor
   assert.equal(document.querySelector('.weather-disclosure'), null);
   assert.doesNotMatch(panel.textContent, /Condições meteorológicas/);
   assert.doesNotMatch(panel.textContent, /°C/);
   assert.doesNotMatch(panel.textContent, /Focos de calor/);
   assert.doesNotMatch(panel.textContent, /focos \/ 1\.000 km²/);
+});
+
+test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disclosure de chuva', async () => {
+  const dummyCity = {
+    id: '3550308',
+    name: 'São Paulo',
+    stateAbbreviation: 'SP',
+    temperatureC: 24.2,
+    apparentTemperatureC: 25.1,
+    humidityPct: 65,
+    windSpeedKmh: 14,
+    weatherCode: 1,
+    precipitationSumMm: 12.0,
+    precipitationProbabilityPct: 70,
+    precipitationIntervalMinutes: 15,
+    precipitationMm: 0.5,
+    observedAt: '2026-09-20T12:00:00Z',
+    timezone: 'America/Sao_Paulo',
+    forecast: [],
+  };
+
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherPanel, {
+          code: '3550308',
+          territory: { ibgeCode: '3550308', name: 'São Paulo', parentName: 'São Paulo', level: 'municipality', value: null },
+          city: dummyCity,
+          data: undefined,
+          error: null,
+          loading: false,
+          onClose: () => {},
+          onDrillDown: () => {},
+          fireActive: false,
+          rainActive: false,
+        }),
+      ),
+    ),
+  );
+
+  const panel = document.querySelector('.territory-detail');
+  assert.ok(panel);
+  assert.equal(panel.getAttribute('aria-label'), 'Clima do local selecionado');
+  assert.match(panel.textContent, /24,2°/);
+  assert.match(panel.textContent, /Sensação de 25,1°/);
+
+  // Não deve exibir disclosure de Quantidade de chuva no modo clima puro
+  const summaries = Array.from(document.querySelectorAll('summary')).map((s) => s.textContent);
+  assert.equal(summaries.some((text) => text.includes('Quantidade de chuva')), false);
+
+  // Ao abrir "Mais detalhes", deve exibir Umidade e Vento, mas não chuva
+  const details = Array.from(document.querySelectorAll('details')).find((d) =>
+    d.textContent?.includes('Mais detalhes'),
+  );
+  assert.ok(details);
+  await act(async () => {
+    details.open = true;
+    details.dispatchEvent(new dom.window.Event('toggle'));
+  });
+  assert.match(details.textContent, /Umidade/);
+  assert.match(details.textContent, /Vento/);
+  assert.doesNotMatch(details.textContent, /Chuva acumulada/);
 });
 
 test('WeatherOptions exibe Clima, Focos e Chuva com concorrência e estado de atualização', async () => {

@@ -162,3 +162,34 @@ test('ClimateOverview retorna null quando não há cidades com temperatura váli
   assert.equal(document.querySelector('.climate-ranking'), null);
 });
 
+test('ClimateOverview renderiza dados pré-calculados do servidor sem precisar processar cidades', async () => {
+  const hottest = [{ id: 'MT', name: 'Cuiabá', temperatureC: 38.5, stateAbbreviation: 'MT' }];
+  const coldest = [{ id: 'PR', name: 'Curitiba', temperatureC: 12.0, stateAbbreviation: 'PR' }];
+
+  await act(async () =>
+    root.render(
+      h(ClimateOverview, {
+        hottest,
+        coldest,
+        onSelect: () => {},
+        isDrilledDown: false,
+      }),
+    ),
+  );
+
+  const details = document.querySelector('details');
+  assert.ok(details);
+  await act(async () => {
+    details.open = true;
+    details.dispatchEvent(new dom.window.Event('toggle'));
+  });
+
+  const cityButtons = document.querySelectorAll('.climate-ranking-city');
+  assert.equal(cityButtons.length, 2);
+  assert.match(cityButtons[0].textContent, /Cuiabá/);
+  assert.match(cityButtons[0].textContent, /39°C/);
+  assert.match(cityButtons[1].textContent, /Curitiba/);
+  assert.match(cityButtons[1].textContent, /12°C/);
+});
+
+

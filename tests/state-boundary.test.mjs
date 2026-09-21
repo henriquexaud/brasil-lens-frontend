@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findStateOutline } from '../src/features/map/stateBoundary.ts';
+import { findStateOutline, resolveSelectedStateOutline } from '../src/features/map/stateBoundary.ts';
 
 test('seleção do contorno do estado ao entrar em uma UF', () => {
   const mockStatesOverview = [
@@ -57,14 +57,6 @@ test('priorização do contorno detalhado (detail LOD) com fallback para overvie
     },
   ];
 
-  function resolveSelectedStateOutline(isDrilledDown, parentCode, detailFeatures, overviewFeatures) {
-    if (!isDrilledDown || !parentCode) return null;
-    const detailed = findStateOutline(isDrilledDown, parentCode, detailFeatures);
-    if (detailed) {
-      return { ...detailed, id: `${detailed.id}:detail` };
-    }
-    return findStateOutline(isDrilledDown, parentCode, overviewFeatures);
-  }
 
   // Quando o lote detalhado está carregado, usa a geometria nítida com id ':detail'
   const sharpOutline = resolveSelectedStateOutline(true, '35', mockStatesDetail, mockStatesOverview);

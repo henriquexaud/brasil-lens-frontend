@@ -13,9 +13,9 @@
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
-import { useSearchIndex } from '@/api/queries';
+import { useTerritorySearch } from '@/api/queries';
 import { AnimatedText } from '@/components/AnimatedText';
-import { searchTerritories, type SearchResult } from '@/lib/searchIndex';
+import type { SearchResult } from '@/lib/searchIndex';
 
 import { LocationButton, type LocatedMunicipality } from './LocationButton';
 
@@ -28,19 +28,36 @@ interface Props {
   onLocated: (location: LocatedMunicipality) => void;
 }
 
-export function SearchBox({ onSelect, backgroundReady = false, onPreview, onLocated }: Props) {
+export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const index = useSearchIndex(focused || backgroundReady);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
 
-  const results = useMemo(() => {
-    if (query.trim().length < MIN_QUERY_LENGTH || !index.data) return [];
-    return searchTerritories(query, index.data);
-  }, [query, index.data]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const searchResultsQuery = useTerritorySearch(debouncedQuery, focused);
+
+  const results: SearchResult[] = useMemo(() => {
+    if (!searchResultsQuery.data?.territories) return [];
+    return searchResultsQuery.data.territories.map((row, idx) => ({
+      ibgeCode: row.ibgeCode,
+      name: row.name,
+      level: row.level,
+      abbreviation: row.abbreviation,
+      parentCode: row.parent?.ibgeCode ?? null,
+      parentName: row.parent?.name ?? null,
+      score: idx,
+    }));
+  }, [searchResultsQuery.data]);
 
   const showDropdown = focused && query.trim().length >= MIN_QUERY_LENGTH;
 
@@ -191,17 +208,17 @@ export function SearchBox({ onSelect, backgroundReady = false, onPreview, onLoca
         </ul>
       )}
 
-      {showDropdown && index.isLoading && (
+      {showDropdown && searchResultsQuery.isLoading && (
         <p className="search-empty" role="status">
-          Carregando lugares…
+          Buscando lugares…
         </p>
       )}
-      {showDropdown && index.isError && (
+      {showDropdown && searchResultsQuery.isError && (
         <p className="search-empty" role="status">
           Não foi possível carregar a busca.
         </p>
       )}
-      {showDropdown && results.length === 0 && !index.isLoading && !index.isError && (
+      {showDropdown && results.length === 0 && !searchResultsQuery.isLoading && !searchResultsQuery.isError && (
         <p className="search-empty">Nada encontrado</p>
       )}
     </div>

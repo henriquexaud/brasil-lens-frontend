@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { CircleMarker, Pane, Tooltip, useMap } from 'react-leaflet';
 import type { WeatherCity } from '@/api/types';
 import { colorForTemperature } from '@/features/map/colors';
+import { rainColor } from '@/features/rainfall/rainScale';
 import { WeatherIcon } from '@/features/weather/conditions';
 
 const ATTRIBUTION =
@@ -11,10 +12,12 @@ export function WeatherLayer({
   cities,
   selectedId,
   municipal,
+  mode = 'temperature',
 }: {
   cities: WeatherCity[];
   selectedId?: string;
   municipal: boolean;
+  mode?: 'temperature' | 'rainfall';
 }) {
   const map = useMap();
   const [viewport, setViewport] = useState(() => ({ zoom: map.getZoom(), revision: 0 }));
@@ -31,19 +34,30 @@ export function WeatherLayer({
     };
   }, [map]);
 
+  const isRain = mode === 'rainfall';
+
   // Ordena para que o território selecionado fique sempre no topo da pilha visual.
   const sortedCities = (() => {
-    const candidates = cities.filter(
-      (city) => city.temperatureC != null && Number.isFinite(city.temperatureC),
+    const candidates = cities.filter((city) =>
+      isRain
+        ? city.precipitationSumMm != null || city.precipitationMm != null || city.temperatureC != null
+        : city.temperatureC != null && Number.isFinite(city.temperatureC),
     );
     if (municipal) {
       // Todas as cores continuam no mapa; os rótulos disputam espaço, não dados.
       // O município selecionado tem prioridade e os demais reaparecem ao aproximar.
       const size = map.getSize();
       const occupied: Array<{ x: number; y: number }> = [];
-      const priority = [...candidates].sort(
-        (a, b) => Number(b.id === selectedId) - Number(a.id === selectedId),
-      );
+      const priority = [...candidates].sort((a, b) => {
+        if (a.id === selectedId) return -1;
+        if (b.id === selectedId) return 1;
+        if (isRain) {
+          const rainA = a.precipitationSumMm ?? a.precipitationMm ?? 0;
+          const rainB = b.precipitationSumMm ?? b.precipitationMm ?? 0;
+          return rainB - rainA;
+        }
+        return 0;
+      });
       const visible = new Set<string>();
       for (const city of priority) {
         const point = map.latLngToContainerPoint([city.latitude, city.longitude]);
@@ -79,9 +93,17 @@ export function WeatherLayer({
         const isSelected = city.id === selectedId;
         const isCapital = !municipal || index === 0;
         const shouldShowPill = isSelected || showAllPills || isCapital;
-        const color = colorForTemperature(city.temperatureC);
 
         if (!shouldShowPill) return null;
+
+        const rainVal = city.precipitationSumMm ?? city.precipitationMm ?? 0;
+        const color = isRain ? rainColor(rainVal) : colorForTemperature(city.temperatureC);
+        const formattedRain =
+          rainVal > 0
+            ? rainVal >= 10
+              ? `${Math.round(rainVal)} mm`
+              : `${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`
+            : '0 mm';
 
         return (
           <Fragment key={city.id}>
@@ -113,20 +135,46 @@ export function WeatherLayer({
                       } as React.CSSProperties
                     }
                   >
-                    <span className="weather-pill-icon">
-                      <WeatherIcon code={city.weatherCode} size={13} />
-                    </span>
-                    <span className="weather-pill-temp">{Math.round(city.temperatureC)}°</span>
+                    {isRain ? (
+                      <>
+                        <span
+                          className="weather-pill-dot"
+                          style={{ backgroundColor: color }}
+                          aria-hidden="true"
+                        />
+                        <span className="weather-pill-temp">{formattedRain}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="weather-pill-icon">
+                          <WeatherIcon code={city.weatherCode} size={13} />
+                        </span>
+                        <span className="weather-pill-temp">{Math.round(city.temperatureC)}°</span>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div
                     className={`weather-pill ${isSelected ? 'is-selected' : ''} ${isCompact && !isSelected ? 'is-compact' : ''}`}
                     style={{ '--pill-band-color': color } as React.CSSProperties}
                   >
-                    <span className="weather-pill-icon">
-                      <WeatherIcon code={city.weatherCode} size={14} />
-                    </span>
-                    <span className="weather-pill-temp">{Math.round(city.temperatureC)}°</span>
+                    {isRain ? (
+                      <>
+                        <span
+                          className="weather-pill-dot"
+                          style={{ backgroundColor: color }}
+                          aria-hidden="true"
+                        />
+                        <span className="weather-pill-temp">{formattedRain}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="weather-pill-icon">
+                          <WeatherIcon code={city.weatherCode} size={14} />
+                        </span>
+                        <span className="weather-pill-temp">{Math.round(city.temperatureC)}°</span>
+                      </>
+                    )}
                   </div>
                 )}
               </Tooltip>

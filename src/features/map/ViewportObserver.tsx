@@ -42,15 +42,9 @@ export function ViewportObserver({
       clearTimeout(timer);
       timer = setTimeout(update, 120);
     };
-    const move = () => {
-      clearTimeout(timer);
-      onChange({ ...last, moving: true });
-    };
-    map.on('movestart', move);
     map.on('moveend resize', settle);
     return () => {
       clearTimeout(timer);
-      map.off('movestart', move);
       map.off('moveend resize', settle);
     };
   }, [map, onChange, scopeKey]);

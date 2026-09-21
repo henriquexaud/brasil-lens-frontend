@@ -379,6 +379,22 @@ export function useSearchIndex(enabled = true) {
   });
 }
 
+/**
+ * Busca remota de territórios delegada ao backend.
+ * O backend realiza a filtragem insensível a acentos e a ordenação por relevância.
+ */
+export function useTerritorySearch(query: string, enabled = true, limit = 8) {
+  const clean = query.trim();
+  return useQuery({
+    queryKey: ['territories', 'search', clean, limit] as const,
+    queryFn: ({ signal }) =>
+      apiGet<TerritoryListResponse>('/territories', { search: clean, limit }, signal),
+    enabled: enabled && clean.length >= 2,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
+}
+
 /* --------------------------------------------------------- visualizações --
  *
  * As quatro operações do CRUD de visualizações salvas, os únicos pontos em que
@@ -537,6 +553,32 @@ export function useMunicipalityWeather(
     isCoverageComplete: reachedMaxStages || (!hasNextPage && pageCount > 0),
     totalCoverageCities,
   };
+}
+
+export function useUserStateWeather(parent: string | null, enabled: boolean) {
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: ['weather', 'state', parent],
+    queryFn: ({ signal }) =>
+      apiGet<WeatherCurrentResponse>('/weather/state', { parent }, signal),
+    enabled: enabled && Boolean(parent),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!query.data) return;
+    const updatedAt = Date.parse(query.data.fetchedAt);
+    for (const city of query.data.cities) {
+      const key = weatherCurrentOptions(city.id).queryKey;
+      if ((client.getQueryState(key)?.dataUpdatedAt ?? 0) >= updatedAt) continue;
+      client.setQueryData(key, { ...query.data, cities: [city], nextOffset: null }, { updatedAt });
+    }
+  }, [client, query.data]);
+
+  return query;
 }
 
 export function usePrefetchWeatherCurrent() {

@@ -4,19 +4,26 @@ import { Disclosure } from '@/components/Disclosure';
 import { colorForTemperature } from '@/features/map/colors';
 
 export interface ClimateOverviewProps {
-  cities: WeatherCity[];
+  cities?: WeatherCity[];
+  hottest?: WeatherCity[];
+  coldest?: WeatherCity[];
   onSelect: (city: WeatherCity) => void;
   scopeName?: string;
   isDrilledDown?: boolean;
 }
 
 export function ClimateOverview({
-  cities,
+  cities = [],
+  hottest: precalculatedHottest,
+  coldest: precalculatedColdest,
   onSelect,
   scopeName,
   isDrilledDown = false,
 }: ClimateOverviewProps) {
   const { hottest, coldest } = useMemo<{ hottest: WeatherCity[]; coldest: WeatherCity[] }>(() => {
+    if (precalculatedHottest && precalculatedColdest) {
+      return { hottest: precalculatedHottest, coldest: precalculatedColdest };
+    }
     const valid = cities.filter(
       (c) => c.temperatureC != null && Number.isFinite(c.temperatureC),
     );
@@ -44,7 +51,7 @@ export function ClimateOverview({
     const topColdest = sortedAsc.filter((c) => !hottestIds.has(c.id)).slice(0, maxPerGroup);
 
     return { hottest: topHottest, coldest: topColdest };
-  }, [cities]);
+  }, [cities, precalculatedHottest, precalculatedColdest]);
 
   if (!hottest.length && !coldest.length) {
     return null;

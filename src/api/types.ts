@@ -173,6 +173,7 @@ export interface MapFeatureCollection {
   /** Ausente quando não há extensão conhecida — a RFC 7946 não admite `null`. */
   bbox?: BoundingBox;
   features: MapFeature[];
+  parentFeature?: MapFeature | null;
 }
 
 export interface MapQuery {
@@ -339,12 +340,22 @@ export interface WeatherCity {
   isInferred?: boolean;
 }
 
+export interface WeatherSummary {
+  minTemperature?: number | null;
+  maxTemperature?: number | null;
+  maxRainfall?: number | null;
+  hottest: WeatherCity[];
+  coldest: WeatherCity[];
+  rankedRainfall: WeatherCity[];
+}
+
 export interface WeatherCurrentResponse {
   source: string;
   sourceUrl: string;
   fetchedAt: string;
   status: WeatherSourceStatusValue;
   cities: WeatherCity[];
+  summary?: WeatherSummary | null;
   nextOffset: number | null;
 }
 
@@ -476,6 +487,7 @@ export interface FireSummary {
   total: number;
   municipalities: FireMunicipality[];
   states: FireMunicipality[];
+  rankedMunicipalities?: FireMunicipality[];
   unassignedCount: number;
   areaSource: string;
 }

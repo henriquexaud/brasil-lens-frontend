@@ -239,6 +239,72 @@ function RainStatusSection({
   );
 }
 
+function formatWeekday(dateStr: string): string {
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = Number(parts[0]);
+      const month = Number(parts[1]) - 1;
+      const day = Number(parts[2]);
+      const d = new Date(year, month, day);
+      return d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
+
+function RainForecastSection({ city }: { city: WeatherCity }) {
+  const forecastDays = city.forecast?.slice(0, 7) ?? [];
+  if (forecastDays.length === 0) return null;
+
+  return (
+    <div className="rain-forecast-card">
+      <h3 className="rain-forecast-title">Previsão diária de chuva</h3>
+      <div className="rain-forecast-list" role="list">
+        {forecastDays.map((day, idx) => {
+          const rainMm = day.precipitationSumMm ?? 0;
+          const prob = day.precipitationProbabilityPct;
+          const color = rainColor(rainMm);
+          const isToday = idx === 0;
+          const dayLabel = isToday ? 'Hoje' : formatWeekday(day.date);
+          const barWidth = Math.min(100, Math.max(rainMm > 0 ? 8 : 0, (rainMm / 60) * 100));
+
+          return (
+            <div key={day.date} className="rain-forecast-row" role="listitem">
+              <span className="rain-forecast-day">{dayLabel}</span>
+              <div className="rain-forecast-bar-track">
+                {rainMm > 0 && (
+                  <div
+                    className="rain-forecast-bar-fill"
+                    style={{
+                      width: `${barWidth}%`,
+                      backgroundColor: color,
+                    }}
+                  />
+                )}
+              </div>
+              <div className="rain-forecast-values">
+                <span className="rain-forecast-prob" title="Probabilidade de chuva">
+                  {prob != null ? `${prob}%` : '—'}
+                </span>
+                <span className="rain-forecast-mm">
+                  {Number(rainMm).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}{' '}
+                  mm
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export interface WeatherPanelProps {
   code: string;
   territory: MapFeatureProperties | undefined;
@@ -307,16 +373,6 @@ export function WeatherPanel({
             <dt className="indicator-label">Vento</dt>
             <dd className="indicator-value">{measurement(city.windSpeedKmh, ' km/h')}</dd>
           </div>
-          <div className="indicator-row">
-            <dt className="indicator-label">Chuva acumulada (24h)</dt>
-            <dd className="indicator-value">
-              {measurement(city.precipitationSumMm ?? city.precipitationMm, ' mm')}
-            </dd>
-          </div>
-          <div className="indicator-row">
-            <dt className="indicator-label">Chuva em {city.precipitationIntervalMinutes} min</dt>
-            <dd className="indicator-value">{measurement(city.precipitationMm, ' mm')}</dd>
-          </div>
         </dl>
         <p className="source-note">
           Condições de{' '}
@@ -373,13 +429,16 @@ export function WeatherPanel({
         />
       )}
 
-      {/* Quando a camada de chuva está ativa, Chuva é o elemento primário (Hero) */}
+      {/* Quando a camada de chuva está ativa, Chuva é o elemento primário (Hero) com previsão diária */}
       {!fireActive && rainActive && (
-        <RainStatusSection
-          city={city}
-          loading={loading}
-          highlight
-        />
+        <>
+          <RainStatusSection
+            city={city}
+            loading={loading}
+            highlight
+          />
+          {city && <RainForecastSection city={city} />}
+        </>
       )}
 
       {!city && loading && !fireActive && !rainActive && (
@@ -399,17 +458,6 @@ export function WeatherPanel({
         <button className="drill-button" onClick={() => onDrillDown(code, territory.name)}>
           Ver municípios <span aria-hidden="true">→</span>
         </button>
-      )}
-
-      {/* Quando o foco é Clima geral, a chuva fica disponível se houver cidade */}
-      {!fireActive && !rainActive && (city || loading) && (
-        <Disclosure
-          title="Quantidade de chuva"
-          defaultOpen={Boolean(city && (city.precipitationSumMm ?? city.precipitationMm ?? 0) > 0)}
-          className="weather-disclosure"
-        >
-          <RainStatusSection city={city} loading={loading} />
-        </Disclosure>
       )}
 
       {/* Focos de calor disponíveis quando não é a camada ativa */}

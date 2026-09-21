@@ -3,17 +3,22 @@ import type { WeatherCity } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
 import { rainColor } from './rainScale';
 
-export function RainOverview({
-  cities,
-  onSelect,
-  scopeName,
-}: {
-  cities: WeatherCity[];
+export interface RainOverviewProps {
+  cities?: WeatherCity[];
+  ranked?: WeatherCity[];
   onSelect: (city: WeatherCity) => void;
   scopeName?: string;
-}) {
+}
+
+export function RainOverview({
+  cities = [],
+  ranked: precalculatedRanked,
+  onSelect,
+  scopeName,
+}: RainOverviewProps) {
   const ranked = useMemo(
     () =>
+      precalculatedRanked ??
       cities
         .filter((c) => {
           const val = c.precipitationSumMm ?? c.precipitationMm ?? 0;
@@ -25,7 +30,7 @@ export function RainOverview({
           return valB - valA;
         })
         .slice(0, 5),
-    [cities],
+    [cities, precalculatedRanked],
   );
 
   if (!ranked.length) return null;

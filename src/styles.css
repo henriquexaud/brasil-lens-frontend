@@ -2705,6 +2705,78 @@ body {
   color: var(--text);
 }
 
+/* Previsão diária especializada na camada de chuva */
+.rain-forecast-card {
+  margin: 10px 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.rain-forecast-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+}
+
+.rain-forecast-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.rain-forecast-row {
+  display: grid;
+  grid-template-columns: 38px 1fr 82px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.rain-forecast-day {
+  font-weight: 600;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.rain-forecast-bar-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.rain-forecast-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--motion-fast) var(--ease-out);
+}
+
+.rain-forecast-values {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rain-forecast-prob {
+  font-size: 10.5px;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.rain-forecast-mm {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 48px;
+  text-align: right;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hydro-shape {
     animation: none;
