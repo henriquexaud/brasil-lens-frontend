@@ -24,7 +24,7 @@ export function FireOverview({
   if (!ranked.length) return null;
   const title = scopeName ? `Maior densidade de focos · ${scopeName}` : 'Maior densidade de focos';
   return (
-    <Disclosure title={title} className="fire-ranking" defaultOpen={true}>
+    <Disclosure title={title} className="fire-ranking" defaultOpen={false}>
       <ol>
         {ranked.map((city) => (
           <li key={city.ibgeCode}>

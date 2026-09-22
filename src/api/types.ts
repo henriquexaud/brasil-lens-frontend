@@ -295,7 +295,14 @@ export type WeatherAlertProvider = 'inmet' | 'cemaden' | (string & {});
 export type WeatherAlertCategory = 'meteorological' | 'geo_hydrological';
 
 /** Tier visual comum entre fontes — o que decide cor/proeminência no mapa e na lista. */
-export type WeatherAlertSeverityLevel = 'potential' | 'danger' | 'extreme' | 'other';
+export type WeatherAlertSeverityLevel =
+  | 'moderate'
+  | 'high'
+  | 'very_high'
+  | 'extreme'
+  | 'potential'
+  | 'danger'
+  | 'other';
 
 export interface WeatherAlertProperties {
   provider: WeatherAlertProvider;

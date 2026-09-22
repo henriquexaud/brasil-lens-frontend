@@ -8,11 +8,21 @@ import type {
 import { Disclosure } from '@/components/Disclosure';
 import { describeError, ErrorMessage } from '@/components/Feedback';
 import { formatRelativeTime } from '@/lib/format';
-import { alertSourceLabel, getAlertStyle, SEVERITY_RANK } from './alertStyles';
+import { WeatherAlertCard } from './WeatherAlertCard';
+import { WeatherAlertGroupCard } from './WeatherAlertGroupCard';
+import { WeatherAlertsNationalSummary } from './WeatherAlertsNationalSummary';
+import { WeatherThematicSwitch } from './WeatherThematicSwitch';
+import {
+  IBGE_UF_MAP,
+  UF_NAMES,
+  groupStateAlerts,
+  partitionMunicipalityAlerts,
+} from './alertUtils';
 
 export interface WeatherOptionsProps {
   showAlerts: boolean;
   onToggleAlerts: (show: boolean) => void;
+  showThematicSelector?: boolean;
   showClimate?: boolean;
   onToggleClimate?: (show: boolean) => void;
   minTemperature?: number;
@@ -38,11 +48,14 @@ export interface WeatherOptionsProps {
   alertsData?: WeatherAlertCollection;
   alertsPending?: boolean;
   scopeName?: string;
+  selectedCode?: string | null;
+  parentCode?: string | null;
 }
 
 export function WeatherOptions({
   showAlerts,
   onToggleAlerts,
+  showThematicSelector = true,
   showClimate,
   onToggleClimate,
   minTemperature,
@@ -67,6 +80,8 @@ export function WeatherOptions({
   alertsData,
   alertsPending,
   scopeName,
+  selectedCode,
+  parentCode,
 }: WeatherOptionsProps) {
   const fallbackAlerts = useWeatherAlerts(showAlerts && alertsPending === undefined && !alertsData);
 
@@ -74,40 +89,65 @@ export function WeatherOptions({
   const isAlertsPending = alertsPending ?? fallbackAlerts.isPending;
   const alertsError = fallbackAlerts.error;
 
-  // Severidade mais importante que a fonte na lista também: o alerta mais
-  // grave aparece primeiro, não o mais recente nem o da fonte X ou Y.
-  const relevant = useMemo(() => {
-    const filtered = activeAlerts?.features.filter(
-      (alert) =>
-        !code ||
-        Boolean(
-          alert.properties.affectedIbgeCodes?.some((affected) =>
-            code.length === 2 ? affected.startsWith(code) : affected === code,
-          ),
-        ),
-    );
-    return filtered
-      ?.slice()
-      .sort(
-        (a, b) =>
-          SEVERITY_RANK[getAlertStyle(a.properties).tier] -
-          SEVERITY_RANK[getAlertStyle(b.properties).tier],
-      );
-  }, [activeAlerts, code]);
+  // Lógica progressiva: Brasil (nacional) → Estado → Município
+  const effectiveCode = selectedCode !== undefined ? selectedCode : code;
+  const effectiveParent = parentCode !== undefined ? parentCode : null;
 
-  const calculatedRange = useMemo(() => {
-    if (minTemperature != null && maxTemperature != null) {
-      return { min: minTemperature, max: maxTemperature };
+  const territoryLevel: 'national' | 'state' | 'municipality' = useMemo(() => {
+    if (effectiveCode && effectiveCode.length > 2) {
+      return 'municipality';
     }
-    const temps = (current?.cities ?? [])
-      .map((c) => c.temperatureC)
-      .filter((t): t is number => t != null && Number.isFinite(t));
-    if (!temps.length) return null;
-    return {
-      min: Math.min(...temps),
-      max: Math.max(...temps),
-    };
-  }, [minTemperature, maxTemperature, current?.cities]);
+    if ((effectiveCode && effectiveCode.length === 2) || effectiveParent) {
+      return 'state';
+    }
+    return 'national';
+  }, [effectiveCode, effectiveParent]);
+
+  const stateCode = useMemo(() => {
+    if (territoryLevel === 'municipality' && effectiveCode) {
+      return effectiveParent ?? effectiveCode.slice(0, 2);
+    }
+    if (territoryLevel === 'state') {
+      return (effectiveCode && effectiveCode.length === 2 ? effectiveCode : effectiveParent) ?? null;
+    }
+    return null;
+  }, [territoryLevel, effectiveCode, effectiveParent]);
+
+  const municipalityCode = territoryLevel === 'municipality' ? effectiveCode : null;
+  const stateUf = stateCode ? IBGE_UF_MAP[stateCode] : undefined;
+  const stateName = scopeName ?? (stateUf ? UF_NAMES[stateUf] : undefined);
+
+  // Visão de estado: ocorrências semelhantes agrupadas (ex.: Risco hidrológico · 8 municípios)
+  const groupedStateAlerts = useMemo(() => {
+    if (territoryLevel !== 'state' || !stateCode || !activeAlerts?.features) {
+      return [];
+    }
+    return groupStateAlerts(activeAlerts.features, stateCode);
+  }, [territoryLevel, stateCode, activeAlerts?.features]);
+
+  // Visão de município: particiona entre avisos locais diretos e demais avisos do estado
+  const { localAlerts, otherStateAlerts } = useMemo(() => {
+    if (territoryLevel !== 'municipality' || !municipalityCode || !stateCode || !activeAlerts?.features) {
+      return { localAlerts: [], otherStateAlerts: [] };
+    }
+    return partitionMunicipalityAlerts(activeAlerts.features, municipalityCode, stateCode);
+  }, [territoryLevel, municipalityCode, stateCode, activeAlerts?.features]);
+
+  // Contagem para o badge da camada de alertas no cabeçalho
+  const relevantCount = useMemo(() => {
+    if (!activeAlerts?.features) return 0;
+    if (territoryLevel === 'national') {
+      return activeAlerts.features.length;
+    }
+    if (territoryLevel === 'state') {
+      return activeAlerts.features.filter((a) =>
+        a.properties.affectedIbgeCodes?.some(
+          (c) => stateCode && (c.startsWith(stateCode) || c === stateCode),
+        ),
+      ).length;
+    }
+    return localAlerts.length;
+  }, [territoryLevel, activeAlerts?.features, stateCode, localAlerts.length]);
 
   return (
     <section
@@ -116,98 +156,26 @@ export function WeatherOptions({
     >
       {/* Grupo Unificado de Camadas Interativas */}
       <div className="weather-layers-panel">
-      {/* Seletor Segmentado de Camada Temática */}
-      <div className="weather-thematic-selector">
-        <p className="field-label sr-only">Modo de visualização do mapa</p>
-        <div className="weather-segmented-control" role="tablist" aria-label="Visualização temática do mapa">
-          {onToggleClimate && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={showClimate ?? false}
-              className={`weather-segment-btn ${showClimate ? 'is-active' : ''}`}
-              onClick={() => onToggleClimate(!showClimate)}
-            >
-              Clima
-            </button>
-          )}
-          {onToggleRainfall && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={showRainfall ?? false}
-              className={`weather-segment-btn ${showRainfall ? 'is-active' : ''}`}
-              onClick={() => onToggleRainfall(!showRainfall)}
-            >
-              Chuva
-            </button>
-          )}
-          {onToggleFireHotspots && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={showFireHotspots ?? false}
-              className={`weather-segment-btn ${showFireHotspots ? 'is-active' : ''}`}
-              onClick={() => onToggleFireHotspots(!showFireHotspots)}
-            >
-              Focos
-            </button>
-          )}
-        </div>
-
-        {/* Informações contextuais do modo ativo */}
-        {showClimate && (
-          <div className="weather-segment-info">
-            <span className="weather-layer-source">Open-Meteo</span>
-            {error != null && !calculatedRange ? (
-              <span className="weather-layer-badge badge-error">Indisponível</span>
-            ) : (
-              <span className="weather-layer-badge badge-climate">
-                {calculatedRange
-                  ? (Math.round(calculatedRange.min) || 0) ===
-                    (Math.round(calculatedRange.max) || 0)
-                    ? `${Math.round(calculatedRange.min) || 0}°C · ${scopeName ?? 'Brasil'}`
-                    : `${Math.round(calculatedRange.min) || 0} - ${Math.round(calculatedRange.max) || 0}°C · ${scopeName ?? 'Brasil'}`
-                  : 'Ativo'}
-              </span>
-            )}
-          </div>
+        {/* Seletor Segmentado de Camada Temática (quando habilitado no próprio painel) */}
+        {showThematicSelector && (
+          <WeatherThematicSwitch
+            showClimate={showClimate}
+            onToggleClimate={onToggleClimate}
+            minTemperature={minTemperature}
+            maxTemperature={maxTemperature}
+            showRainfall={showRainfall}
+            onToggleRainfall={onToggleRainfall}
+            maxRainfall={maxRainfall}
+            showFireHotspots={showFireHotspots}
+            onToggleFireHotspots={onToggleFireHotspots}
+            fireHotspotsLoading={fireHotspotsLoading}
+            fireHotspots={fireHotspots}
+            fireHotspotsError={fireHotspotsError}
+            current={current}
+            error={error}
+            scopeName={scopeName}
+          />
         )}
-
-        {showRainfall && (
-          <div className="weather-segment-info">
-            <span className="weather-layer-source">Open-Meteo / 24h</span>
-            {error != null && !current ? (
-              <span className="weather-layer-badge badge-error">Indisponível</span>
-            ) : (
-              <span className="weather-layer-badge badge-rain">
-                {maxRainfall != null && maxRainfall > 0
-                  ? `Máx: ${maxRainfall.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`
-                  : 'Ativo'}
-              </span>
-            )}
-          </div>
-        )}
-
-        {showFireHotspots && (
-          <div className="weather-segment-info">
-            <span className="weather-layer-source">INPE / Queimadas</span>
-            <span
-              className={`weather-layer-badge ${
-                fireHotspotsError ? 'badge-error' : 'badge-fire'
-              }`}
-            >
-              {fireHotspotsError
-                ? 'Indisponível'
-                : fireHotspotsLoading && !fireHotspots
-                  ? 'Carregando…'
-                  : fireHotspots
-                    ? `${fireHotspots.metadata.hotspotCount.toLocaleString('pt-BR')} focos · ${scopeName ?? 'Brasil'}`
-                    : 'Ativo'}
-            </span>
-          </div>
-        )}
-      </div>
 
         {/* Camada: Alertas — uma só camada para as duas fontes; a origem
             aparece dentro de cada alerta (ver Disclosure abaixo), nunca como
@@ -227,13 +195,13 @@ export function WeatherOptions({
           {showAlerts && (
             <span
               className={`weather-layer-badge ${
-                relevant && relevant.length > 0 ? 'badge-alert' : 'badge-neutral'
+                relevantCount > 0 ? 'badge-alert' : 'badge-neutral'
               }`}
             >
               {isAlertsPending && !activeAlerts
                 ? 'Consultando…'
-                : relevant && relevant.length > 0
-                  ? `${relevant.length} ${relevant.length === 1 ? 'alerta ativo' : 'alertas ativos'}`
+                : relevantCount > 0
+                  ? `${relevantCount} ${relevantCount === 1 ? 'alerta ativo' : 'alertas ativos'}`
                   : 'Sem alertas'}
             </span>
           )}
@@ -270,77 +238,95 @@ export function WeatherOptions({
         )}
       </div>
 
-      {/* Alertas Ativos no Território */}
+      {/* Alertas Ativos no Território com Divulgação Progressiva */}
       {showAlerts && (
         <div className="weather-alerts-container">
           {alertsError && <ErrorMessage error={alertsError} />}
-          {relevant && relevant.length > 0 && (
-            <div className="weather-alert-list">
-              {relevant.map(({ id, properties }) => {
-                const style = getAlertStyle(properties);
-                return (
+
+          {/* 1. Nível Nacional: Brasil (resumo compacto agregado, sem listar municípios ou boletins individuais) */}
+          {territoryLevel === 'national' && (
+            <WeatherAlertsNationalSummary features={activeAlerts?.features ?? []} />
+          )}
+
+          {/* 2. Nível Estadual: UF (ocorrências semelhantes agrupadas ex.: Risco hidrológico · 8 municípios) */}
+          {territoryLevel === 'state' && (
+            <div className="weather-alert-state-view">
+              {groupedStateAlerts.length > 0 ? (
+                <div className="weather-alert-list">
+                  {groupedStateAlerts.map((group) =>
+                    group.isGroup ? (
+                      <WeatherAlertGroupCard key={group.id} group={group} />
+                    ) : (
+                      <WeatherAlertCard
+                        key={group.id}
+                        feature={group.primaryFeature}
+                        showLocation={true}
+                      />
+                    ),
+                  )}
+                </div>
+              ) : (
+                <div className="weather-alerts-empty-state">
+                  <p className="source-note">
+                    Nenhum aviso ativo em {stateName ?? stateUf ?? 'neste estado'}.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 3. Nível Municipal: Município ("Neste município" prioritário + "Demais avisos no estado" recolhido) */}
+          {territoryLevel === 'municipality' && (
+            <div className="weather-alert-municipality-view">
+              <div className="weather-alert-section">
+                <div className="weather-alert-section-title">
+                  <span>Neste município</span>
+                  {localAlerts.length > 0 && (
+                    <span className="weather-alert-section-pill">{localAlerts.length}</span>
+                  )}
+                </div>
+                {localAlerts.length > 0 ? (
+                  <div className="weather-alert-list">
+                    {localAlerts.map((feature) => (
+                      <WeatherAlertCard
+                        key={feature.id}
+                        feature={feature}
+                        showLocation={false}
+                        defaultOpen={true}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="weather-alerts-empty-state">
+                    <p className="source-note">Nenhum aviso ativo diretamente para este município.</p>
+                  </div>
+                )}
+              </div>
+
+              {otherStateAlerts.length > 0 && (
+                <div className="weather-alert-secondary-section">
                   <Disclosure
-                    key={id}
                     title={
-                      <span className="weather-alert-title-row">
-                        <span
-                          className="weather-alert-indicator-dot"
-                          style={{
-                            backgroundColor: style.fillColor,
-                            borderColor: style.strokeColor,
-                          }}
-                          aria-hidden="true"
-                        />
-                        <span>
-                          {properties.event}
-                          {/* Frase livre da fonte (ex.: município do CEMADEN) — só
-                              existe quando `event` sozinho não basta. */}
-                          {properties.description && (
-                            <span className="weather-alert-description">
-                              {' '}
-                              — {properties.description}
-                            </span>
-                          )}
-                        </span>
+                      <span className="weather-alert-secondary-trigger-title">
+                        <span>Demais avisos em {stateUf ?? 'outros municípios'}</span>
+                        <span className="weather-alert-section-pill">{otherStateAlerts.length}</span>
                       </span>
                     }
+                    defaultOpen={false}
+                    className="weather-alert-secondary-disclosure"
                   >
-                    <div className="weather-alert-meta">
-                      <span
-                        className="weather-alert-severity-badge"
-                        style={{
-                          backgroundColor: style.badgeBg,
-                          borderColor: style.badgeBorder,
-                          color: style.badgeText,
-                        }}
-                      >
-                        {properties.severity}
-                      </span>
-                      {/* Origem dentro do alerta, discreta — severidade e tipo
-                          do risco continuam mais proeminentes visualmente. */}
-                      <span className="weather-alert-source-tag">
-                        {alertSourceLabel(properties.provider)}
-                      </span>
-                      <span className="source-note">
-                        até{' '}
-                        {properties.expires && !Number.isNaN(Date.parse(properties.expires))
-                          ? new Date(properties.expires).toLocaleString('pt-BR')
-                          : '—'}
-                      </span>
+                    <div className="weather-alert-list">
+                      {otherStateAlerts.map((feature) => (
+                        <WeatherAlertCard
+                          key={feature.id}
+                          feature={feature}
+                          showLocation={true}
+                        />
+                      ))}
                     </div>
-                    {(properties.risks ?? []).map((risk) => (
-                      <p className="source-note" key={risk}>
-                        {risk}
-                      </p>
-                    ))}
-                    {(properties.instructions ?? []).map((instruction) => (
-                      <p className="source-note" key={instruction}>
-                        {instruction}
-                      </p>
-                    ))}
                   </Disclosure>
-                );
-              })}
+                </div>
+              )}
             </div>
           )}
         </div>

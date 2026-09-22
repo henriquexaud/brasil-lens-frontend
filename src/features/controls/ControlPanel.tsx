@@ -1,9 +1,18 @@
-/** O indicador fica à vista; ano e explicação aparecem sob demanda. */
-import { useId, useRef, useState } from 'react';
+/**
+ * Menu do contexto socioeconômico com navegação em categorias segmentadas
+ * (População, Economia, Trabalho & Renda, Território) e pílulas de análises específicas.
+ */
+import { useId, useMemo, useRef, useState } from 'react';
 import type { Indicator } from '@/api/types';
 import { Select } from '@/components/Select';
+import {
+  formatIndicatorUnit,
+  getCategoryForIndicatorKey,
+  groupIndicatorsByCategory,
+} from './indicatorCategories';
 
 export const LATEST_YEAR = 'latest';
+
 interface Props {
   indicators: Indicator[];
   selectedIndicatorKey: string;
@@ -24,7 +33,29 @@ export function ControlPanel({
   const [expanded, setExpanded] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
-  const current = indicators.find((item) => item.key === selectedIndicatorKey);
+
+  // Agrupa os indicadores recebidos da API nas categorias principais
+  const categories = useMemo(
+    () => groupIndicatorsByCategory(indicators),
+    [indicators],
+  );
+
+  // Categoria ativa com base no indicador selecionado
+  const activeCategoryId = useMemo(
+    () => getCategoryForIndicatorKey(selectedIndicatorKey, categories),
+    [selectedIndicatorKey, categories],
+  );
+
+  const activeCategory = useMemo(
+    () => categories.find((c) => c.id === activeCategoryId) ?? categories[0],
+    [categories, activeCategoryId],
+  );
+
+  const current = useMemo(
+    () => indicators.find((item) => item.key === selectedIndicatorKey),
+    [indicators, selectedIndicatorKey],
+  );
+
   const years = current?.availableYears ?? [];
   const latest = current?.latestYear ?? resolvedYear;
   const label =
@@ -33,6 +64,7 @@ export function ControlPanel({
         ? `${latest} · Último`
         : 'Último disponível'
       : selectedYear;
+
   return (
     <section
       className="panel-section indicator-controls"
@@ -45,32 +77,93 @@ export function ControlPanel({
         }
       }}
     >
-      <Select
-        id="indicator"
-        label="Indicador"
-        hideLabel
-        value={selectedIndicatorKey}
-        options={indicators.map((item) => ({ value: item.key, label: item.name }))}
-        onChange={(value) => {
-          setExpanded(false);
-          onIndicatorChange(value);
-        }}
-      />
-      <button
-        ref={trigger}
-        className="text-button control-toggle"
-        aria-expanded={expanded}
-        aria-controls={id}
-        onClick={() => setExpanded(!expanded)}
-        aria-label="Ajustar ano e ver informações do indicador"
-      >
-        <span>{years.length ? label : 'Sem dados neste recorte'}</span>
-        <span>
-          Ajustes <span className="disclosure-chevron" aria-hidden="true" />
-        </span>
-      </button>
+      {/* 1. Barra de Categorias Segmentada */}
+      {categories.length > 1 && (
+        <div
+          className="indicator-segmented-control"
+          role="tablist"
+          aria-label="Dimensões socioeconômicas"
+        >
+          {categories.map((cat) => {
+            const isActive = cat.id === activeCategoryId;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`indicator-segment-btn ${isActive ? 'is-active' : ''}`}
+                onClick={() => {
+                  if (cat.id !== activeCategoryId) {
+                    setExpanded(false);
+                    onIndicatorChange(cat.defaultKey);
+                  }
+                }}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 2. Pílulas de Sub-indicadores da Categoria Ativa */}
+      {activeCategory && activeCategory.indicators.length > 0 && (
+        <div
+          className="indicator-pills-row"
+          role="group"
+          aria-label={`Análises de ${activeCategory.label}`}
+        >
+          {activeCategory.indicators.map(({ indicator, shortLabel }) => {
+            const isActive = indicator.key === selectedIndicatorKey;
+            return (
+              <button
+                key={indicator.key}
+                type="button"
+                className={`indicator-pill-btn ${isActive ? 'is-active' : ''}`}
+                aria-pressed={isActive}
+                title={indicator.name}
+                onClick={() => {
+                  setExpanded(false);
+                  onIndicatorChange(indicator.key);
+                }}
+              >
+                {shortLabel}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 3. Linha de Metadados e Acionador de Ajustes de Ano */}
+      <div className="indicator-meta-row">
+        <div className="indicator-meta-left">
+          <span className="indicator-source-tag">IBGE</span>
+          {current?.unit && (
+            <span className="indicator-unit-badge">
+              {formatIndicatorUnit(current.unit)}
+            </span>
+          )}
+        </div>
+        <button
+          ref={trigger}
+          type="button"
+          className="text-button indicator-adjust-toggle"
+          aria-expanded={expanded}
+          aria-controls={id}
+          onClick={() => setExpanded(!expanded)}
+          aria-label="Ajustar ano e ver informações do indicador"
+        >
+          <span className="indicator-year-label">{years.length ? label : 'Sem dados'}</span>
+          <span className="indicator-adjust-cta">
+            Ajustes <span className="disclosure-chevron" aria-hidden="true" />
+          </span>
+        </button>
+      </div>
+
+      {/* 4. Painel de Ajustes Expansível */}
       {expanded && (
-        <div id={id} className="control-extra">
+        <div id={id} className="control-extra indicator-extra-panel">
           {years.length > 1 && (
             <Select
               id="year"
@@ -85,7 +178,9 @@ export function ControlPanel({
               onChange={onYearChange}
             />
           )}
-          {current?.description && <p className="source-note">{current.description}</p>}
+          {current?.description && (
+            <p className="source-note">{current.description}</p>
+          )}
         </div>
       )}
     </section>

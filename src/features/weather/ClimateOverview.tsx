@@ -65,7 +65,7 @@ export function ClimateOverview({
     : 'Capital mais quente e capital mais fria';
 
   return (
-    <Disclosure title={title} className="climate-ranking" defaultOpen={true}>
+    <Disclosure title={title} className="climate-ranking" defaultOpen={false}>
       <div className="climate-ranking-groups">
         {hottest.length > 0 && (
           <div className="climate-ranking-group">

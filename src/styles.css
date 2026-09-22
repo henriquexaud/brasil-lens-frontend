@@ -383,10 +383,14 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
   pointer-events: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+}
+
+.panel::-webkit-scrollbar {
+  display: none;
 }
 
 .mobile-sheet-handle {
@@ -1585,6 +1589,167 @@ body {
   margin: 14px 0 0;
   align-items: center;
 }
+
+/* Switch temático de clima logo após o cabeçalho territorial */
+.thematic-switch-wrapper {
+  margin-top: 10px;
+  margin-bottom: 2px;
+}
+
+/* --- Novo Menu Socioeconômico com Categorias e Pílulas --- */
+.indicator-controls {
+  padding-top: 6px;
+  padding-bottom: 10px;
+}
+
+.indicator-segmented-control {
+  display: flex;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.indicator-segment-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.indicator-segment-btn:hover {
+  color: var(--text);
+  background: rgb(255 255 255 / 60%);
+}
+
+.indicator-segment-btn.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(38 55 61 / 8%);
+}
+
+/* Pílulas de Sub-indicadores */
+.indicator-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.indicator-pill-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 12px;
+  cursor: pointer;
+  line-height: 1.3;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.indicator-pill-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.indicator-pill-btn.is-active {
+  background: var(--text);
+  color: #fff;
+  border-color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+/* Linha de Metadados e Ajustes */
+.indicator-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 0;
+  font-size: 11.5px;
+}
+
+.indicator-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.indicator-source-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.indicator-unit-badge {
+  font-size: 11px;
+  color: var(--text-soft);
+  font-weight: 500;
+}
+
+.indicator-adjust-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-soft);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.indicator-adjust-toggle:hover {
+  color: var(--text);
+}
+
+.indicator-year-label {
+  font-weight: 500;
+}
+
+.indicator-adjust-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.indicator-extra-panel {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
 .control-toggle {
   width: 100%;
   justify-content: space-between;
@@ -1739,16 +1904,26 @@ body {
   outline-offset: 3px;
 }
 .weather-alert-list {
-  margin-top: 8px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .weather-alert-list .disclosure-trigger {
   font-size: 11.5px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: background var(--motion-fast);
+}
+.weather-alert-list .disclosure-trigger:hover {
+  background: var(--surface-muted);
 }
 .weather-alert-title-row {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   vertical-align: middle;
+  flex-wrap: wrap;
 }
 .weather-alert-indicator-dot {
   display: inline-block;
@@ -1760,6 +1935,15 @@ body {
   border-style: solid;
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
 }
+.weather-alert-event-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 11.5px;
+}
+.weather-alert-location-inline {
+  color: var(--text-soft);
+  font-weight: 400;
+}
 .weather-alert-meta {
   display: flex;
   align-items: center;
@@ -1770,6 +1954,7 @@ body {
 .weather-alert-severity-badge {
   display: inline-flex;
   align-items: center;
+  gap: 3px;
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
@@ -1785,9 +1970,7 @@ body {
   color: var(--text-soft);
   font-weight: 400;
 }
-/* Origem do alerta dentro do próprio item — nunca um controle de camada à
-   parte (ver WeatherOptions). Deliberadamente mais discreta que o badge de
-   severidade ao lado: severidade e tipo do risco pesam mais que a fonte. */
+/* Origem do alerta dentro do próprio item — exclusivamente badge neutro. */
 .weather-alert-source-tag {
   display: inline-flex;
   align-items: center;
@@ -1802,7 +1985,263 @@ body {
   letter-spacing: 0.03em;
 }
 .weather-alerts-container {
+  margin-bottom: 8px;
+}
+
+/* 1. Visão Nacional: Resumo Agregado Compacto */
+.weather-alerts-national-summary {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-top: 6px;
+}
+.national-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.national-summary-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.national-summary-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+.national-summary-label {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+.national-summary-sources {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.national-summary-severities {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+.weather-alert-severity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  background: var(--surface);
+  color: var(--text);
+}
+.severity-pill-label {
+  color: var(--text);
+}
+.severity-pill-count {
+  font-weight: 700;
+  color: var(--text);
+  padding-left: 1px;
+}
+.national-summary-top-states {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-soft);
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+.top-states-label {
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.top-states-list {
+  color: var(--text);
+}
+.top-state-item strong {
+  font-weight: 600;
+}
+
+/* 2. Cards de Alertas (Individuais e Agrupados) */
+.weather-alert-card-item,
+.weather-alert-group-item {
+  border-radius: var(--radius-sm);
+}
+.weather-alert-detail-content {
+  padding: 6px 6px 6px 14px;
+}
+.weather-alert-compact-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-soft);
   margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.alert-meta-item {
+  display: inline-flex;
+  gap: 3px;
+}
+.alert-meta-label {
+  color: var(--text-soft);
+}
+.alert-meta-value {
+  color: var(--text);
+  font-weight: 600;
+}
+.alert-meta-separator {
+  color: var(--border);
+}
+.weather-alert-risk-list,
+.weather-alert-instruction-list {
+  margin: 4px 0;
+}
+.weather-alert-bullet-text {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text);
+  margin: 2px 0;
+  position: relative;
+  padding-left: 10px;
+}
+.weather-alert-bullet-text::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--text-soft);
+}
+.weather-alert-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.weather-alert-bulletin-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast);
+}
+.weather-alert-bulletin-action:hover {
+  background: var(--surface);
+  border-color: var(--text-soft);
+}
+.bulletin-external-icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* Chips de Municípios no Card Agrupado */
+.weather-alert-municipalities-block {
+  margin: 4px 0 6px 0;
+}
+.weather-alert-municipality-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.weather-alert-muni-chip {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-soft);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+}
+
+.weather-alert-muni-chip.is-link {
+  cursor: pointer;
+  color: var(--text);
+  transition: background-color var(--motion-ui) var(--ease-out),
+              border-color var(--motion-ui) var(--ease-out),
+              color var(--motion-ui) var(--ease-out);
+}
+
+.weather-alert-muni-chip.is-link:hover,
+.weather-alert-muni-chip.is-link:focus-visible {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.weather-alert-muni-chip .bulletin-external-icon {
+  font-size: 9px;
+  opacity: 0.7;
+  transition: transform var(--motion-ui) var(--ease-out), opacity var(--motion-ui) var(--ease-out);
+}
+
+.weather-alert-muni-chip.is-link:hover .bulletin-external-icon,
+.weather-alert-muni-chip.is-link:focus-visible .bulletin-external-icon {
+  opacity: 1;
+  transform: translate(1px, -1px);
+}
+
+/* 3. Visão Municipal: Seção "Neste município" e "Demais avisos" */
+.weather-alert-section {
+  margin-top: 6px;
+}
+.weather-alert-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.weather-alert-section-pill {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.weather-alert-secondary-section {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+.weather-alert-secondary-trigger-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+.weather-alerts-empty-state {
+  padding: 4px 0;
 }
 .weather-sources-disclosure {
   margin-top: 10px;

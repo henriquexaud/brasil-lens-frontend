@@ -43,6 +43,7 @@ import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
+import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
 import { resolveSelectedStateOutline } from '@/features/map/stateBoundary';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
 import { SavedViewsPanel } from '@/features/views/SavedViewsPanel';
@@ -897,6 +898,14 @@ export default function App() {
     };
   }, [isMunicipalityActive, isDrilledDown, selectedCode, stateScopeName, resetScope, setSelectedCode]);
 
+  const activeAlertsStateCode = useMemo(() => {
+    if (isDrilledDown && scope.parent) return scope.parent;
+    if (selectedCode) {
+      return selectedCode.length === 2 ? selectedCode : selectedCode.slice(0, 2);
+    }
+    return null;
+  }, [isDrilledDown, scope.parent, selectedCode]);
+
   return (
     <div className="app">
       {((!scopeReady && mapLayer.isFetching) ||
@@ -920,7 +929,11 @@ export default function App() {
       >
         <Suspense fallback={null}>
           {isClimate && showWeatherAlerts && (
-            <AlertsLayer collection={alerts.data} muted={fireVisualActive} />
+            <AlertsLayer
+              collection={alerts.data}
+              muted={fireVisualActive}
+              stateCode={activeAlertsStateCode}
+            />
           )}
           {fireVisualActive && activeFireMode === 'points' && fireHotspotsLayer.data && (
             <FireHotspotsLayer
@@ -991,6 +1004,27 @@ export default function App() {
               backLabel={backLabel}
               backAriaLabel={backAriaLabel}
             />
+            {isClimate && (
+              <div className="thematic-switch-wrapper">
+                <WeatherThematicSwitch
+                  showClimate={showClimate}
+                  onToggleClimate={handleToggleClimate}
+                  showRainfall={showRainfall}
+                  onToggleRainfall={handleToggleRainfall}
+                  showFireHotspots={showFireHotspots}
+                  onToggleFireHotspots={handleToggleFireHotspots}
+                  minTemperature={minTemperature}
+                  maxTemperature={maxTemperature}
+                  maxRainfall={maxRainfall}
+                  fireHotspots={fireHotspotsLayer.data}
+                  fireHotspotsLoading={fireHotspotsLayer.isFetching}
+                  fireHotspotsError={fireError != null}
+                  current={currentWeather}
+                  error={weatherError ?? fireError}
+                  scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+                />
+              </div>
+            )}
           </div>
           {!isClimate && indicators.length > 0 && (
             <ControlPanel
@@ -1102,6 +1136,7 @@ export default function App() {
                 <WeatherOptions
                   showAlerts={showWeatherAlerts}
                   onToggleAlerts={setShowWeatherAlerts}
+                  showThematicSelector={false}
                   showClimate={showClimate}
                   onToggleClimate={handleToggleClimate}
                   minTemperature={minTemperature}
@@ -1118,6 +1153,8 @@ export default function App() {
                   onToggleRainfall={handleToggleRainfall}
                   maxRainfall={maxRainfall}
                   code={selectedCode ?? scope.parent}
+                  selectedCode={selectedCode}
+                  parentCode={scope.parent}
                   current={currentWeather}
                   error={weatherError ?? fireError}
                   hydrographyError={showHydrography && hydrographyLayer.error != null}
