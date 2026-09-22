@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { CircleMarker, Pane, Tooltip, useMap } from 'react-leaflet';
 import type { WeatherCity } from '@/api/types';
 import { colorForTemperature } from '@/features/map/colors';
-import { rainColor } from '@/features/rainfall/rainScale';
+import { rainAmount, rainColor } from '@/features/rainfall/rainScale';
 import { WeatherIcon } from '@/features/weather/conditions';
 import { EstimateMark } from '@/features/weather/EstimateMark';
 
@@ -41,9 +41,7 @@ export function WeatherLayer({
   const sortedCities = (() => {
     const candidates = cities.filter((city) =>
       isRain
-        ? city.precipitationSumMm != null ||
-          city.precipitationMm != null ||
-          city.temperatureC != null
+        ? rainAmount(city) >= 0.1
         : city.temperatureC != null && Number.isFinite(city.temperatureC),
     );
     if (municipal) {
@@ -55,8 +53,8 @@ export function WeatherLayer({
         if (a.id === selectedId) return -1;
         if (b.id === selectedId) return 1;
         if (isRain) {
-          const rainA = a.precipitationSumMm ?? a.precipitationMm ?? 0;
-          const rainB = b.precipitationSumMm ?? b.precipitationMm ?? 0;
+          const rainA = rainAmount(a);
+          const rainB = rainAmount(b);
           return rainB - rainA;
         }
         // Leituras medidas ganham a disputa por espaço; estimativas preenchem o resto.
@@ -100,14 +98,14 @@ export function WeatherLayer({
 
         if (!shouldShowPill) return null;
 
-        const rainVal = city.precipitationSumMm ?? city.precipitationMm ?? 0;
+        const rainVal = rainAmount(city);
+        if (isRain && rainVal < 0.1) return null;
+
         const color = isRain ? rainColor(rainVal) : colorForTemperature(city.temperatureC);
         const formattedRain =
-          rainVal > 0
-            ? rainVal >= 10
-              ? `${Math.round(rainVal)} mm`
-              : `${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`
-            : '0 mm';
+          rainVal >= 10
+            ? `${Math.round(rainVal)} mm`
+            : `${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
 
         return (
           <Fragment key={city.id}>
@@ -142,7 +140,7 @@ export function WeatherLayer({
                     {isRain ? (
                       <>
                         <span
-                          className="weather-pill-dot"
+                          className={`weather-pill-dot${city.rainingNow ? ' is-raining' : ''}`}
                           style={{ backgroundColor: color }}
                           aria-hidden="true"
                         />
@@ -158,7 +156,7 @@ export function WeatherLayer({
                         </span>
                         <span className="weather-pill-temp">
                           <EstimateMark city={city} />
-                          {Math.round(city.temperatureC)}°
+                          {Math.round(city.temperatureC) || 0}°
                         </span>
                       </>
                     )}
@@ -171,7 +169,7 @@ export function WeatherLayer({
                     {isRain ? (
                       <>
                         <span
-                          className="weather-pill-dot"
+                          className={`weather-pill-dot${city.rainingNow ? ' is-raining' : ''}`}
                           style={{ backgroundColor: color }}
                           aria-hidden="true"
                         />
@@ -187,7 +185,7 @@ export function WeatherLayer({
                         </span>
                         <span className="weather-pill-temp">
                           <EstimateMark city={city} />
-                          {Math.round(city.temperatureC)}°
+                          {Math.round(city.temperatureC) || 0}°
                         </span>
                       </>
                     )}

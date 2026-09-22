@@ -678,8 +678,8 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
   const panel = document.querySelector('.territory-detail');
   assert.ok(panel);
   assert.equal(panel.getAttribute('aria-label'), 'Clima do local selecionado');
-  assert.match(panel.textContent, /24,2°/);
-  assert.match(panel.textContent, /Sensação de 25,1°/);
+  assert.match(panel.textContent, /24°/);
+  assert.match(panel.textContent, /Sensação de 25°/);
 
   // Não deve exibir disclosure de Quantidade de chuva no modo clima puro
   const summaries = Array.from(document.querySelectorAll('summary')).map((s) => s.textContent);
@@ -901,4 +901,45 @@ test('rodapé das camadas mostra a causa real e só retenta a cota esgotada pelo
   await draw(null);
   assert.equal(document.querySelector('.weather-error-note'), null);
   assert.equal(document.querySelector('.weather-refresh-btn').textContent, 'Atualizar dados');
+});
+
+test('malha nova do mesmo território redesenha o polígono; valores novos não', async () => {
+  const square = (size) => ({
+    type: 'MultiPolygon',
+    coordinates: [[[[-55, -12], [-55 + size, -12], [-55 + size, -12 + size], [-55, -12 + size], [-55, -12]]]],
+  });
+  const collection = (geometry, value) => ({
+    type: 'FeatureCollection',
+    scope: { level: 'state', parent: null, lod: 'overview' },
+    indicator: null,
+    classification: null,
+    features: [
+      {
+        type: 'Feature',
+        id: '51',
+        geometry,
+        properties: { ibgeCode: '51', name: 'Mato Grosso', value, classIndex: null },
+      },
+    ],
+  });
+  const draw = (data) =>
+    act(async () =>
+      root.render(
+        h(
+          MapContainer,
+          { center: [-11, -54], zoom: 4, zoomControl: false },
+          h(CaptureMap),
+          h(ChoroplethLayer, { collection: data, weatherByCode: new Map(), selectedCode: null }),
+        ),
+      ),
+    );
+  const overview = square(2);
+  await draw(collection(overview, 1));
+  const first = document.querySelector('.territory-shape');
+  await draw(collection(overview, 2));
+  assert.equal(document.querySelector('.territory-shape'), first, 'mesma malha: o SVG fica');
+  await draw(collection(square(3), 2));
+  const upgraded = document.querySelectorAll('.territory-shape');
+  assert.equal(upgraded.length, 1);
+  assert.notEqual(upgraded[0], first, 'malha detalhada substitui a leve');
 });

@@ -50,6 +50,7 @@ import { SavedViewsPanel } from '@/features/views/SavedViewsPanel';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { useDeferredReady } from '@/lib/useDeferredReady';
+import { rainAmount } from '@/features/rainfall/rainScale';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 
 const HydrographyLayer = lazy(() =>
@@ -263,7 +264,6 @@ export default function App() {
       parent: scope.parent,
       indicator: isClimate ? undefined : indicatorKey,
       year: isClimate ? LATEST_YEAR : effectiveYear,
-      lod: scope.level === 'state' ? 'detail' : undefined,
     }),
     [scope.level, scope.parent, indicatorKey, effectiveYear, isClimate],
   );
@@ -274,10 +274,8 @@ export default function App() {
       indicators.length > 0 ||
       (context === 'sociopolitical' && indicatorsQuery.isPending),
   );
-  const statesOutlineLayer = useMapLayer(
-    { level: 'state', year: LATEST_YEAR, lod: 'detail' },
-    true,
-  );
+  // Mesma malha da visão nacional: a consulta de geometria é compartilhada.
+  const statesOutlineLayer = useMapLayer({ level: 'state', year: LATEST_YEAR }, true);
   const selectedStateOutline = useMemo(() => {
     if (!isDrilledDown || !scope.parent) return null;
     if (mapLayer.data?.parentFeature) {
@@ -421,9 +419,11 @@ export default function App() {
   const nationalWeather = useCapitalsWeather(
     weatherStageReady && !isDrilledDown,
     selectedWeather.isFetching || Boolean(viewport.moving),
+    showRainfall,
   );
   useEffect(() => {
-    if (!nationalWeather.data) return;
+    // A média de chuva do estado não é a leitura da capital que a seleção mostra.
+    if (!nationalWeather.data || showRainfall) return;
     const data = nationalWeather.data;
     const updatedAt = Date.parse(data.fetchedAt);
     for (const state of statesOutlineLayer.data?.features ?? []) {
@@ -433,7 +433,7 @@ export default function App() {
         client.setQueryData(key, { ...data, cities: [city], nextOffset: null }, { updatedAt });
       }
     }
-  }, [client, nationalWeather.data, statesOutlineLayer.data]);
+  }, [client, nationalWeather.data, showRainfall, statesOutlineLayer.data]);
   const forecastBusy = useIsFetching({ queryKey: ['weather', 'forecast'] });
   const viewportWeatherBusy = useIsFetching({ queryKey: ['weather', 'viewport'] });
   // Pausa de requisições de tela (viewport) apenas durante movimento do mapa ou seleção explícita
@@ -461,6 +461,7 @@ export default function App() {
   const nearbyWeather = useViewportWeather(
     viewport.bbox,
     isDrilledDown ? scope.parent : undefined,
+    viewport.zoom,
     weatherStageReady && closeMunicipalView,
     pauseNearbyWeather,
   );
@@ -468,7 +469,7 @@ export default function App() {
     ? selectedWeather.data
     : isDrilledDown
       ? (stateWeather.data ??
-        (closeMunicipalView ? nearbyWeather.data?.pages[0] : municipalities.data?.pages[0]))
+        (closeMunicipalView ? nearbyWeather.data : municipalities.data?.pages[0]))
       : nationalWeather.data;
   const climateBaseReady =
     weatherStageReady &&
@@ -631,8 +632,7 @@ export default function App() {
       : (nationalWeather.data?.cities ?? []);
     const byId = new Map(cities.map((city) => [city.id, city]));
     if (closeMunicipalView) {
-      for (const page of nearbyWeather.data?.pages ?? [])
-        for (const city of page.cities) byId.set(city.id, city);
+      for (const city of nearbyWeather.data?.cities ?? []) byId.set(city.id, city);
     }
     if (isDrilledDown) {
       for (const c of userSelectedCities.values()) {
@@ -672,7 +672,7 @@ export default function App() {
     if (!weatherCities.length) return undefined;
     let max = 0;
     for (const c of weatherCities) {
-      const val = c.precipitationSumMm ?? c.precipitationMm ?? 0;
+      const val = rainAmount(c);
       if (val > max) max = val;
     }
     return max;
@@ -793,7 +793,7 @@ export default function App() {
         : null));
   const weatherOutdated = isDrilledDown
     ? closeMunicipalView
-      ? nearbyWeather.data?.pages.some((page) => page.status === 'stale')
+      ? nearbyWeather.data?.status === 'stale'
       : stateWeather.data?.status === 'stale' ||
         municipalities.data?.pages.some((page) => page.status === 'stale')
     : nationalWeather.data?.status === 'stale';
@@ -811,8 +811,7 @@ export default function App() {
       viewportWeatherBusy > 0 ||
       (isDrilledDown
         ? closeMunicipalView
-          ? nearbyWeather.isFetching ||
-            (Boolean(nearbyWeather.hasNextPage) && !nearbyWeather.isError)
+          ? nearbyWeather.isFetching
           : stateWeather.isFetching ||
             municipalities.isFetching ||
             (municipalBatchingEnabled &&

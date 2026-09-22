@@ -70,10 +70,7 @@ export function ClimateOverview({
         {hottest.length > 0 && (
           <div className="climate-ranking-group">
             <div className="climate-ranking-header heat">
-              <span className="climate-ranking-icon" aria-hidden="true">
-                ☀️
-              </span>
-              <span>{isDrilledDown ? 'Mais quente' : 'Capital mais quente'}</span>
+              <span>Mais quentes</span>
             </div>
             <ol>
               {hottest.map((city) => (
@@ -96,7 +93,7 @@ export function ClimateOverview({
                     </span>
                     <strong>
                       <EstimateMark city={city} />
-                      {Math.round(city.temperatureC)}°C
+                      {Math.round(city.temperatureC) || 0}°C
                     </strong>
                   </button>
                 </li>
@@ -108,10 +105,7 @@ export function ClimateOverview({
         {coldest.length > 0 && (
           <div className="climate-ranking-group">
             <div className="climate-ranking-header cold">
-              <span className="climate-ranking-icon" aria-hidden="true">
-                ❄️
-              </span>
-              <span>{isDrilledDown ? 'Mais fria' : 'Capital mais fria'}</span>
+              <span>Mais frias</span>
             </div>
             <ol>
               {coldest.map((city) => (
@@ -134,7 +128,7 @@ export function ClimateOverview({
                     </span>
                     <strong>
                       <EstimateMark city={city} />
-                      {Math.round(city.temperatureC)}°C
+                      {Math.round(city.temperatureC) || 0}°C
                     </strong>
                   </button>
                 </li>

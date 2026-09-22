@@ -16,7 +16,13 @@ export function weatherDescription(code: number | null): string {
 }
 
 export function measurement(value: number | null | undefined, unit: string): string {
-  return value == null || typeof value !== 'number' || Number.isNaN(value)
-    ? '—'
-    : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}${unit}`;
+  if (value == null || typeof value !== 'number' || Number.isNaN(value)) {
+    return '—';
+  }
+  if (unit.includes('°')) {
+    const rounded = Math.round(value) || 0;
+    return `${rounded.toLocaleString('pt-BR')}${unit}`;
+  }
+  return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}${unit}`;
 }
+

@@ -96,8 +96,10 @@ test('ClimateOverview renderiza capitais mais quentes e mais frias em visão nac
 
   const headers = document.querySelectorAll('.climate-ranking-header');
   assert.equal(headers.length, 2);
-  assert.match(headers[0].textContent, /Capital mais quente/);
-  assert.match(headers[1].textContent, /Capital mais fria/);
+  assert.match(headers[0].textContent, /Mais quentes/);
+  assert.match(headers[1].textContent, /Mais frias/);
+  assert.doesNotMatch(headers[0].textContent, /☀️/);
+  assert.doesNotMatch(headers[1].textContent, /❄️/);
 
   const cityButtons = document.querySelectorAll('.climate-ranking-city');
   assert.ok(cityButtons.length >= 2);
@@ -144,8 +146,10 @@ test('ClimateOverview renderiza título customizado para estado em visão drilld
 
   const headers = document.querySelectorAll('.climate-ranking-header');
   assert.equal(headers.length, 2);
-  assert.match(headers[0].textContent, /Mais quente/);
-  assert.match(headers[1].textContent, /Mais fria/);
+  assert.match(headers[0].textContent, /Mais quentes/);
+  assert.match(headers[1].textContent, /Mais frias/);
+  assert.doesNotMatch(headers[0].textContent, /☀️/);
+  assert.doesNotMatch(headers[1].textContent, /❄️/);
 });
 
 test('ClimateOverview retorna null quando não há cidades com temperatura válida', async () => {

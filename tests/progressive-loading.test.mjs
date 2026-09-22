@@ -22,7 +22,7 @@ const scratch = await mkdtemp(join(frontend, 'node_modules', '.progressive-tests
 const modulePath = join(scratch, 'harness.mjs');
 const compiled = await build({
   stdin: {
-    contents: `export { useMunicipalityWeather, useUserStateWeather, useWeatherCurrent, weatherCurrentOptions, useFireHotspots, useFireHotspotDetails, useFireSummary, useHydrography, useViewportWeather, useCapitalsWeather, useVisibleMunicipalities, useSelectedBoundary } from './src/api/queries';
+    contents: `export { useMunicipalityWeather, useUserStateWeather, useWeatherCurrent, weatherCurrentOptions, useFireHotspots, useFireHotspotDetails, useFireSummary, useHydrography, useViewportWeather, useCapitalsWeather, useVisibleMunicipalities, useSelectedBoundary, useMapLayer } from './src/api/queries';
     export { useDeferredReady } from './src/lib/useDeferredReady';
     export { Disclosure } from './src/components/Disclosure';
     export { LocationButton } from './src/features/search/LocationButton';`,
@@ -54,6 +54,7 @@ const {
   useCapitalsWeather,
   useVisibleMunicipalities,
   useSelectedBoundary,
+  useMapLayer,
   LocationButton,
 } = await import(pathToFileURL(modulePath).href);
 let root, client, requests, respond, idle;
@@ -357,38 +358,82 @@ test('permissão de localização negada mantém busca disponível e não consul
   assert.equal(document.querySelector('button').disabled, false);
 });
 
-test('zoom próximo carrega automaticamente todos os lotes visíveis e aquece seleção', async () => {
+test('zoom próximo traz a área numa consulta na grade do zoom e aquece só as medições', async () => {
   let response;
-  function Viewport({ bbox, enabled }) {
-    response = useViewportWeather(bbox, null, enabled, false);
+  function Viewport({ bbox, zoom = 8, enabled }) {
+    response = useViewportWeather(bbox, null, zoom, enabled, false);
     return null;
   }
-  respond = async (url) => new Response(JSON.stringify(url.searchParams.get('offset') === '0' ? page(['3550308'], 20) : page(['3548708'])), { status: 200 });
-  await render(h(Viewport, { bbox: '-47,-24,-46,-23', enabled: false }));
+  respond = async () => {
+    const body = page(['3550308', '3548708']);
+    body.cities[1].isInferred = true;
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+  await render(h(Viewport, { bbox: '-47.13,-23.94,-46.02,-23.11', enabled: false }));
   await tick(); assert.equal(requests.length, 0);
-  await render(h(Viewport, { bbox: '-47,-24,-46,-23', enabled: true }));
-  await until(() => response.data?.pages.length === 1);
-  await tick(220); await runIdle();
-  await until(() => response.data?.pages.length === 2);
-  assert.equal(response.hasNextPage, false);
-  assert.ok(client.getQueryData(weatherCurrentOptions('3548708').queryKey));
-  assert.ok(requests.every((r) => r.url.pathname.endsWith('/weather/viewport')));
-  assert.ok(requests.every((r) => !r.url.searchParams.has('forecast')));
+  await render(h(Viewport, { bbox: '-47.13,-23.94,-46.02,-23.11', enabled: true }));
+  await until(() => response.data?.cities.length === 2);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url.pathname, '/api/v1/weather/viewport');
+  assert.equal(requests[0].url.searchParams.get('bbox'), '-47.50,-24.00,-46.00,-23.00');
+  assert.equal(requests[0].url.searchParams.get('zoom'), '8');
+  assert.ok(!requests[0].url.searchParams.has('forecast'));
+  assert.ok(client.getQueryData(weatherCurrentOptions('3550308').queryKey), 'medida aquece a seleção');
+  assert.equal(client.getQueryData(weatherCurrentOptions('3548708').queryKey), undefined, 'estimativa não');
+
+  // Arrastar dentro da mesma célula reaproveita a consulta; o zoom 12 usa a de 10.
+  await render(h(Viewport, { bbox: '-47.4,-23.9,-46.1,-23.05', enabled: true }));
+  await tick();
+  assert.equal(requests.length, 1);
+  await render(h(Viewport, { bbox: '-46.63,-23.6,-46.5,-23.5', zoom: 12, enabled: true }));
+  await until(() => requests.length === 2);
+  assert.equal(requests[1].url.searchParams.get('zoom'), '10');
+  assert.equal(requests[1].url.searchParams.get('bbox'), '-46.70,-23.60,-46.50,-23.50');
 });
 
 test('zoom próximo na visualização de estado envia parent e restringe a busca de viewport ao estado ativo', async () => {
   let response;
   function ViewportWithParent({ bbox, parent, enabled }) {
-    response = useViewportWeather(bbox, parent, enabled, false);
+    response = useViewportWeather(bbox, parent, 9, enabled, false);
     return null;
   }
-  respond = async (url) => new Response(JSON.stringify(page(['3550308'])), { status: 200 });
+  respond = async () => new Response(JSON.stringify(page(['3550308'])), { status: 200 });
   await render(h(ViewportWithParent, { bbox: '-47,-24,-46,-23', parent: '35', enabled: true }));
-  await until(() => response.data?.pages.length === 1);
+  await until(() => response.data?.cities.length === 1);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url.pathname, '/api/v1/weather/viewport');
   assert.equal(requests[0].url.searchParams.get('parent'), '35');
-  assert.equal(requests[0].url.searchParams.get('bbox'), '-47,-24,-46,-23');
+  assert.equal(requests[0].url.searchParams.get('bbox'), '-47.00,-24.00,-46.00,-23.00');
+});
+
+test('condições atuais só voltam à rede quando a leitura vence', async () => {
+  let age = 0;
+  respond = async () => {
+    const body = page(['3509502']);
+    const then = new Date(Date.now() - age).toISOString();
+    body.fetchedAt = then;
+    body.cities[0].observedAt = then;
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+  function Selected() {
+    useWeatherCurrent('3509502', true);
+    return null;
+  }
+  await render(h(Selected));
+  await until(() => requests.length === 1);
+  await render(null);
+  await render(h(Selected));
+  await tick();
+  assert.equal(requests.length, 1, 'a leitura de agora vale 15 minutos');
+
+  age = 20 * 60 * 1000;
+  await render(null);
+  client.clear();
+  await render(h(Selected));
+  await until(() => requests.length === 2);
+  await render(null);
+  await render(h(Selected));
+  await until(() => requests.length === 3);
 });
 
 test('capitais aparecem por lote e carregamento nacional pausa para a seleção', async () => {
@@ -451,4 +496,69 @@ test('malha oficial chega em páginas, preserva contornos e cancela o viewport a
   assert.equal(requests[2].signal.aborted, true);
   await render(h(Boundaries, { parent: '31', enabled: false }));
   assert.equal(result.data, undefined, 'não apresenta uma UF como se fosse outra');
+});
+
+test('mapa pinta a malha leve, troca pela detalhada na ociosidade e busca valores à parte', async () => {
+  const feature = (code, lod) => ({
+    type: 'Feature', id: code,
+    properties: { ibgeCode: code, name: code, level: 'state', abbreviation: code, parentCode: null, parentName: null, value: null, normalizedValue: null, classIndex: null },
+    geometry: { type: 'MultiPolygon', coordinates: [[[[0, 0], [1, lod === 'detail' ? 0.5 : 0], [1, 1], [0, 0]]]] },
+  });
+  respond = async (url) => {
+    if (url.pathname.endsWith('/map/values')) {
+      const year = url.searchParams.get('year');
+      return new Response(JSON.stringify({
+        level: 'state', parent: null,
+        indicator: { key: 'population', name: 'População', unit: 'people', decimalPlaces: 0, year: year === 'latest' ? 2022 : Number(year), requestedYear: year, availableYears: [2010, 2022] },
+        statistics: null, classification: null,
+        values: [{ ibgeCode: '35', value: year === 'latest' ? 46 : 41, normalizedValue: 1, classIndex: 4 }],
+      }));
+    }
+    const lod = url.searchParams.get('lod');
+    return new Response(JSON.stringify({
+      type: 'FeatureCollection', scope: { level: 'state', parent: null, lod, count: 1 },
+      indicator: null, statistics: null, classification: null, features: [feature('35', lod)],
+    }));
+  };
+  let layer, outline;
+  function Map({ year }) {
+    layer = useMapLayer({ level: 'state', indicator: 'population', year });
+    outline = useMapLayer({ level: 'state', year: 'latest' });
+    return null;
+  }
+  await render(h(Map, { year: 'latest' }));
+  await until(() => layer.data?.features[0].properties.value === 46);
+  const paths = () => requests.map((r) => `${r.url.pathname}?${r.url.searchParams.get('lod') ?? r.url.searchParams.get('year')}`);
+  assert.deepEqual(paths().sort(), ['/api/v1/map/values?latest', '/api/v1/map?overview']);
+  assert.equal(layer.data.scope.lod, 'overview');
+  assert.equal(outline.data.features[0].geometry, layer.data.features[0].geometry, 'contorno e coropleta dividem a malha');
+  assert.equal(layer.isPlaceholderData, false);
+
+  await tick(220); await runIdle();
+  await until(() => layer.data?.scope.lod === 'detail');
+  assert.equal(requests.filter((r) => r.url.pathname.endsWith('/map')).length, 2);
+  assert.equal(layer.data.features[0].properties.value, 46);
+
+  // Trocar o ano só busca os valores; a malha e o desenho anterior ficam.
+  await render(h(Map, { year: '2010' }));
+  assert.equal(layer.data.features[0].properties.value, 46);
+  assert.equal(layer.isPlaceholderData, true);
+  await until(() => layer.data?.features[0].properties.value === 41);
+  assert.equal(layer.isPlaceholderData, false);
+  assert.deepEqual(paths().slice(3), ['/api/v1/map/values?2010']);
+});
+
+test('chuva no Brasil vem por estado numa consulta, sem os lotes de capitais', async () => {
+  let result;
+  function States() {
+    result = useCapitalsWeather(true, false, true);
+    return null;
+  }
+  respond = async () => new Response(JSON.stringify(page(['SP', 'RJ'])));
+  await render(h(States));
+  await until(() => result.data?.cities.length === 2);
+  await tick(280); await runIdle();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url.pathname, '/api/v1/weather/states');
+  assert.equal(result.hasNextPage, false);
 });

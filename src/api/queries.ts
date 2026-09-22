@@ -12,6 +12,8 @@
  */
 import {
   hashKey,
+  type InfiniteData,
+  type Query,
   type QueryClient,
   type QueryKey,
   useInfiniteQuery,
@@ -22,6 +24,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { scheduleIdle } from '@/lib/idle';
+import { useDeferredReady } from '@/lib/useDeferredReady';
 
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 import type {
@@ -37,6 +40,7 @@ import type {
   IndicatorListResponse,
   MapFeatureCollection,
   MapQuery,
+  MapValuesResponse,
   SavedView,
   SavedViewInput,
   SavedViewListResponse,
@@ -184,28 +188,101 @@ export function useIndicators(level?: TerritoryLevel, context?: DataContext, ena
   });
 }
 
-export function useMapLayer(query: MapQuery, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.map(query),
-    queryFn: ({ signal }) =>
-      apiGet<MapFeatureCollection>(
-        '/map',
-        {
-          level: query.level,
-          parent: query.parent,
-          indicator: query.indicator,
-          year: query.year ?? 'latest',
-          lod: query.lod,
-        },
-        signal,
-      ),
-    enabled,
+function geometryOptions(
+  level: MapQuery['level'],
+  parent: string | null,
+  lod: 'overview' | 'detail',
+) {
+  return {
+    queryKey: queryKeys.map({ level, parent, lod }),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      apiGet<MapFeatureCollection>('/map', { level, parent, year: 'latest', lod }, signal),
     staleTime: 30 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
-    // Mantém a camada anterior visível enquanto a nova carrega, em vez de
-    // piscar o mapa em branco a cada troca de indicador.
+  };
+}
+
+function withValues(
+  geometry: MapFeatureCollection,
+  values: MapValuesResponse,
+): MapFeatureCollection {
+  const byCode = new Map(values.values.map((item) => [item.ibgeCode, item]));
+  return {
+    ...geometry,
+    indicator: values.indicator,
+    statistics: values.statistics,
+    classification: values.classification,
+    features: geometry.features.map((feature) => {
+      const item = byCode.get(feature.properties.ibgeCode);
+      return {
+        ...feature,
+        properties: {
+          ...feature.properties,
+          value: item?.value ?? null,
+          normalizedValue: item?.normalizedValue ?? null,
+          classIndex: item?.classIndex ?? null,
+        },
+      };
+    }),
+  };
+}
+
+/**
+ * Camada do mapa: malha e valores em consultas separadas.
+ *
+ * A malha chega primeiro no LOD `overview` — ~6× menor e com diferença abaixo
+ * de um pixel nos zooms do Brasil e da UF — e é trocada pela `detail` quando
+ * o navegador fica ocioso. Os valores vêm de `/map/values`: trocar indicador
+ * ou ano não retransmite a malha, e contornos, clima e coropleta compartilham
+ * a mesma consulta de geometria.
+ *
+ * Enquanto um novo recorte ou indicador carrega, a camada anterior continua
+ * visível (`isPlaceholderData`), em vez de o mapa piscar em branco.
+ */
+export function useMapLayer(query: MapQuery, enabled = true) {
+  const { level } = query;
+  const parent = query.parent ?? null;
+  const indicator = query.indicator ?? null;
+  const year = query.year ?? 'latest';
+  const overview = useQuery({
+    ...geometryOptions(level, parent, 'overview'),
+    enabled,
     placeholderData: (previous) => previous,
   });
+  const upgrade = useDeferredReady(
+    `map:${level}:${parent}`,
+    enabled && Boolean(overview.data) && !overview.isPlaceholderData,
+  );
+  const detail = useQuery({ ...geometryOptions(level, parent, 'detail'), enabled: upgrade });
+  const values = useQuery({
+    queryKey: ['map-values', level, parent, indicator, year],
+    queryFn: ({ signal }) =>
+      apiGet<MapValuesResponse>('/map/values', { level, parent, indicator, year }, signal),
+    enabled: enabled && Boolean(indicator),
+    staleTime: 30 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
+    placeholderData: (previous) => previous,
+  });
+
+  const geometry = detail.data ?? (overview.isPlaceholderData ? undefined : overview.data);
+  const scopeValues =
+    values.data && values.data.level === level && (values.data.parent ?? null) === parent
+      ? values.data
+      : undefined;
+  const merged = useMemo(() => {
+    if (!geometry) return undefined;
+    if (!indicator) return geometry;
+    return scopeValues ? withValues(geometry, scopeValues) : undefined;
+  }, [geometry, indicator, scopeValues]);
+  const last = useRef<MapFeatureCollection | undefined>(undefined);
+  if (merged) last.current = merged;
+
+  return {
+    data: merged ?? last.current,
+    error: overview.error ?? values.error,
+    isFetching: overview.isFetching || values.isFetching,
+    isPlaceholderData: !merged || (Boolean(indicator) && values.isPlaceholderData),
+  };
 }
 
 /**
@@ -464,12 +541,53 @@ const WEATHER_POLL_INTERVAL_MS = 90 * 1000;
 /** Municípios por lote de condições atuais (o backend aceita até 60). */
 const COVERAGE_STAGE_LIMIT = 16;
 
+/*
+ * As condições atuais da Open-Meteo mudam a cada 15 minutos, e o backend
+ * guarda cada leitura por esse tempo (a cidade selecionada) ou 30 minutos (as
+ * camadas do mapa). Consultar antes disso só traria a mesma resposta: a
+ * validade e a próxima atualização saem do horário da própria leitura.
+ */
+const SELECTED_FRESHNESS_MS = 15 * 60 * 1000;
+const MAP_FRESHNESS_MS = 30 * 60 * 1000;
+/** Espera mínima entre consultas, igual à do backend depois de cada leitura. */
+const MIN_REFRESH_MS = 2 * 60 * 1000;
+
+type WeatherData = WeatherCurrentResponse | InfiniteData<WeatherCurrentResponse>;
+
+/** Quando a leitura mais antiga da resposta deixa de valer (epoch ms). */
+function readingExpiry(data: WeatherData | undefined, freshness: number): number {
+  const responses = data && 'pages' in data ? data.pages : data ? [data] : [];
+  let expiry = Infinity;
+  for (const response of responses) {
+    const fetchedAt = Date.parse(response.fetchedAt);
+    for (const city of response.cities) {
+      expiry = Math.min(
+        expiry,
+        Math.max(Date.parse(city.observedAt) + freshness, fetchedAt + MIN_REFRESH_MS),
+      );
+    }
+  }
+  return Number.isFinite(expiry) ? expiry : Date.now() + freshness;
+}
+
+/** `staleTime` conta a partir de quando o dado chegou, não de agora. */
+function staleUntilExpiry(freshness: number) {
+  return (query: Query<WeatherCurrentResponse, Error, WeatherCurrentResponse, QueryKey>) =>
+    Math.max(0, readingExpiry(query.state.data, freshness) - query.state.dataUpdatedAt);
+}
+
+/** Próxima atualização: quando a leitura vence, nunca antes de dois minutos. */
+function refreshAtExpiry<T extends WeatherData>(freshness: number) {
+  return (query: { state: { data: T | undefined } }) =>
+    Math.max(MIN_REFRESH_MS, readingExpiry(query.state.data, freshness) - Date.now());
+}
+
 export function weatherCurrentOptions(territory: string | null, forecast = false) {
   return {
     queryKey: ['weather', forecast ? 'forecast' : 'current', territory ?? 'capitals'],
     queryFn: ({ signal }: { signal: AbortSignal }) =>
       apiGet<WeatherCurrentResponse>('/weather/current', { territory, forecast }, signal),
-    staleTime: 5 * 60 * 1000,
+    staleTime: staleUntilExpiry(SELECTED_FRESHNESS_MS),
     gcTime: 20 * 60 * 1000,
   };
 }
@@ -478,7 +596,7 @@ export function useWeatherCurrent(territory: string | null, enabled = true, fore
   return useQuery({
     ...weatherCurrentOptions(territory, forecast),
     enabled,
-    refetchInterval: enabled ? 5 * 60 * 1000 : false,
+    refetchInterval: enabled ? refreshAtExpiry(SELECTED_FRESHNESS_MS) : false,
     refetchOnWindowFocus: true,
   });
 }
@@ -499,7 +617,8 @@ export function useMunicipalityWeather(parent: string | null, enabled: boolean, 
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,
     enabled: enabled && Boolean(parent) && !pause,
-    staleTime: 5 * 60 * 1000,
+    staleTime: (query) =>
+      Math.max(0, readingExpiry(query.state.data, MAP_FRESHNESS_MS) - query.state.dataUpdatedAt),
     gcTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -529,8 +648,9 @@ export function useUserStateWeather(parent: string | null, enabled: boolean) {
     queryKey,
     queryFn: ({ signal }) => apiGet<WeatherCurrentResponse>('/weather/state', { parent }, signal),
     enabled: enabled && Boolean(parent),
-    staleTime: 5 * 60 * 1000,
+    staleTime: staleUntilExpiry(MAP_FRESHNESS_MS),
     gcTime: 60 * 60 * 1000,
+    refetchInterval: enabled ? refreshAtExpiry(MAP_FRESHNESS_MS) : false,
     refetchOnWindowFocus: false,
   });
 
@@ -546,6 +666,8 @@ export function useUserStateWeather(parent: string | null, enabled: boolean) {
   return query;
 }
 
+const PREFETCH_DWELL_MS = 400;
+
 export function usePrefetchWeatherCurrent() {
   const client = useQueryClient();
   const cancel = useRef<(() => void) | undefined>();
@@ -553,9 +675,11 @@ export function usePrefetchWeatherCurrent() {
   return useCallback(
     (code: string) => {
       cancel.current?.();
+      // Só depois de uma pausa sobre o item: percorrer a busca ou o mapa com o
+      // cursor não vira uma consulta à fonte por município.
       cancel.current = scheduleIdle(() => {
         void client.prefetchQuery(weatherCurrentOptions(code));
-      });
+      }, PREFETCH_DWELL_MS);
     },
     [client],
   );
@@ -652,20 +776,32 @@ export function useSelectedBoundary(code: string | null, enabled: boolean) {
   });
 }
 
-/** Mostra as primeiras capitais e completa a visão nacional em segundo plano. */
-export function useCapitalsWeather(enabled: boolean, pause: boolean) {
-  const queryKey = ['weather', 'capitals-progressive'];
+/**
+ * Visão nacional. Temperatura: as capitais, primeiro as cinco regiões e o resto
+ * em segundo plano. Chuva: `/weather/states`, a média de pontos dispersos de
+ * cada UF numa consulta — chuva é local, e a capital sozinha diria "sem chuva"
+ * para o estado inteiro.
+ */
+export function useCapitalsWeather(enabled: boolean, pause: boolean, rain = false) {
+  const queryKey = ['weather', rain ? 'states-rain' : 'capitals-progressive'];
   useCancelWhenDisabled(queryKey, enabled);
   const query = useInfiniteQuery({
     queryKey,
     queryFn: ({ signal, pageParam }) =>
-      apiGet<WeatherCurrentResponse>('/weather/capitals', { offset: pageParam, limit: 6 }, signal),
+      rain
+        ? apiGet<WeatherCurrentResponse>('/weather/states', undefined, signal)
+        : apiGet<WeatherCurrentResponse>(
+            '/weather/capitals',
+            { offset: pageParam, limit: 6 },
+            signal,
+          ),
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,
     enabled: enabled && !pause,
-    staleTime: 5 * 60 * 1000,
+    staleTime: (query) =>
+      Math.max(0, readingExpiry(query.state.data, MAP_FRESHNESS_MS) - query.state.dataUpdatedAt),
     gcTime: 20 * 60 * 1000,
-    refetchInterval: enabled ? 5 * 60 * 1000 : false,
+    refetchInterval: enabled ? refreshAtExpiry(MAP_FRESHNESS_MS) : false,
     refetchOnWindowFocus: false,
   });
   const pageCount = query.data?.pages.length ?? 0;
@@ -684,34 +820,62 @@ export function useCapitalsWeather(enabled: boolean, pause: boolean) {
   return { ...query, data };
 }
 
-/** Condições atuais de todos os municípios visíveis, começando pelo centro do mapa, restritas ao estado se informado. */
+/**
+ * Grade da medição no zoom próximo, a mesma do backend: uma leitura por célula
+ * de 0,5° no zoom 8, de 0,25° no 9 e por município a partir do 10.
+ */
+function weatherGridStep(zoom: number): number {
+  return zoom <= 8 ? 0.5 : zoom === 9 ? 0.25 : 0.1;
+}
+
+/** Arredonda a área para fora, na grade: arrastar dentro dela reaproveita a consulta. */
+export function snapBbox(bbox: string, step: number): string {
+  const [west = 0, south = 0, east = 0, north = 0] = bbox.split(',').map(Number);
+  const floor = (value: number) => Math.floor(value / step) * step;
+  const ceil = (value: number) => Math.ceil(value / step) * step;
+  return [floor(west), floor(south), ceil(east), ceil(north)]
+    .map((value) => value.toFixed(2))
+    .join(',');
+}
+
+/**
+ * Condições da área visível, restritas ao estado se informado: o backend mede
+ * uma cidade por célula (todas, de perto) e estima as vizinhas. Só as leituras
+ * medidas aquecem o cache de cada cidade.
+ */
 export function useViewportWeather(
   bbox: string | undefined,
   parent: string | null | undefined,
+  zoom: number,
   enabled: boolean,
   pause: boolean,
 ) {
   const client = useQueryClient();
-  const queryKey = ['weather', 'viewport', parent ?? 'all', bbox];
+  // Acima do 10 a medição já é por município: a mesma consulta serve.
+  const scale = Math.min(Math.floor(zoom), 10);
+  const area = bbox ? snapBbox(bbox, weatherGridStep(scale)) : undefined;
+  const queryKey = ['weather', 'viewport', parent ?? 'all', scale, area];
   useCancelWhenDisabled(queryKey, enabled);
-  const query = useInfiniteQuery({
+  const query = useQuery({
     queryKey,
-    queryFn: ({ signal, pageParam }) =>
+    queryFn: ({ signal }) =>
       apiGet<WeatherCurrentResponse>(
         '/weather/viewport',
-        { bbox, parent: parent ?? undefined, offset: pageParam, limit: 20 },
+        { bbox: area, parent: parent ?? undefined, zoom: scale },
         signal,
       ),
-    initialPageParam: 0,
-    getNextPageParam: (last) => last.nextOffset ?? undefined,
-    enabled: enabled && Boolean(bbox) && !pause,
-    staleTime: 5 * 60 * 1000,
+    enabled: enabled && Boolean(area) && !pause,
+    staleTime: staleUntilExpiry(MAP_FRESHNESS_MS),
     gcTime: 20 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  useIdleNextPage(query, enabled && !pause, query.data?.pages.length ?? 0, 200);
   useEffect(() => {
-    for (const page of query.data?.pages ?? []) seedCityWeather(client, page);
+    if (!query.data) return;
+    seedCityWeather(
+      client,
+      query.data,
+      query.data.cities.filter((city) => !city.isInferred),
+    );
   }, [client, query.data]);
   return query;
 }

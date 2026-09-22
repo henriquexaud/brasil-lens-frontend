@@ -20,6 +20,30 @@ export const RAIN_SCALE_STOPS: RainScaleStop[] = [
 ];
 
 /**
+ * Chuva de uma leitura: o acumulado de 24 h; na falta dele, o total de hoje ou o
+ * intervalo mais recente (respostas antigas em cache).
+ */
+export function rainAmount(city: {
+  precipitation24hMm?: number | null;
+  precipitationSumMm?: number | null;
+  precipitationMm?: number | null;
+}): number {
+  return city.precipitation24hMm ?? city.precipitationSumMm ?? city.precipitationMm ?? 0;
+}
+
+/** "Chovendo agora", com a proporção de pontos na visão do Brasil. */
+export function rainingNowText(city: {
+  rainingNow?: boolean;
+  rainPoints?: number | null;
+  rainingPoints?: number | null;
+}): string | null {
+  if (!city.rainingNow) return null;
+  return city.rainPoints && city.rainingPoints != null
+    ? `Chovendo agora em ${city.rainingPoints} de ${city.rainPoints} pontos`
+    : 'Chovendo agora';
+}
+
+/**
  * Retorna a tonalidade de azul correspondente ao acumulado de chuva em milímetros.
  */
 export function rainColor(mm: number | null | undefined): string {

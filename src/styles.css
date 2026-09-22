@@ -2561,16 +2561,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 2px 0;
-}
-.climate-ranking-header.heat {
-  color: #ea580c;
-}
-.climate-ranking-header.cold {
-  color: #0284c7;
-}
-.climate-ranking-icon {
-  font-size: 12px;
-  line-height: 1;
+  color: var(--text);
 }
 .climate-ranking-group ol {
   padding: 0;
@@ -2817,6 +2808,50 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .location-button.is-locating svg {
+    animation: none;
+  }
+}
+
+/* Chovendo agora: um anel discreto no ponto da pílula, sem mudar a pílula. */
+.weather-pill-dot.is-raining {
+  box-shadow: 0 0 0 1.5px rgb(37 99 235 / 45%);
+  animation: rain-live-pulse 2.4s ease-out infinite;
+}
+
+.tooltip-live-rain,
+.rain-live-note {
+  color: #1d4ed8;
+}
+
+.rain-live-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+}
+
+.rain-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+  animation: rain-live-pulse 2.4s ease-out infinite;
+}
+
+@keyframes rain-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(37 99 235 / 45%);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 5px rgb(37 99 235 / 0%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weather-pill-dot.is-raining,
+  .rain-live-dot {
     animation: none;
   }
 }

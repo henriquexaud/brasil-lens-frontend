@@ -10,7 +10,12 @@ import { Disclosure } from '@/components/Disclosure';
 import { ErrorMessage } from '@/components/Feedback';
 import { formatFireDate } from '@/features/fire/fireStyles';
 import { densityColor } from '@/features/fire/fireDensity';
-import { rainColor, rainDescription, rainBadgeText } from '@/features/rainfall/rainScale';
+import {
+  rainAmount,
+  rainColor,
+  rainDescription,
+  rainBadgeText,
+} from '@/features/rainfall/rainScale';
 import { measurement, weatherDescription, WeatherIcon } from './conditions';
 import { ESTIMATE_DESCRIPTION } from './EstimateMark';
 
@@ -169,7 +174,7 @@ function RainStatusSection({
     );
   }
 
-  const rainMm = city.precipitationSumMm ?? city.precipitationMm ?? 0;
+  const rainMm = rainAmount(city);
   const hasRain = rainMm > 0;
   const color = rainColor(rainMm);
   const badgeText = rainBadgeText(rainMm);

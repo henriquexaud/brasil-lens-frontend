@@ -103,7 +103,8 @@ backend já inclui `http://localhost:5173`), senão o navegador recusa
 
 | Método | Rota | Onde |
 |---|---|---|
-| `GET` | `/map?level=&parent=&indicator=&year=` | camada do mapa (`useMapLayer`) |
+| `GET` | `/map?level=&parent=&lod=` | malha do mapa: `overview` primeiro, `detail` na ociosidade (`useMapLayer`) |
+| `GET` | `/map/values?level=&parent=&indicator=&year=` | valores e classes da coropleta, sem geometria (`useMapLayer`) |
 | `GET` | `/indicators?level=` | seletores de indicador e ano (`useIndicators`) |
 | `GET` | `/territories/{code}/overview` | painel de detalhe (`useTerritoryOverview`) |
 | `GET` | `/territories?level=state` | nomes das UFs nas visualizações (`useTerritories`) |
@@ -173,9 +174,19 @@ o lote pendente; os já concluídos permanecem no cache.
 
 Selecionar ou buscar um município reutiliza esses dados imediatamente,
 consultando `/weather/current?territory=<IBGE>&forecast=false` se necessário.
-As condições selecionadas e as capitais atualizam a cada cinco minutos;
-o cache municipal é revalidado ao voltar a um recorte depois desse intervalo.
+A Open-Meteo muda as condições a cada 15 minutos, e o backend guarda cada
+leitura por esse tempo (cidade selecionada) ou 30 minutos (capitais, estado e
+área visível): a próxima atualização é agendada pelo horário da própria
+leitura, nunca antes de dois minutos, em vez de a cada cinco minutos fixos.
+Passar o cursor por um resultado da busca ou do mapa só pré-carrega o clima
+depois de 400 ms parado sobre ele.
 A previsão de três dias (`forecast=true`) só carrega ao abrir **Próximos dias**.
+
+**Chuva** pinta o acumulado das últimas 24 h. No Brasil, cada estado é a média
+de quatro pontos dispersos (`/weather/states`), não só a capital; dentro da UF,
+os mesmos municípios medidos e estimados do clima. "Chovendo agora" vem do último
+intervalo de 15 minutos: um anel discreto no ponto da pílula, uma linha no
+tooltip (no Brasil, "em 1 de 4 pontos") e a contagem no ranking de chuva.
 
 O painel mostra o dado principal. **Mais detalhes** reúne os outros valores,
 horário e referência espacial. **Camadas e fontes** consulta os avisos INMET,
@@ -191,7 +202,9 @@ com um debounce curto. O valor principal
 sociopolítico vem do próprio mapa; os demais indicadores só são consultados
 ao expandir **Mais detalhes**. Ajustes de ano, informações da fonte e ações de
 visualizações salvas ficam recolhidos. Painéis de detalhe e camadas climáticas
-têm bundles separados, carregados quando entram em uso. Hover, seleção,
+têm bundles separados, carregados quando entram em uso; React, Leaflet e
+TanStack Query ficam em chunks próprios, que continuam no cache do navegador
+quando um deploy muda só o código do app. Hover, seleção,
 busca e botões contextuais orientam a navegação, sem textos instrucionais fixos.
 
 ### Clima, focos de calor e hidrografia
@@ -209,10 +222,12 @@ no ponto; não são tratados como área queimada ou probabilidade de incêndio.
 
 O botão ao lado direito da busca solicita localização somente após clique, resolve
 o município no backend e aproxima o mapa. Selecionar uma cidade pela busca ou pelo
-mapa também a enquadra. No zoom ≥8 dentro de uma UF, malhas e clima de todos os
-municípios visíveis são carregados em lotes, inclusive vizinhos de outros estados.
-Arrastar cancela pedidos do viewport anterior e reaproveita dados já consultados.
-O backend usa Redis para compartilhar e persistir temporariamente esses resultados.
+mapa também a enquadra. No zoom ≥8 dentro de uma UF, o clima de todos os
+municípios visíveis chega numa consulta (`/weather/viewport?zoom=`): o backend
+mede uma cidade por célula da grade — 0,5° no zoom 8, 0,25° no 9, todas a partir
+do 10 — e estima as vizinhas, marcadas com o "≈" discreto. A área pedida é
+arredondada para essa grade, então arrastar dentro dela reaproveita a mesma
+consulta. O backend usa Redis para compartilhar essas leituras entre usuários.
 
 Hidrografia permanece por último, depois das consultas principais e de um período
 ocioso; rios simplificados chegam primeiro, lagos depois, sem loader invasivo. A
@@ -221,11 +236,14 @@ contornos e duplo clique territorial permanecem disponíveis.
 
 ### Contornos oficiais e atualização progressiva
 
-No clima, a malha municipal usa o LOD `canonical` do IBGE, sem simplificação
-adicional no navegador. Páginas de 24 municípios substituem o download integral
-do estado. A capital vem primeiro na visão estadual; no zoom próximo, o centro
-do viewport tem prioridade. Busca e seleção carregam uma geometria individual
-quando necessário e reutilizam as que já chegaram.
+Toda malha de `/map` chega primeiro no LOD `overview` — cerca de 6× menor e com
+diferença abaixo de um pixel nos zooms do Brasil e da UF — e é trocada pela
+`detail` quando o navegador fica ocioso; só os polígonos redesenham, sem
+recriar a camada. Os valores da coropleta vêm à parte (`/map/values`): trocar
+indicador ou ano custa alguns KB, e contorno dos estados, coropleta e clima
+dividem a mesma malha em cache. Enquanto ela não chega, páginas de 24 malhas
+canônicas (`/weather/municipal-boundaries`) cobrem o viewport. Busca e seleção
+carregam uma geometria individual quando necessário e reutilizam as que já chegaram.
 
 Cada lote acrescenta os caminhos SVG ao mapa existente, preservando foco e
 interação. O clima do estado chega em uma requisição (`/weather/state`): uma

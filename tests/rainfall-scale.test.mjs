@@ -15,6 +15,8 @@ const {
   rainColor,
   rainDescription,
   rainBadgeText,
+  rainAmount,
+  rainingNowText,
 } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
 test('escala cromática de chuva contém paleta contínua de azuis', () => {
@@ -53,3 +55,15 @@ test('rainDescription e rainBadgeText retornam classificações amigáveis', () 
   assert.equal(rainBadgeText(80), 'Alerta de chuva');
 });
 
+
+test('chuva do mapa é o acumulado de 24 h e "chovendo agora" mostra a proporção do estado', () => {
+  assert.equal(rainAmount({ precipitation24hMm: 12.4, precipitationSumMm: 3, precipitationMm: 0 }), 12.4);
+  assert.equal(rainAmount({ precipitationSumMm: 3, precipitationMm: 0 }), 3, 'cache antigo sem 24 h');
+  assert.equal(rainAmount({}), 0);
+  assert.equal(rainingNowText({ rainingNow: false }), null);
+  assert.equal(rainingNowText({ rainingNow: true }), 'Chovendo agora');
+  assert.equal(
+    rainingNowText({ rainingNow: true, rainPoints: 4, rainingPoints: 1 }),
+    'Chovendo agora em 1 de 4 pontos',
+  );
+});

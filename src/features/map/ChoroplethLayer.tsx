@@ -31,7 +31,12 @@ import {
 import { scopeInsets } from './viewport';
 import { densityColor, type FireMode } from '@/features/fire/fireDensity';
 import { formatFireDate } from '@/features/fire/fireStyles';
-import { rainColor, rainDescription } from '@/features/rainfall/rainScale';
+import {
+  rainAmount,
+  rainColor,
+  rainDescription,
+  rainingNowText,
+} from '@/features/rainfall/rainScale';
 import { measurement, weatherDescription } from '@/features/weather/conditions';
 
 const SELECTION_HALO_STYLE: PolylineOptions = {
@@ -134,7 +139,7 @@ function fillTooltipContent(
     } else add('tooltip-meta', 'Resumo de focos indisponível');
   } else if (rainActive) {
     if (weather) {
-      const rainVal = weather.precipitationSumMm ?? weather.precipitationMm ?? 0;
+      const rainVal = rainAmount(weather);
       const valEl = document.createElement('span');
       valEl.className = 'tooltip-value';
       const dot = document.createElement('span');
@@ -145,9 +150,11 @@ function fillTooltipContent(
       textSpan.textContent = `${estimatePrefix}${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
       valEl.append(textSpan);
       el.append(valEl);
-      add('tooltip-meta', rainDescription(rainVal) + estimateSuffix);
+      add('tooltip-meta', `${rainDescription(rainVal)} em 24 h${estimateSuffix}`);
+      const live = rainingNowText(weather);
+      if (live) add('tooltip-meta tooltip-live-rain', live);
       if (weather.precipitationProbabilityPct != null) {
-        add('tooltip-meta', `Probabilidade: ${weather.precipitationProbabilityPct}%`);
+        add('tooltip-meta', `Chance de chuva hoje: ${weather.precipitationProbabilityPct}%`);
       }
     } else {
       add('tooltip-meta', 'Dados de chuva indisponíveis');
@@ -216,7 +223,9 @@ function Territories({
   );
 
   // Acrescenta/remove apenas as features que mudaram: um lote não recria
-  // os SVGs já desenhados, nem perde o foco de teclado ou o tooltip.
+  // os SVGs já desenhados, nem perde o foco de teclado ou o tooltip. Uma
+  // feature cuja malha mudou (o LOD leve trocado pelo detalhado) é redesenhada;
+  // novos valores não contam, porque preservam a mesma geometria.
   useEffect(() => {
     const group = layerRef.current;
     if (!group) return;
@@ -224,7 +233,8 @@ function Territories({
     group.eachLayer((layer) => {
       const feature = (layer as Path & { feature?: TerritoryFeature }).feature;
       const code = feature?.properties.ibgeCode;
-      if (!code || !featuresByCode.has(code)) group.removeLayer(layer);
+      const next = code ? featuresByCode.get(code) : undefined;
+      if (!code || !next || next.geometry !== feature?.geometry) group.removeLayer(layer);
       else present.add(code);
     });
     for (const [code, feature] of featuresByCode) {
@@ -343,7 +353,7 @@ function Territories({
       }
       if (isClimate && rainMode) {
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
-        const rainVal = weather?.precipitationSumMm ?? weather?.precipitationMm ?? 0;
+        const rainVal = weather ? rainAmount(weather) : 0;
         const hasRain = rainVal > 0;
         const fillColor = rainColor(rainVal);
         const fillOpacity = hasRain ? (hovered ? 0.88 : 0.72) : hovered ? 0.3 : 0.12;
@@ -496,6 +506,9 @@ function Territories({
         weather?.weatherCode,
         weather?.precipitationSumMm,
         weather?.precipitationMm,
+        weather?.precipitation24hMm,
+        weather?.rainingNow,
+        weather?.rainingPoints,
         weather?.precipitationProbabilityPct,
         weather?.isInferred,
       ]);

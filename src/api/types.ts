@@ -176,6 +176,23 @@ export interface MapFeatureCollection {
   parentFeature?: MapFeature | null;
 }
 
+export interface MapValue {
+  ibgeCode: string;
+  value: number | null;
+  normalizedValue: number | null;
+  classIndex: number | null;
+}
+
+/** `/map/values`: a coropleta sem geometria, casada com a malha já carregada. */
+export interface MapValuesResponse {
+  level: TerritoryLevel;
+  parent: string | null;
+  indicator: MapIndicatorMeta;
+  statistics: MapStatistics | null;
+  classification: MapClassification | null;
+  values: MapValue[];
+}
+
 export interface MapQuery {
   level: TerritoryLevel;
   parent?: string | null;
@@ -323,6 +340,13 @@ export interface WeatherCity {
   precipitationSumMm?: number | null;
   precipitationProbabilityPct?: number | null;
   precipitationIntervalMinutes: number;
+  /** Acumulado das últimas 24 h — o valor que o mapa de chuva pinta. */
+  precipitation24hMm?: number | null;
+  /** Chovendo no intervalo mais recente (precipitação ou código de chuva). */
+  rainingNow?: boolean;
+  /** Mapa do Brasil: pontos do estado na média de chuva e quantos têm chuva agora. */
+  rainPoints?: number | null;
+  rainingPoints?: number | null;
   weatherCode: number | null;
   forecast: WeatherForecastDay[];
   /** Indica se a leitura é uma estimativa por interpolação espacial ou dado real medido */
