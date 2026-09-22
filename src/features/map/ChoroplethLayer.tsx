@@ -79,6 +79,14 @@ const TOOLTIP_ID = 'map-hover-tooltip';
 /** Não deixa o card colado no cursor nem sair da faixa visível do mapa. */
 const TOOLTIP_EDGE = 8;
 
+/** Só estes campos mudam entre estilos; comparar evita `setStyle` sem efeito. */
+function styleKey(style: PathOptions): string {
+  return [style.color, style.fillColor, style.weight, style.opacity, style.fillOpacity].join('|');
+}
+
+/** A partir daqui o hover é instantâneo: um fade por polígono vira rastro. */
+const DENSE_FEATURES = 150;
+
 function preserveBoundary(_feature: Feature, layer: Layer) {
   if (layer instanceof Polygon) layer.options.smoothFactor = 0;
 }
@@ -213,6 +221,12 @@ function Territories({
       map.attributionControl?.removeAttribution(attribution);
     };
   }, [map, fireMode, isClimate]);
+  const dense = collection.features.length > DENSE_FEATURES;
+  useEffect(() => {
+    const container = map.getContainer();
+    container.classList.toggle('map-dense', dense);
+    return () => container.classList.remove('map-dense');
+  }, [map, dense]);
   const featuresByCode = useMemo(
     () => new Map(collection.features.map((feature) => [feature.properties.ibgeCode, feature])),
     [collection.features],
@@ -222,10 +236,10 @@ function Territories({
     [collection, selectedCode],
   );
 
-  // Acrescenta/remove apenas as features que mudaram: um lote não recria
-  // os SVGs já desenhados, nem perde o foco de teclado ou o tooltip. Uma
-  // feature cuja malha mudou (o LOD leve trocado pelo detalhado) é redesenhada;
-  // novos valores não contam, porque preservam a mesma geometria.
+  // Acrescenta/remove apenas as features que entraram ou saíram: um lote não
+  // recria os SVGs já desenhados, nem perde o foco de teclado ou o tooltip.
+  // Uma malha nova do mesmo território (o LOD leve trocado pelo detalhado) é
+  // aplicada no próprio path, no efeito de estilo abaixo — sem piscar.
   useEffect(() => {
     const group = layerRef.current;
     if (!group) return;
@@ -233,8 +247,7 @@ function Territories({
     group.eachLayer((layer) => {
       const feature = (layer as Path & { feature?: TerritoryFeature }).feature;
       const code = feature?.properties.ibgeCode;
-      const next = code ? featuresByCode.get(code) : undefined;
-      if (!code || !next || next.geometry !== feature?.geometry) group.removeLayer(layer);
+      if (!code || !featuresByCode.has(code)) group.removeLayer(layer);
       else present.add(code);
     });
     for (const [code, feature] of featuresByCode) {
@@ -262,6 +275,9 @@ function Territories({
   const fixedAnchorRef = useRef<Point | null>(null);
   const offsetRef = useRef({ dx: 16, dy: -14 });
   const tooltipSizeRef = useRef({ width: 0, height: 0 });
+  // Medir o card força layout; com centenas de polígonos, o cursor cruza vários
+  // por frame. A medida fica para o frame seguinte, uma vez só.
+  const needsMeasureRef = useRef(false);
   const activeTooltipCodeRef = useRef<string | null>(null);
   const activeTooltipContentRef = useRef('');
   const moveFrameRef = useRef<number | null>(null);
@@ -290,9 +306,18 @@ function Territories({
       moveFrameRef.current = null;
       const point = fixedAnchorRef.current ?? pointerRef.current;
       if (!point || !tooltipElRef.current) return;
+      const size = map.getSize();
+      if (needsMeasureRef.current) {
+        needsMeasureRef.current = false;
+        const { offsetWidth: width, offsetHeight: height } = tooltipElRef.current;
+        tooltipSizeRef.current = { width, height };
+        offsetRef.current = {
+          dx: point.x + width + 16 > size.x ? -width - 16 : 16,
+          dy: point.y < 90 ? 20 : -14,
+        };
+      }
       const { dx, dy } = offsetRef.current;
       // translate3d (não top/left) para não disparar layout a cada frame.
-      const size = map.getSize();
       const { width, height } = tooltipSizeRef.current;
       const x = Math.max(TOOLTIP_EDGE, Math.min(point.x + dx, size.x - width - TOOLTIP_EDGE));
       const y = Math.max(TOOLTIP_EDGE, Math.min(point.y + dy, size.y - height - TOOLTIP_EDGE));
@@ -529,20 +554,14 @@ function Territories({
           Boolean(cm),
         );
         activeTooltipContentRef.current = content;
-        const size = map.getSize();
-        const anchor = fixedPoint ?? pointerRef.current;
-        tooltipSizeRef.current = { width: el.offsetWidth, height: el.offsetHeight };
-        offsetRef.current = {
-          dx: anchor && anchor.x + el.offsetWidth + 16 > size.x ? -el.offsetWidth - 16 : 16,
-          dy: anchor && anchor.y < 90 ? 20 : -14,
-        };
+        needsMeasureRef.current = true;
         activeTooltipCodeRef.current = properties.ibgeCode;
       }
       fixedAnchorRef.current = fixedPoint ?? null;
       el.style.opacity = '1';
       requestReposition.current();
     },
-    [cancelHide, map],
+    [cancelHide],
   );
 
   // Amarração de eventos aos nós SVG — executada UMA VEZ por layer para evitar recriação de listeners
@@ -558,39 +577,24 @@ function Territories({
       const properties = feature.properties;
       const element = layer.getElement();
 
+      // O hover usa o mesmo `style()` do resto da camada: um estilo à parte
+      // divergia dele (na chuva, um município sem chuva ficava quase branco).
+      const restyle = () => {
+        const nextStyle = propsRef.current.style(territory.feature);
+        layer.setStyle(nextStyle);
+        appliedStyleRef.current.set(layer, styleKey(nextStyle));
+      };
+
       const hoverEnter = () => {
         hoveredCode.current = properties.ibgeCode;
-        const currentProps = propsRef.current;
-        if (properties.ibgeCode !== currentProps.selectedCode) {
-          const isClimateLayer = !currentProps.collection.indicator?.key;
-          const weather = currentProps.weatherByCode?.get(properties.ibgeCode);
-          const hasColor = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
-          const hStyle = currentProps.fireMode
-            ? { color: HOVER_COLOR, weight: 1.2, opacity: 0.9 }
-            : currentProps.rainMode
-              ? {
-                  color: HOVER_COLOR,
-                  weight: currentProps.municipal ? 1.4 : 1.6,
-                  opacity: 0.95,
-                  fillOpacity: 0.88,
-                }
-              : isClimateLayer
-                ? {
-                    color: HOVER_COLOR,
-                    weight: currentProps.municipal ? 1.4 : 1.6,
-                    opacity: 0.95,
-                    fillOpacity: hasColor ? 0.85 : 0.35,
-                  }
-                : { color: HOVER_COLOR, weight: currentProps.municipal ? 1.2 : 1.5, opacity: 0.9 };
-          layer.setStyle(hStyle);
-        }
-        currentProps.onHover?.(properties.ibgeCode);
+        restyle();
+        propsRef.current.onHover?.(properties.ibgeCode);
         element?.setAttribute('aria-describedby', TOOLTIP_ID);
       };
 
       const hoverLeave = () => {
-        hoveredCode.current = null;
-        layer.setStyle(propsRef.current.style(feature));
+        if (hoveredCode.current === properties.ibgeCode) hoveredCode.current = null;
+        restyle();
         element?.removeAttribute('aria-describedby');
       };
 
@@ -678,17 +682,10 @@ function Territories({
       const properties = feature.properties;
       const selected = properties.ibgeCode === selectedCode;
       const nextStyle = style(feature);
-      const styleKey = [
-        nextStyle.color,
-        nextStyle.fillColor,
-        nextStyle.weight,
-        nextStyle.opacity,
-        nextStyle.fillOpacity,
-      ].join('|');
-
-      if (appliedStyleRef.current.get(layer) !== styleKey) {
+      const key = styleKey(nextStyle);
+      if (appliedStyleRef.current.get(layer) !== key) {
         layer.setStyle(nextStyle);
-        appliedStyleRef.current.set(layer, styleKey);
+        appliedStyleRef.current.set(layer, key);
       }
 
       const element = layer.getElement();

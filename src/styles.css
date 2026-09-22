@@ -82,6 +82,13 @@ body {
     stroke-width var(--motion-fast) var(--ease-out);
 }
 
+/* Com centenas de municípios, o cursor cruza vários polígonos por segundo: o
+   fade de cada hover vira um rastro piscando. Hover instantâneo; a troca de
+   cor pelos dados continua suave. */
+.map-dense .leaflet-overlay-pane .territory-shape {
+  transition: fill var(--motion-map) var(--ease-in-out);
+}
+
 /* Mantém a espessura das divisas durante o zoom animado do Leaflet. */
 .territory-shape,
 .territory-selection-halo,

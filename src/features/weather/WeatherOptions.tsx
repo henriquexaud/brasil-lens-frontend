@@ -125,7 +125,8 @@ export function WeatherOptions({
             {showClimate && (error == null || calculatedRange) && (
               <span className="weather-layer-badge badge-climate">
                 {calculatedRange
-                  ? (Math.round(calculatedRange.min) || 0) === (Math.round(calculatedRange.max) || 0)
+                  ? (Math.round(calculatedRange.min) || 0) ===
+                    (Math.round(calculatedRange.max) || 0)
                     ? `${Math.round(calculatedRange.min) || 0}°C · ${scopeName ?? 'Brasil'}`
                     : `${Math.round(calculatedRange.min) || 0} - ${Math.round(calculatedRange.max) || 0}°C · ${scopeName ?? 'Brasil'}`
                   : 'Ativo'}

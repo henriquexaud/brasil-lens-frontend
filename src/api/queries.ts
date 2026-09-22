@@ -666,25 +666,6 @@ export function useUserStateWeather(parent: string | null, enabled: boolean) {
   return query;
 }
 
-const PREFETCH_DWELL_MS = 400;
-
-export function usePrefetchWeatherCurrent() {
-  const client = useQueryClient();
-  const cancel = useRef<(() => void) | undefined>();
-  useEffect(() => () => cancel.current?.(), []);
-  return useCallback(
-    (code: string) => {
-      cancel.current?.();
-      // Só depois de uma pausa sobre o item: percorrer a busca ou o mapa com o
-      // cursor não vira uma consulta à fonte por município.
-      cancel.current = scheduleIdle(() => {
-        void client.prefetchQuery(weatherCurrentOptions(code));
-      }, PREFETCH_DWELL_MS);
-    },
-    [client],
-  );
-}
-
 export function useWeatherAlerts(enabled = true) {
   return useQuery({
     queryKey: queryKeys.weatherAlerts(),

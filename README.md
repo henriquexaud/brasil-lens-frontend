@@ -178,8 +178,15 @@ A Open-Meteo muda as condições a cada 15 minutos, e o backend guarda cada
 leitura por esse tempo (cidade selecionada) ou 30 minutos (capitais, estado e
 área visível): a próxima atualização é agendada pelo horário da própria
 leitura, nunca antes de dois minutos, em vez de a cada cinco minutos fixos.
-Passar o cursor por um resultado da busca ou do mapa só pré-carrega o clima
-depois de 400 ms parado sobre ele.
+O hover é só feedback visual com os dados já na tela: nenhum dado de município
+é buscado antes do clique.
+
+Dentro da UF, o estado inteiro mostra os rótulos que couberem sem sobreposição.
+Com uma cidade aberta, o foco é ela: no máximo 4 a 8 vizinhos medidos, mais
+espaçados quanto mais municípios houver na tela; os demais seguem pela cor da
+escala. Os rótulos já na tela têm preferência, para não trocarem a cada dado novo.
+No zoom próximo, o backend engrossa a grade
+de medição quando a área passa de 80 células.
 A previsão de três dias (`forecast=true`) só carrega ao abrir **Próximos dias**.
 
 **Chuva** pinta o acumulado das últimas 24 h. No Brasil, cada estado é a média

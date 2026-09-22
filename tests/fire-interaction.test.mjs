@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { ApiError } from './src/api/client';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { ApiError } from './src/api/client'; export { focusLabelBudget } from './src/features/weather/WeatherLayer';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -58,6 +58,7 @@ const {
   WeatherPanel,
   FireOverview,
   WeatherOptions,
+  focusLabelBudget,
 } = await import(pathToFileURL(path).href);
 let root, client, map, requests;
 function CaptureMap() {
@@ -903,7 +904,7 @@ test('rodapé das camadas mostra a causa real e só retenta a cota esgotada pelo
   assert.equal(document.querySelector('.weather-refresh-btn').textContent, 'Atualizar dados');
 });
 
-test('malha nova do mesmo território redesenha o polígono; valores novos não', async () => {
+test('malha nova do mesmo território atualiza o polígono sem recriar o SVG', async () => {
   const square = (size) => ({
     type: 'MultiPolygon',
     coordinates: [[[[-55, -12], [-55 + size, -12], [-55 + size, -12 + size], [-55, -12 + size], [-55, -12]]]],
@@ -933,13 +934,77 @@ test('malha nova do mesmo território redesenha o polígono; valores novos não'
         ),
       ),
     );
+  const northEdge = () => {
+    let north;
+    map.eachLayer((layer) => {
+      if (layer.feature?.properties?.ibgeCode === '51' && layer.getBounds)
+        north = layer.getBounds().getNorth();
+    });
+    return north;
+  };
   const overview = square(2);
   await draw(collection(overview, 1));
   const first = document.querySelector('.territory-shape');
   await draw(collection(overview, 2));
-  assert.equal(document.querySelector('.territory-shape'), first, 'mesma malha: o SVG fica');
+  assert.equal(document.querySelector('.territory-shape'), first, 'novos valores: o SVG fica');
+  assert.equal(northEdge(), -10);
   await draw(collection(square(3), 2));
-  const upgraded = document.querySelectorAll('.territory-shape');
-  assert.equal(upgraded.length, 1);
-  assert.notEqual(upgraded[0], first, 'malha detalhada substitui a leve');
+  const shapes = document.querySelectorAll('.territory-shape');
+  assert.equal(shapes.length, 1);
+  assert.equal(shapes[0], first, 'malha detalhada: o mesmo SVG, sem piscar');
+  assert.equal(northEdge(), -9, 'com a geometria nova');
+});
+
+test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', async () => {
+  const data = {
+    type: 'FeatureCollection',
+    scope: { level: 'municipality', parent: '51', lod: 'overview' },
+    indicator: null,
+    classification: null,
+    features: [
+      {
+        type: 'Feature',
+        id: '5103403',
+        geometry: {
+          type: 'MultiPolygon',
+          coordinates: [[[[-56, -16], [-55, -16], [-55, -15], [-56, -15], [-56, -16]]]],
+        },
+        properties: { ibgeCode: '5103403', name: 'Cuiabá', value: null, classIndex: null },
+      },
+    ],
+  };
+  const dry = { id: '5103403', temperatureC: 30, weatherCode: 0, precipitation24hMm: 0 };
+  await act(async () =>
+    root.render(
+      h(
+        MapContainer,
+        { center: [-15.5, -55.5], zoom: 7, zoomControl: false },
+        h(CaptureMap),
+        h(ChoroplethLayer, {
+          collection: data,
+          weatherByCode: new Map([['5103403', dry]]),
+          rainMode: true,
+          selectedCode: null,
+        }),
+      ),
+    ),
+  );
+  let layer;
+  map.eachLayer((candidate) => {
+    if (candidate.feature?.properties?.ibgeCode === '5103403' && candidate.setStyle) layer = candidate;
+  });
+  const opacity = () => Number(layer.options.fillOpacity);
+  const resting = opacity();
+  layer.fire('mouseover', { containerPoint: { x: 10, y: 10 } });
+  assert.ok(opacity() > resting && opacity() <= 0.3, `hover leve, não opaco (${opacity()})`);
+  layer.fire('mouseout');
+  assert.equal(opacity(), resting);
+});
+
+test('cidade aberta: poucos rótulos vizinhos, menos e mais espaçados com mais municípios', () => {
+  const sparse = focusLabelBudget(40);
+  const dense = focusLabelBudget(400);
+  assert.ok(dense.maxLabels < sparse.maxLabels);
+  assert.ok(dense.spacing > sparse.spacing);
+  assert.ok(sparse.maxLabels <= 8);
 });

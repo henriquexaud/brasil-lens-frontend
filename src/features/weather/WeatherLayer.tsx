@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, Pane, Tooltip, useMap } from 'react-leaflet';
 import type { WeatherCity } from '@/api/types';
 import { colorForTemperature } from '@/features/map/colors';
@@ -9,7 +9,25 @@ import { EstimateMark } from '@/features/weather/EstimateMark';
 const ATTRIBUTION =
   'Clima: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>';
 
-export function WeatherLayer({
+/**
+ * Com uma cidade aberta, o foco é ela: poucos vizinhos medidos e bem espaçados
+ * (px na horizontal; metade na vertical), menos ainda quanto mais municípios
+ * houver na tela. O estado inteiro, sem seleção, mostra os rótulos que couberem.
+ */
+export function focusLabelBudget(density: number) {
+  if (density > 150) return { maxLabels: 4, spacing: 180 };
+  if (density > 60) return { maxLabels: 6, spacing: 160 };
+  return { maxLabels: 8, spacing: 140 };
+}
+
+/** Estado inteiro: todos os rótulos que couberem, como sempre. */
+const STATE_LABELS = { maxLabels: Infinity, spacing: 96 };
+
+/**
+ * Memo: o App renderiza a cada mudança de estado das consultas; as pílulas só
+ * precisam mudar com as cidades, a seleção, o modo ou o enquadramento.
+ */
+export const WeatherLayer = memo(function WeatherLayer({
   cities,
   selectedId,
   municipal,
@@ -37,42 +55,62 @@ export function WeatherLayer({
 
   const isRain = mode === 'rainfall';
 
+  // Pílulas já na tela têm preferência na disputa por espaço: sem isso, cada
+  // lote de dados mudava os vencedores e as pílulas sumiam e reapareciam
+  // (com a animação de entrada) em áreas com muitos municípios.
+  const shownRef = useRef(new Set<string>());
+
   // Ordena para que o território selecionado fique sempre no topo da pilha visual.
-  const sortedCities = (() => {
+  // Recalculado só quando dados, seleção, modo ou enquadramento mudam.
+  const sortedCities = useMemo(() => {
     const candidates = cities.filter((city) =>
       isRain
         ? rainAmount(city) >= 0.1
         : city.temperatureC != null && Number.isFinite(city.temperatureC),
     );
     if (municipal) {
-      // Todas as cores continuam no mapa; os rótulos disputam espaço, não dados.
-      // O município selecionado tem prioridade e os demais reaparecem ao aproximar.
+      // Estado inteiro: rótulos pela UF toda, disputando espaço. Cidade aberta:
+      // ela e poucos vizinhos medidos; o resto segue pintado pela escala.
+      const focused = Boolean(selectedId && selectedId.length === 7);
       const size = map.getSize();
-      const occupied: Array<{ x: number; y: number }> = [];
-      const priority = [...candidates].sort((a, b) => {
+      const onScreen = (city: WeatherCity) => {
+        const point = map.latLngToContainerPoint([city.latitude, city.longitude]);
+        return point.x >= 0 && point.y >= 0 && point.x <= size.x && point.y <= size.y
+          ? point
+          : null;
+      };
+      const { maxLabels, spacing } = focused
+        ? focusLabelBudget(
+            cities.reduce((count, city) => count + Number(Boolean(onScreen(city))), 0),
+          )
+        : STATE_LABELS;
+      // Com a cidade aberta, só leituras medidas acompanham a dela.
+      const measured = candidates.filter((city) => !city.isInferred || city.id === selectedId);
+      const pool = focused && measured.length > 0 ? measured : candidates;
+      const shown = shownRef.current;
+      const priority = [...pool].sort((a, b) => {
         if (a.id === selectedId) return -1;
         if (b.id === selectedId) return 1;
-        if (isRain) {
-          const rainA = rainAmount(a);
-          const rainB = rainAmount(b);
-          return rainB - rainA;
-        }
-        // Leituras medidas ganham a disputa por espaço; estimativas preenchem o resto.
+        const kept = Number(shown.has(b.id)) - Number(shown.has(a.id));
+        if (kept) return kept;
+        if (isRain) return rainAmount(b) - rainAmount(a);
         return Number(Boolean(a.isInferred)) - Number(Boolean(b.isInferred));
       });
+      const occupied: Array<{ x: number; y: number }> = [];
       const visible = new Set<string>();
       for (const city of priority) {
-        const point = map.latLngToContainerPoint([city.latitude, city.longitude]);
-        if (point.x < 0 || point.y < 0 || point.x > size.x || point.y > size.y) continue;
-        if (
-          occupied.some(
-            (other) => Math.abs(point.x - other.x) < 96 && Math.abs(point.y - other.y) < 48,
-          )
-        )
-          continue;
+        if (visible.size >= maxLabels && city.id !== selectedId) break;
+        const point = onScreen(city);
+        if (!point) continue;
+        const crowded = occupied.some(
+          (other) =>
+            Math.abs(point.x - other.x) < spacing && Math.abs(point.y - other.y) < spacing / 2,
+        );
+        if (crowded && city.id !== selectedId) continue;
         occupied.push(point);
         visible.add(city.id);
       }
+      shownRef.current = visible;
       return candidates
         .filter((city) => visible.has(city.id))
         .sort((a, b) => Number(a.id === selectedId) - Number(b.id === selectedId));
@@ -82,7 +120,10 @@ export function WeatherLayer({
       if (b.id === selectedId) return -1;
       return 0;
     });
-  })();
+    // `viewport` muda a cada movimento do mapa: as posições em tela (via `map`)
+    // precisam ser recalculadas, mesmo sem ser lido aqui dentro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cities, selectedId, municipal, isRain, map, viewport]);
 
   // No mapa do Brasil, modo compacto apenas em zoom muito afastado (< 4.8) para evitar sobreposição na costa.
   // No mapa estadual, exibe os pills a partir do zoom 6.0; abaixo disso foca na capital e selecionado.
@@ -198,4 +239,4 @@ export function WeatherLayer({
       })}
     </Pane>
   );
-}
+});

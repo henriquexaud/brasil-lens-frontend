@@ -16,7 +16,6 @@ import {
   useIndicators,
   useMapLayer,
   usePrefetchOverview,
-  usePrefetchWeatherCurrent,
   useWeatherAlerts,
   useWeatherCurrent,
   useMunicipalityWeather,
@@ -591,7 +590,6 @@ export default function App() {
     ],
   );
   const prefetchOverview = usePrefetchOverview();
-  const prefetchWeather = usePrefetchWeatherCurrent();
 
   const [userSelectedCities, setUserSelectedCities] = useState<Map<string, WeatherCity>>(
     () => new Map(),
@@ -740,14 +738,14 @@ export default function App() {
     }
     return result;
   }, [knownWeather, collection]);
+  // Hover é só feedback visual com o que já está na tela: nenhum dado de
+  // município é buscado antes do clique. O painel de uma UF no contexto
+  // sociopolítico, leitura do banco, ainda é antecipado.
   const onPreview = useCallback(
     (code: string) => {
-      if (isClimate) {
-        // O hover só aquece o clima quando é o clima (ou a chuva) que está na tela.
-        if (weatherLayerActive && !weatherByCode.has(code)) prefetchWeather(code);
-      } else prefetchOverview(code);
+      if (!isClimate && code.length === 2) prefetchOverview(code);
     },
-    [isClimate, weatherLayerActive, weatherByCode, prefetchWeather, prefetchOverview],
+    [isClimate, prefetchOverview],
   );
   const city = selectedCode
     ? (selectedWeather.data?.cities[0] ?? weatherByCode.get(selectedCode))

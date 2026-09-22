@@ -25,4 +25,3 @@ export function measurement(value: number | null | undefined, unit: string): str
   }
   return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}${unit}`;
 }
-
