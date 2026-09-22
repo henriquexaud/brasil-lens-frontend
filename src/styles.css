@@ -1779,6 +1779,28 @@ body {
   border-style: solid;
   letter-spacing: 0.02em;
 }
+/* Frase livre da fonte (ex.: município do CEMADEN) no título — mais discreta
+   que o tipo do evento, que continua o texto principal da linha. */
+.weather-alert-description {
+  color: var(--text-soft);
+  font-weight: 400;
+}
+/* Origem do alerta dentro do próprio item — nunca um controle de camada à
+   parte (ver WeatherOptions). Deliberadamente mais discreta que o badge de
+   severidade ao lado: severidade e tipo do risco pesam mais que a fonte. */
+.weather-alert-source-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-soft);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  letter-spacing: 0.03em;
+}
 .weather-alerts-container {
   margin-bottom: 6px;
 }

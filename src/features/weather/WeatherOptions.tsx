@@ -8,7 +8,7 @@ import type {
 import { Disclosure } from '@/components/Disclosure';
 import { describeError, ErrorMessage } from '@/components/Feedback';
 import { formatRelativeTime } from '@/lib/format';
-import { getAlertStyle } from './alertStyles';
+import { alertSourceLabel, getAlertStyle, SEVERITY_RANK } from './alertStyles';
 
 export interface WeatherOptionsProps {
   showAlerts: boolean;
@@ -74,15 +74,26 @@ export function WeatherOptions({
   const isAlertsPending = alertsPending ?? fallbackAlerts.isPending;
   const alertsError = fallbackAlerts.error;
 
-  const relevant = activeAlerts?.features.filter(
-    (alert) =>
-      !code ||
-      Boolean(
-        alert.properties.affectedIbgeCodes?.some((affected) =>
-          code.length === 2 ? affected.startsWith(code) : affected === code,
+  // Severidade mais importante que a fonte na lista também: o alerta mais
+  // grave aparece primeiro, não o mais recente nem o da fonte X ou Y.
+  const relevant = useMemo(() => {
+    const filtered = activeAlerts?.features.filter(
+      (alert) =>
+        !code ||
+        Boolean(
+          alert.properties.affectedIbgeCodes?.some((affected) =>
+            code.length === 2 ? affected.startsWith(code) : affected === code,
+          ),
         ),
-      ),
-  );
+    );
+    return filtered
+      ?.slice()
+      .sort(
+        (a, b) =>
+          SEVERITY_RANK[getAlertStyle(a.properties).tier] -
+          SEVERITY_RANK[getAlertStyle(b.properties).tier],
+      );
+  }, [activeAlerts, code]);
 
   const calculatedRange = useMemo(() => {
     if (minTemperature != null && maxTemperature != null) {
@@ -198,7 +209,9 @@ export function WeatherOptions({
         )}
       </div>
 
-        {/* Camada: Avisos Meteorológicos */}
+        {/* Camada: Alertas — uma só camada para as duas fontes; a origem
+            aparece dentro de cada alerta (ver Disclosure abaixo), nunca como
+            controle separado. */}
         <div className="weather-layer-card">
           <label className="weather-layer-label weather-toggle">
             <input
@@ -207,8 +220,8 @@ export function WeatherOptions({
               onChange={(event) => onToggleAlerts(event.target.checked)}
             />
             <div className="weather-layer-title">
-              <span>Avisos meteorológicos</span>
-              <span className="weather-layer-source">INMET</span>
+              <span>Alertas</span>
+              <span className="weather-layer-source">INMET · CEMADEN</span>
             </div>
           </label>
           {showAlerts && (
@@ -220,8 +233,8 @@ export function WeatherOptions({
               {isAlertsPending && !activeAlerts
                 ? 'Consultando…'
                 : relevant && relevant.length > 0
-                  ? `${relevant.length} ${relevant.length === 1 ? 'aviso ativo' : 'avisos ativos'}`
-                  : 'Sem avisos'}
+                  ? `${relevant.length} ${relevant.length === 1 ? 'alerta ativo' : 'alertas ativos'}`
+                  : 'Sem alertas'}
             </span>
           )}
         </div>
@@ -278,7 +291,17 @@ export function WeatherOptions({
                           }}
                           aria-hidden="true"
                         />
-                        <span>{properties.event}</span>
+                        <span>
+                          {properties.event}
+                          {/* Frase livre da fonte (ex.: município do CEMADEN) — só
+                              existe quando `event` sozinho não basta. */}
+                          {properties.description && (
+                            <span className="weather-alert-description">
+                              {' '}
+                              — {properties.description}
+                            </span>
+                          )}
+                        </span>
                       </span>
                     }
                   >
@@ -292,6 +315,11 @@ export function WeatherOptions({
                         }}
                       >
                         {properties.severity}
+                      </span>
+                      {/* Origem dentro do alerta, discreta — severidade e tipo
+                          do risco continuam mais proeminentes visualmente. */}
+                      <span className="weather-alert-source-tag">
+                        {alertSourceLabel(properties.provider)}
                       </span>
                       <span className="source-note">
                         até{' '}
@@ -376,7 +404,16 @@ export function WeatherOptions({
             <a href="https://portal.inmet.gov.br/" target="_blank" rel="noreferrer">
               INMET
             </a>
-            . Severidades e instruções oficiais vigentes.
+            . Chuva intensa, tempestade, vento, baixa umidade e ondas de calor — severidades e
+            instruções oficiais vigentes.
+          </li>
+          <li className="weather-methodology-item">
+            <strong>Risco geo-hidrológico:</strong>{' '}
+            <a href="https://www.gov.br/cemaden/pt-br" target="_blank" rel="noreferrer">
+              CEMADEN
+            </a>
+            . Inundação, enxurrada, alagamento e deslizamento por município, complementar aos
+            avisos do INMET — os dois podem aparecer juntos na mesma área.
           </li>
           <li className="weather-methodology-item">
             <strong>Hidrografia:</strong>{' '}

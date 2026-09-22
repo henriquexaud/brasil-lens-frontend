@@ -1,5 +1,5 @@
 /**
- * Mapeamento e calibração de cores e estilos para avisos meteorológicos (INMET).
+ * Mapeamento e calibração de cores e estilos para alertas oficiais (INMET e CEMADEN).
  *
  * Configurado com visual sutil e elegante:
  * 1. Preenchimento translúcido leve (10% a 14% de opacidade) que preserva a
@@ -8,9 +8,36 @@
  *    refinada (1.25px - 1.4px) e opacidade nítida (0.9), destacando a área de
  *    aviso com clareza e elegância sem sobrecarregar o mapa.
  * 3. Sem sombras pesadas, mantendo acabamento vetorial limpo e moderno.
+ *
+ * O tier de um alerta agora vem pronto do backend (`severityLevel`, calculado
+ * em `services/weather.py` a partir do vocabulário próprio de cada fonte) —
+ * este módulo só traduz tier → estilo visual. `resolveAlertTier` (adivinhação
+ * por texto/cor) continua aqui só como rede de segurança para uma resposta
+ * antiga em cache sem o campo; nenhum vocabulário de fonte novo deveria
+ * precisar de uma entrada aqui.
  */
 
-export type AlertSeverityTier = 'potential' | 'danger' | 'extreme' | 'other';
+import type { WeatherAlertSeverityLevel } from '@/api/types';
+
+export type AlertSeverityTier = WeatherAlertSeverityLevel;
+
+/** Ordem de importância visual — menor é mais severo. Usado para ordenar mapa e lista. */
+export const SEVERITY_RANK: Record<AlertSeverityTier, number> = {
+  extreme: 0,
+  danger: 1,
+  potential: 2,
+  other: 3,
+};
+
+/** Nome de exibição por fonte — a origem aparece dentro do alerta, nunca como camada própria. */
+export const ALERT_SOURCE_LABELS: Record<string, string> = {
+  inmet: 'INMET',
+  cemaden: 'CEMADEN',
+};
+
+export function alertSourceLabel(provider: string): string {
+  return ALERT_SOURCE_LABELS[provider] ?? provider.toUpperCase();
+}
 
 export interface AlertStyle {
   tier: AlertSeverityTier;
@@ -118,12 +145,19 @@ export function resolveAlertTier(
 }
 
 export function getAlertStyle(properties?: {
+  severityLevel?: AlertSeverityTier | null;
   severity?: string | null;
   color?: string | null;
 }): AlertStyle {
   if (!properties) {
     return ALERT_STYLES.other;
   }
-  const tier = resolveAlertTier(properties.severity, properties.color);
+  // Fonte de verdade: o tier que o backend já calculou por fonte. A
+  // adivinhação por texto/cor só roda se `severityLevel` não vier (resposta
+  // antiga em cache) — nunca para decidir o tier de um alerta novo.
+  const tier =
+    properties.severityLevel && properties.severityLevel in ALERT_STYLES
+      ? properties.severityLevel
+      : resolveAlertTier(properties.severity, properties.color);
   return ALERT_STYLES[tier];
 }

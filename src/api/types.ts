@@ -288,12 +288,26 @@ export interface WeatherStationCollection {
   features: WeatherStationFeature[];
 }
 
+/** Fonte oficial de um alerta. Nunca decida layout por isto — use `category`/`severityLevel`. */
+export type WeatherAlertProvider = 'inmet' | 'cemaden' | (string & {});
+
+/** Classificação comum entre fontes, calculada no backend (`services/weather.py`). */
+export type WeatherAlertCategory = 'meteorological' | 'geo_hydrological';
+
+/** Tier visual comum entre fontes — o que decide cor/proeminência no mapa e na lista. */
+export type WeatherAlertSeverityLevel = 'potential' | 'danger' | 'extreme' | 'other';
+
 export interface WeatherAlertProperties {
-  provider: string;
+  provider: WeatherAlertProvider;
+  category: WeatherAlertCategory;
   event: string;
+  /** Texto de severidade verbatim da fonte (vocabulário varia por fonte; ver `severityLevel`). */
   severity: string;
-  /** Cor oficial da fonte (ex.: INMET) — exibida como está, nunca trocada. */
+  severityLevel: WeatherAlertSeverityLevel;
+  /** Cor oficial da fonte (ex.: INMET, CEMADEN) — exibida como está, nunca trocada. */
   color: string | null;
+  /** Frase livre opcional além de `event` (ex.: município do CEMADEN). Nula quando a fonte não tem. */
+  description: string | null;
   onset: string;
   expires: string;
   affectedIbgeCodes: string[];
