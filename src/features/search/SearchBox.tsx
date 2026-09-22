@@ -12,7 +12,6 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useTerritorySearch } from '@/api/queries';
 import type { TerritoryLevel } from '@/api/types';
-import { AnimatedText } from '@/components/AnimatedText';
 
 import { LocationButton, type LocatedMunicipality } from './LocationButton';
 
@@ -31,6 +30,34 @@ interface Props {
   onSelect: (result: SearchResult) => void;
   onPreview?: (code: string) => void;
   onLocated: (location: LocatedMunicipality) => void;
+}
+
+const QUICK_SUGGESTIONS: SearchResult[] = [
+  { ibgeCode: '3550308', name: 'São Paulo', level: 'municipality', abbreviation: 'SP', parentCode: '35', parentName: 'São Paulo' },
+  { ibgeCode: '5300108', name: 'Brasília', level: 'municipality', abbreviation: 'DF', parentCode: '53', parentName: 'Distrito Federal' },
+  { ibgeCode: '3304557', name: 'Rio de Janeiro', level: 'municipality', abbreviation: 'RJ', parentCode: '33', parentName: 'Rio de Janeiro' },
+  { ibgeCode: '2927408', name: 'Salvador', level: 'municipality', abbreviation: 'BA', parentCode: '29', parentName: 'Bahia' },
+  { ibgeCode: '3106200', name: 'Belo Horizonte', level: 'municipality', abbreviation: 'MG', parentCode: '31', parentName: 'Minas Gerais' },
+  { ibgeCode: '4106902', name: 'Curitiba', level: 'municipality', abbreviation: 'PR', parentCode: '41', parentName: 'Paraná' },
+];
+
+function highlightMatch(text: string, query: string) {
+  const q = query.trim();
+  if (!q) return text;
+  const normalizedText = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const normalizedQuery = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const index = normalizedText.indexOf(normalizedQuery);
+  if (index === -1) return text;
+  const before = text.slice(0, index);
+  const match = text.slice(index, index + normalizedQuery.length);
+  const after = text.slice(index + normalizedQuery.length);
+  return (
+    <>
+      {before}
+      <mark className="search-match">{match}</mark>
+      {after}
+    </>
+  );
 }
 
 export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
@@ -63,7 +90,9 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
     }));
   }, [searchResultsQuery.data]);
 
-  const showDropdown = focused && query.trim().length >= MIN_QUERY_LENGTH;
+  const isShowingSuggestions = focused && query.trim().length === 0;
+  const displayList = isShowingSuggestions ? QUICK_SUGGESTIONS : results;
+  const showDropdown = focused && (query.trim().length >= MIN_QUERY_LENGTH || isShowingSuggestions);
 
   // Fecha ao clicar fora — o dropdown não é um elemento do Leaflet, então
   // nada além disso o fecharia ao interagir com o mapa por trás dele.
@@ -93,7 +122,7 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (!showDropdown || results.length === 0) {
+    if (!showDropdown || displayList.length === 0) {
       if (event.key === 'Escape' && query) {
         event.stopPropagation();
         setQuery('');
@@ -109,13 +138,13 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
     }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, results.length - 1));
+      setActiveIndex((i) => Math.min(i + 1, displayList.length - 1));
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      const result = results[activeIndex];
+      const result = displayList[activeIndex];
       if (result) selectResult(result);
     }
   }
@@ -183,9 +212,14 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
         <LocationButton onLocated={onLocated} />
       </div>
 
-      {showDropdown && results.length > 0 && (
+      {showDropdown && displayList.length > 0 && (
         <ul className="search-results" id={listId} role="listbox">
-          {results.map((result, i) => (
+          {isShowingSuggestions && (
+            <li className="search-suggestions-header" role="presentation">
+              Capitais sugeridas
+            </li>
+          )}
+          {displayList.map((result, i) => (
             <li key={result.ibgeCode} role="presentation">
               <button
                 type="button"
@@ -202,7 +236,9 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectResult(result)}
               >
-                <AnimatedText as="span" className="search-result-name" text={result.name} />
+                <span className="search-result-name">
+                  {highlightMatch(result.name, debouncedQuery)}
+                </span>
                 <span className="search-result-meta">
                   {result.level === 'state' ? 'Estado' : (result.parentName ?? 'Município')}
                 </span>
@@ -223,6 +259,7 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
         </p>
       )}
       {showDropdown &&
+        !isShowingSuggestions &&
         results.length === 0 &&
         !searchResultsQuery.isLoading &&
         !searchResultsQuery.isError && <p className="search-empty">Nada encontrado</p>}

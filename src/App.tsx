@@ -181,9 +181,15 @@ export default function App() {
   } | null>(null);
   const hydroDetail = hydroZoom(viewport.zoom);
   const [fireMapError, setFireMapError] = useState(false);
+  const [mobilePeek, setMobilePeek] = useState(false);
   useEffect(() => {
     setFireMapError(false);
   }, [scope.level, scope.parent, showFireHotspots]);
+  useEffect(() => {
+    if (selectedCode) {
+      setMobilePeek(false);
+    }
+  }, [selectedCode]);
   const pageVisible = usePageVisible();
   const isClimate = context === 'climate_environmental';
   const client = useQueryClient();
@@ -944,22 +950,38 @@ export default function App() {
         </Suspense>
       </MapView>
       <SearchBox onSelect={handleSearchSelect} onLocated={handleLocated} onPreview={onPreview} />
-      <div className="panel-slot">
+      <div className={`panel-slot ${mobilePeek ? 'is-peek' : ''}`}>
         <aside className="panel">
-          <div className="panel-section context-section">
+          <button
+            type="button"
+            className="mobile-sheet-handle"
+            aria-label={mobilePeek ? 'Expandir painel' : 'Recolher painel'}
+            aria-expanded={!mobilePeek}
+            onClick={() => setMobilePeek((prev) => !prev)}
+          >
+            <span className="mobile-sheet-bar" />
+          </button>
+          <div
+            className="panel-section context-section"
+            onClick={() => {
+              if (mobilePeek) setMobilePeek(false);
+            }}
+          >
             {contexts.length > 1 && (
               <Select
                 id="context"
                 label="Contexto de dados"
                 hideLabel
                 value={context}
-                options={contexts.map((item) => ({
-                  value: item.key,
-                  label:
-                    item.indicatorCount > 0 || item.key === 'climate_environmental'
-                      ? item.name
-                      : `${item.name} (em breve)`,
-                }))}
+                options={contexts.map((item) => {
+                  const isAvailable =
+                    item.indicatorCount > 0 || item.key === 'climate_environmental';
+                  return {
+                    value: item.key,
+                    label: isAvailable ? item.name : `${item.name} — Em breve`,
+                    disabled: !isAvailable,
+                  };
+                })}
                 onChange={(value) => setContext(value as DataContext)}
               />
             )}

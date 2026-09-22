@@ -105,24 +105,52 @@ export function WeatherOptions({
     >
       {/* Grupo Unificado de Camadas Interativas */}
       <div className="weather-layers-panel">
-        {/* Camada: Clima */}
-        {onToggleClimate && (
-          <div className="weather-layer-card">
-            <label className="weather-layer-label weather-toggle">
-              <input
-                type="checkbox"
-                checked={showClimate ?? false}
-                onChange={(event) => onToggleClimate(event.target.checked)}
-              />
-              <div className="weather-layer-title">
-                <span>Clima</span>
-                <span className="weather-layer-source">Open-Meteo</span>
-              </div>
-            </label>
-            {showClimate && error != null && !calculatedRange && (
+      {/* Seletor Segmentado de Camada Temática */}
+      <div className="weather-thematic-selector">
+        <p className="field-label sr-only">Modo de visualização do mapa</p>
+        <div className="weather-segmented-control" role="tablist" aria-label="Visualização temática do mapa">
+          {onToggleClimate && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={showClimate ?? false}
+              className={`weather-segment-btn ${showClimate ? 'is-active' : ''}`}
+              onClick={() => onToggleClimate(!showClimate)}
+            >
+              Clima
+            </button>
+          )}
+          {onToggleRainfall && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={showRainfall ?? false}
+              className={`weather-segment-btn ${showRainfall ? 'is-active' : ''}`}
+              onClick={() => onToggleRainfall(!showRainfall)}
+            >
+              Chuva
+            </button>
+          )}
+          {onToggleFireHotspots && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={showFireHotspots ?? false}
+              className={`weather-segment-btn ${showFireHotspots ? 'is-active' : ''}`}
+              onClick={() => onToggleFireHotspots(!showFireHotspots)}
+            >
+              Focos
+            </button>
+          )}
+        </div>
+
+        {/* Informações contextuais do modo ativo */}
+        {showClimate && (
+          <div className="weather-segment-info">
+            <span className="weather-layer-source">Open-Meteo</span>
+            {error != null && !calculatedRange ? (
               <span className="weather-layer-badge badge-error">Indisponível</span>
-            )}
-            {showClimate && (error == null || calculatedRange) && (
+            ) : (
               <span className="weather-layer-badge badge-climate">
                 {calculatedRange
                   ? (Math.round(calculatedRange.min) || 0) ===
@@ -135,24 +163,12 @@ export function WeatherOptions({
           </div>
         )}
 
-        {/* Camada: Quantidade de Chuva */}
-        {onToggleRainfall && (
-          <div className="weather-layer-card">
-            <label className="weather-layer-label weather-toggle">
-              <input
-                type="checkbox"
-                checked={showRainfall ?? false}
-                onChange={(event) => onToggleRainfall(event.target.checked)}
-              />
-              <div className="weather-layer-title">
-                <span>Quantidade de chuva</span>
-                <span className="weather-layer-source">Open-Meteo / 24h</span>
-              </div>
-            </label>
-            {showRainfall && error != null && !current && (
+        {showRainfall && (
+          <div className="weather-segment-info">
+            <span className="weather-layer-source">Open-Meteo / 24h</span>
+            {error != null && !current ? (
               <span className="weather-layer-badge badge-error">Indisponível</span>
-            )}
-            {showRainfall && (error == null || current) && (
+            ) : (
               <span className="weather-layer-badge badge-rain">
                 {maxRainfall != null && maxRainfall > 0
                   ? `Máx: ${maxRainfall.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`
@@ -162,37 +178,25 @@ export function WeatherOptions({
           </div>
         )}
 
-        {/* Camada: Focos de Calor */}
-        {onToggleFireHotspots && (
-          <div className="weather-layer-card">
-            <label className="weather-layer-label weather-toggle">
-              <input
-                type="checkbox"
-                checked={showFireHotspots ?? false}
-                onChange={(event) => onToggleFireHotspots(event.target.checked)}
-              />
-              <div className="weather-layer-title">
-                <span>Focos de calor</span>
-                <span className="weather-layer-source">INPE / Queimadas</span>
-              </div>
-            </label>
-            {showFireHotspots && (
-              <span
-                className={`weather-layer-badge ${
-                  fireHotspotsError ? 'badge-error' : 'badge-fire'
-                }`}
-              >
-                {fireHotspotsError
-                  ? 'Indisponível'
-                  : fireHotspotsLoading && !fireHotspots
-                    ? 'Carregando…'
-                    : fireHotspots
-                      ? `${fireHotspots.metadata.hotspotCount.toLocaleString('pt-BR')} focos · ${scopeName ?? 'Brasil'}`
-                      : 'Ativo'}
-              </span>
-            )}
+        {showFireHotspots && (
+          <div className="weather-segment-info">
+            <span className="weather-layer-source">INPE / Queimadas</span>
+            <span
+              className={`weather-layer-badge ${
+                fireHotspotsError ? 'badge-error' : 'badge-fire'
+              }`}
+            >
+              {fireHotspotsError
+                ? 'Indisponível'
+                : fireHotspotsLoading && !fireHotspots
+                  ? 'Carregando…'
+                  : fireHotspots
+                    ? `${fireHotspots.metadata.hotspotCount.toLocaleString('pt-BR')} focos · ${scopeName ?? 'Brasil'}`
+                    : 'Ativo'}
+            </span>
           </div>
         )}
+      </div>
 
         {/* Camada: Avisos Meteorológicos */}
         <div className="weather-layer-card">

@@ -733,12 +733,12 @@ test('WeatherOptions exibe Clima, Focos e Chuva com concorrência e estado de at
     ),
   );
 
-  const checkboxes = document.querySelectorAll('.weather-layers-panel input[type="checkbox"]');
-  // Clima, Quantidade de chuva, Focos de calor, Avisos
-  assert.ok(checkboxes.length >= 3);
-  assert.equal(checkboxes[0].checked, true, 'Clima deve estar marcado');
-  assert.equal(checkboxes[1].checked, false, 'Chuva deve estar desmarcada');
-  assert.equal(checkboxes[2].checked, false, 'Focos deve estar desmarcado');
+  const segmentButtons = document.querySelectorAll('.weather-segment-btn');
+  // Clima, Chuva, Focos
+  assert.equal(segmentButtons.length, 3);
+  assert.equal(segmentButtons[0].classList.contains('is-active'), true, 'Clima deve estar ativo');
+  assert.equal(segmentButtons[1].classList.contains('is-active'), false, 'Chuva deve estar inativa');
+  assert.equal(segmentButtons[2].classList.contains('is-active'), false, 'Focos deve estar inativo');
 
   // Badge de clima ativo
   const climateBadge = document.querySelector('.badge-climate');
@@ -754,8 +754,8 @@ test('WeatherOptions exibe Clima, Focos e Chuva com concorrência e estado de at
   const syncDot = document.querySelector('.weather-sync-dot');
   assert.ok(syncDot.classList.contains('syncing'));
 
-  // Teste de interação com checkbox de fogo (agora no índice 2)
-  await act(async () => checkboxes[2].click());
+  // Teste de interação com botão de foco (índice 2)
+  await act(async () => segmentButtons[2].click());
   assert.equal(fireToggled, true);
 });
 

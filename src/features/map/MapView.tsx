@@ -182,6 +182,14 @@ export function MapView({
       // Sem passo fracionário o Leaflet arredonda para o zoom inteiro inferior
       // e sobra uma faixa larga de oceano em volta do país.
       zoomSnap={0.25}
+      zoomDelta={0.25}
+      // Configurações calibradas para touchpad (ex.: Mac/gestos contínuos):
+      // evita saltos bruscos no zoom e preserva inércia natural no pan.
+      wheelPxPerZoomLevel={120}
+      wheelDebounceTime={60}
+      inertia={true}
+      inertiaDeceleration={3000}
+      inertiaMaxSpeed={2000}
       // O canto superior esquerdo agora é da busca (ver SearchBox/App). Zoom
       // continua por scroll, pinça e +/- do teclado — o handler de teclado do
       // Leaflet independe deste botão.

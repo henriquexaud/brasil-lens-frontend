@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { TEMPERATURE_SCALE, type TemperatureBand } from '@/features/map/colors';
 
-const TEMPERATURE_TICK_LABELS = ['0', '10', '20', '40'];
+const TEMPERATURE_TICKS = [
+  { label: '0°', percent: (100 / 9) * 1 },
+  { label: '10°', percent: (100 / 9) * 3 },
+  { label: '20°', percent: (100 / 9) * 5 },
+  { label: '30°', percent: (100 / 9) * 7 },
+];
 
 export function WeatherLegend({ notice }: { municipal?: boolean; notice?: string }) {
   const [activeBand, setActiveBand] = useState<TemperatureBand | null>(null);
@@ -47,8 +52,14 @@ export function WeatherLegend({ notice }: { municipal?: boolean; notice?: string
         })}
       </div>
       <div className="weather-legend-bounds">
-        {TEMPERATURE_TICK_LABELS.map((label) => (
-          <span key={label}>{label}</span>
+        {TEMPERATURE_TICKS.map((tick) => (
+          <span
+            key={tick.label}
+            className="weather-legend-tick-bound"
+            style={{ left: `${tick.percent}%` }}
+          >
+            {tick.label}
+          </span>
         ))}
       </div>
       {notice && (

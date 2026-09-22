@@ -251,6 +251,21 @@ body {
   color: var(--text);
 }
 
+.search-match {
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.search-suggestions-header {
+  padding: 6px 8px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
 .search-result-meta {
   display: block;
   overflow: hidden;
@@ -372,6 +387,10 @@ body {
   scrollbar-color: var(--border-strong) transparent;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+}
+
+.mobile-sheet-handle {
+  display: none;
 }
 
 /*
@@ -1237,13 +1256,19 @@ body {
 }
 
 .weather-legend-bounds {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  height: 14px;
   color: var(--text-faint);
-  font-size: 10.5px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   font-family: var(--font-numeric);
   animation: ink-reveal var(--motion-ui) var(--ease-out);
+}
+
+.weather-legend-tick-bound {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .weather-legend-ticks {
@@ -1516,19 +1541,12 @@ body {
     right: 8px;
     width: auto;
     max-height: 58%;
+    transition: max-height var(--motion-ui) var(--ease-out);
   }
 
+  /* No mobile, oculta o componente flutuante de legenda conforme solicitado */
   .legend-slot {
-    /* A legenda continua visível — sem ela a coropleta fica sem escala. Vai
-       para a direita porque o canto superior esquerdo é do controle de zoom. */
-    bottom: auto;
-    top: var(--gutter);
-    right: var(--gutter);
-    left: auto;
-  }
-
-  .legend {
-    width: 168px;
+    display: none !important;
   }
 
   .scope-title {
@@ -1537,16 +1555,8 @@ body {
 }
 
 @media (max-width: 420px) {
-  .legend {
-    width: 148px;
-  }
-
   .search-slot {
-    /* Tão largo quanto cabe sem encostar na legenda, que mora à direita
-       nessa largura de tela (ver regra dela acima) — em vez de um valor
-       fixo, que colidia em telas bem estreitas (320px). O que não couber do
-       texto do placeholder vira reticências (ver .search-input). */
-    width: min(185px, calc(100vw - 2 * var(--gutter) - 148px - 8px));
+    width: calc(100vw - 2 * var(--gutter));
   }
 }
 
@@ -1778,6 +1788,58 @@ body {
 .weather-sources-disclosure .disclosure-trigger {
   font-size: 11px;
   color: var(--text-soft);
+}
+
+/* Seletor Segmentado de Camadas Temáticas */
+.weather-thematic-selector {
+  margin-bottom: 8px;
+}
+
+.weather-segmented-control {
+  display: flex;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 3px;
+}
+
+.weather-segment-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.weather-segment-btn:hover {
+  color: var(--text);
+  background: rgb(255 255 255 / 60%);
+}
+
+.weather-segment-btn.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(38 55 61 / 8%);
+}
+
+.weather-segment-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 5px;
+  padding: 0 4px;
 }
 
 /* Painel limpo de camadas interativas */
@@ -2257,14 +2319,46 @@ body {
   }
 }
 @media (max-width: 900px) {
+  .mobile-sheet-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 7px 0 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .mobile-sheet-bar {
+    width: 32px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border-strong);
+    transition: background-color var(--motion-fast) var(--ease-out);
+  }
+
+  .mobile-sheet-handle:hover .mobile-sheet-bar,
+  .mobile-sheet-handle:focus-visible .mobile-sheet-bar {
+    background: var(--text-soft);
+  }
+
   .panel-slot {
     max-height: 52%;
   }
   .panel-slot:has(.disclosure[open]) {
     max-height: 62%;
   }
+  .panel-slot.is-peek {
+    max-height: 52px !important;
+    overflow: hidden;
+  }
+  .panel-slot.is-peek .panel {
+    overflow: hidden;
+  }
   .search-slot {
-    width: min(300px, calc(100vw - 2 * var(--gutter)));
+    width: min(340px, calc(100vw - 2 * var(--gutter)));
   }
   .panel-legend .legend {
     width: 100%;

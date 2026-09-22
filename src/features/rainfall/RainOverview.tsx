@@ -45,7 +45,7 @@ export function RainOverview({
     : 'Maiores acumulados de chuva';
 
   return (
-    <Disclosure title={title} className="rain-ranking">
+    <Disclosure title={title} className="rain-ranking" defaultOpen={true}>
       {rainingNow > 0 && (
         <p className="rain-live-note">
           <span className="rain-live-dot" aria-hidden="true" />

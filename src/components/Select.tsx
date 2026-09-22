@@ -1,7 +1,8 @@
 /** Select controlado, com rótulo acessível. */
-interface Option {
+export interface Option {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface Props {
@@ -30,7 +31,7 @@ export function Select({ id, label, value, options, onChange, disabled, hideLabe
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
           </option>
         ))}
