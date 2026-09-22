@@ -854,6 +854,43 @@ export default function App() {
   // aquecer outra cidade depois que a camada meteorológica principal chegou.
   const previewReady = isClimate ? layerBaseReady : backgroundReady;
 
+  const isMunicipalityActive = Boolean(
+    isDrilledDown &&
+      selectedCode &&
+      (selectedCode.length === 7 || selectedFeature?.properties.level === 'municipality'),
+  );
+  const stateScopeName =
+    scope.parentName ?? selectedFeature?.properties.parentName ?? 'Estado';
+
+  const { backLabel, backAriaLabel, handleBack } = useMemo(() => {
+    if (isMunicipalityActive) {
+      return {
+        backLabel: stateScopeName,
+        backAriaLabel: `Voltar a ${stateScopeName}`,
+        handleBack: () => setSelectedCode(null),
+      };
+    }
+    if (isDrilledDown) {
+      return {
+        backLabel: 'Brasil',
+        backAriaLabel: 'Voltar ao Brasil',
+        handleBack: resetScope,
+      };
+    }
+    if (selectedCode) {
+      return {
+        backLabel: 'Brasil',
+        backAriaLabel: 'Voltar ao Brasil',
+        handleBack: () => setSelectedCode(null),
+      };
+    }
+    return {
+      backLabel: undefined,
+      backAriaLabel: undefined,
+      handleBack: undefined,
+    };
+  }, [isMunicipalityActive, isDrilledDown, selectedCode, stateScopeName, resetScope, setSelectedCode]);
+
   return (
     <div className="app">
       {((!scopeReady && mapLayer.isFetching) ||
@@ -928,7 +965,9 @@ export default function App() {
             )}
             <ScopeHeader
               name={scope.parentName ?? 'Brasil'}
-              onBack={isDrilledDown ? resetScope : undefined}
+              onBack={handleBack}
+              backLabel={backLabel}
+              backAriaLabel={backAriaLabel}
             />
           </div>
           {!isClimate && indicators.length > 0 && (

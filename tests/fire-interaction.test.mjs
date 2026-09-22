@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { ApiError } from './src/api/client'; export { focusLabelBudget } from './src/features/weather/WeatherLayer';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { ApiError } from './src/api/client'; export { focusLabelBudget } from './src/features/weather/WeatherLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -59,6 +59,7 @@ const {
   FireOverview,
   WeatherOptions,
   focusLabelBudget,
+  ScopeHeader,
 } = await import(pathToFileURL(path).href);
 let root, client, map, requests;
 function CaptureMap() {
@@ -686,18 +687,20 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
   const summaries = Array.from(document.querySelectorAll('summary')).map((s) => s.textContent);
   assert.equal(summaries.some((text) => text.includes('Quantidade de chuva')), false);
 
-  // Ao abrir "Mais detalhes", deve exibir Umidade e Vento, mas não chuva
-  const details = Array.from(document.querySelectorAll('details')).find((d) =>
-    d.textContent?.includes('Mais detalhes'),
-  );
-  assert.ok(details);
-  await act(async () => {
-    details.open = true;
-    details.dispatchEvent(new dom.window.Event('toggle'));
-  });
-  assert.match(details.textContent, /Umidade/);
-  assert.match(details.textContent, /Vento/);
-  assert.doesNotMatch(details.textContent, /Chuva acumulada/);
+  // Não deve existir disclosure de "Mais detalhes", apenas "Próximos dias"
+  const details = Array.from(document.querySelectorAll('details'));
+  assert.equal(details.some((d) => d.textContent?.includes('Mais detalhes')), false);
+  assert.equal(details.some((d) => d.textContent?.includes('Próximos dias')), true);
+
+  // Umidade e Vento devem estar sempre visíveis em linha compacta
+  const compactMetrics = document.querySelector('.weather-compact-metrics');
+  assert.ok(compactMetrics);
+  assert.match(compactMetrics.textContent, /Umidade 65%/);
+  assert.match(compactMetrics.textContent, /Vento 14 km\/h/);
+  assert.doesNotMatch(panel.textContent, /Chuva acumulada/);
+
+  // Não deve repetir o nome do estado acima do município no kicker
+  assert.equal(panel.querySelector('.detail-kicker'), null);
 });
 
 test('WeatherOptions exibe Clima, Focos e Chuva com concorrência e estado de atualização', async () => {
@@ -1147,3 +1150,154 @@ test('cidade aberta: poucos rótulos vizinhos, menos e mais espaçados com mais 
   assert.ok(dense.spacing > sparse.spacing);
   assert.ok(sparse.maxLabels <= 8);
 });
+
+test('ScopeHeader navegação hierárquica: exibe Brasil na visão de estado e nome do estado no município', async () => {
+  let backClicked = false;
+  // 1. Visão de estado: deve exibir Brasil no botão de voltar
+  await act(async () =>
+    root.render(
+      h(ScopeHeader, {
+        name: 'São Paulo',
+        onBack: () => {
+          backClicked = true;
+        },
+        backLabel: 'Brasil',
+        backAriaLabel: 'Voltar ao Brasil',
+      }),
+    ),
+  );
+
+  let backButton = document.querySelector('.ghost-button');
+  assert.ok(backButton);
+  assert.equal(backButton.textContent.trim(), 'Brasil');
+  assert.equal(backButton.getAttribute('aria-label'), 'Voltar ao Brasil');
+
+  await act(async () => {
+    backButton.click();
+  });
+  assert.equal(backClicked, true);
+
+  // 2. Ao entrar em um município: o botão de voltar deve mudar para o nome do estado
+  let municipalityBackClicked = false;
+  await act(async () =>
+    root.render(
+      h(ScopeHeader, {
+        name: 'São Paulo',
+        onBack: () => {
+          municipalityBackClicked = true;
+        },
+        backLabel: 'São Paulo',
+        backAriaLabel: 'Voltar a São Paulo',
+      }),
+    ),
+  );
+
+  backButton = document.querySelector('.ghost-button');
+  assert.ok(backButton);
+  assert.equal(backButton.textContent.trim(), 'São Paulo');
+  assert.equal(backButton.getAttribute('aria-label'), 'Voltar a São Paulo');
+
+  await act(async () => {
+    backButton.click();
+  });
+  assert.equal(municipalityBackClicked, true);
+});
+
+test('WeatherPanel mantém kicker de Estado para UFs e remove repetição do estado para municípios', async () => {
+  const dummyStateCity = {
+    id: '35',
+    name: 'São Paulo',
+    stateAbbreviation: 'SP',
+    temperatureC: 22,
+    apparentTemperatureC: 22,
+    humidityPct: 70,
+    windSpeedKmh: 12,
+    weatherCode: 2,
+    observedAt: '2026-09-20T12:00:00Z',
+    timezone: 'America/Sao_Paulo',
+    forecast: [],
+  };
+
+  // Visão de Estado
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherPanel, {
+          code: '35',
+          territory: { ibgeCode: '35', name: 'São Paulo', level: 'state', value: null },
+          city: dummyStateCity,
+          data: undefined,
+          error: null,
+          loading: false,
+          onClose: () => {},
+          onDrillDown: () => {},
+          fireActive: false,
+          rainActive: false,
+        }),
+      ),
+    ),
+  );
+
+  let kicker = document.querySelector('.detail-kicker');
+  assert.ok(kicker);
+  assert.equal(kicker.textContent, 'Estado');
+
+  // Visão de Município: kicker com nome repetido do estado deve ser omitido
+  const dummyMuniCity = {
+    id: '3549904',
+    name: 'São José dos Campos',
+    stateAbbreviation: 'SP',
+    temperatureC: 26,
+    apparentTemperatureC: 27,
+    humidityPct: 55,
+    windSpeedKmh: 8,
+    weatherCode: 1,
+    observedAt: '2026-09-20T12:00:00Z',
+    timezone: 'America/Sao_Paulo',
+    forecast: [],
+  };
+
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(WeatherPanel, {
+          code: '3549904',
+          territory: { ibgeCode: '3549904', name: 'São José dos Campos', parentName: 'São Paulo', level: 'municipality', value: null },
+          city: dummyMuniCity,
+          data: undefined,
+          error: null,
+          loading: false,
+          onClose: () => {},
+          onDrillDown: () => {},
+          fireActive: false,
+          rainActive: false,
+        }),
+      ),
+    ),
+  );
+
+  kicker = document.querySelector('.detail-kicker');
+  assert.equal(kicker, null, 'município não deve ter kicker repetindo o nome do estado');
+
+  // Hero com temperatura, condição e sensação
+  const temp = document.querySelector('.weather-temperature');
+  assert.ok(temp);
+  assert.match(temp.textContent, /26°/);
+  assert.match(document.querySelector('.weather-current').textContent, /Sensação de 27°/);
+
+  // Umidade e Vento em linha compacta
+  const compact = document.querySelector('.weather-compact-metrics');
+  assert.ok(compact);
+  assert.match(compact.textContent, /Umidade 55%/);
+  assert.match(compact.textContent, /Vento 8 km\/h/);
+
+  // Apenas "Próximos dias" como disclosure
+  const allDetails = Array.from(document.querySelectorAll('details'));
+  assert.equal(allDetails.some((d) => d.textContent?.includes('Próximos dias')), true);
+  assert.equal(allDetails.some((d) => d.textContent?.includes('Mais detalhes')), false);
+});
+

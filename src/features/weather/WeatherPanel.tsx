@@ -361,6 +361,21 @@ export function WeatherPanel({
           {city.isInferred && <span className="weather-note">≈ {ESTIMATE_DESCRIPTION}</span>}
         </div>
       </div>
+      {(city.humidityPct != null || city.windSpeedKmh != null) && (
+        <div className="weather-compact-metrics">
+          {city.humidityPct != null && (
+            <span>Umidade {measurement(city.humidityPct, '%')}</span>
+          )}
+          {city.humidityPct != null && city.windSpeedKmh != null && (
+            <span className="weather-compact-separator" aria-hidden="true">
+              ·
+            </span>
+          )}
+          {city.windSpeedKmh != null && (
+            <span>Vento {measurement(city.windSpeedKmh, ' km/h')}</span>
+          )}
+        </div>
+      )}
       {(error != null || data?.status === 'stale') && (
         <p className="source-note" role="status">
           Não foi possível atualizar. Exibindo o último resultado disponível.
@@ -369,27 +384,15 @@ export function WeatherPanel({
       <Disclosure title="Próximos dias" className="weather-disclosure">
         <Forecast code={code} />
       </Disclosure>
-      <Disclosure title="Mais detalhes" className="weather-disclosure">
-        <dl className="indicator-list">
-          <div className="indicator-row">
-            <dt className="indicator-label">Umidade</dt>
-            <dd className="indicator-value">{measurement(city.humidityPct, '%')}</dd>
-          </div>
-          <div className="indicator-row">
-            <dt className="indicator-label">Vento</dt>
-            <dd className="indicator-value">{measurement(city.windSpeedKmh, ' km/h')}</dd>
-          </div>
-        </dl>
-        <p className="source-note">
-          Condições de{' '}
-          {new Date(city.observedAt).toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: city.timezone,
-          })}{' '}
-          (horário local). Estimativa para um ponto de {city.name}.
-        </p>
-      </Disclosure>
+      <p className="source-note">
+        Condições de{' '}
+        {new Date(city.observedAt).toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: city.timezone,
+        })}{' '}
+        (horário local). Estimativa para um ponto de {city.name}.
+      </p>
     </>
   );
 
@@ -406,13 +409,7 @@ export function WeatherPanel({
     >
       <header className="detail-header">
         <div>
-          {isState ? (
-            <p className="detail-kicker">Estado</p>
-          ) : (
-            (territory?.parentName || fireMunicipality?.state) && (
-              <p className="detail-kicker">{territory?.parentName ?? fireMunicipality?.state}</p>
-            )
-          )}
+          {isState && <p className="detail-kicker">Estado</p>}
           <AnimatedText
             as="h2"
             className="detail-title"

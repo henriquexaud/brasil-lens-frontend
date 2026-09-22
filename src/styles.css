@@ -1658,6 +1658,18 @@ body {
   color: var(--text-soft);
   margin: 3px 0;
 }
+.weather-compact-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 12px;
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.4;
+}
+.weather-compact-separator {
+  color: var(--text-faint);
+}
 .weather-disclosure {
   margin-top: 4px;
 }
