@@ -142,10 +142,10 @@ function rampDarkest(ramp: readonly string[]): string {
 }
 
 export const BORDER_COLOR = '#ffffff';
-/** Realce leve e passageiro do cursor. */
-export const HOVER_COLOR = '#475569';
-/** Contorno assertivo e permanente do território selecionado. */
-export const SELECTED_COLOR = '#0f172a';
+/** Realce leve e suave do cursor em cinza neutro e equilibrado. */
+export const HOVER_COLOR = '#52606d';
+/** Contorno assertivo e suave do território selecionado em cinza ardósia profundo. */
+export const SELECTED_COLOR = '#334155';
 
 export function classColors(classes: number, ramp: readonly string[] = DEFAULT_RAMP): string[] {
   if (classes <= 1) return [rampDarkest(ramp)];

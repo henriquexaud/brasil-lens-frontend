@@ -207,8 +207,11 @@ function Territories({
   const layerRef = useRef<LeafletGeoJSON>(null);
   const selectionHaloRef = useRef<LeafletGeoJSON>(null);
   const selectionOutlineRef = useRef<LeafletGeoJSON>(null);
+  const hoverLayerRef = useRef<LeafletGeoJSON | null>(null);
   const appliedStyleRef = useRef(new WeakMap<Path, string>());
   const hoveredCode = useRef<string | null>(null);
+  const activeHoveredLayerRef = useRef<Path | null>(null);
+  const isMapMovingRef = useRef(false);
   const municipal = collection.scope.level === 'municipality';
   const canDrillDown = collection.scope.level === 'state' && Boolean(onDrillDown);
   const isClimate = !collection.indicator?.key;
@@ -231,6 +234,53 @@ function Territories({
     () => new Map(collection.features.map((feature) => [feature.properties.ibgeCode, feature])),
     [collection.features],
   );
+  const featuresByCodeRef = useRef(featuresByCode);
+  featuresByCodeRef.current = featuresByCode;
+
+  const updateHoverOutline = useCallback((code: string | null) => {
+    const layer = hoverLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    if (!code || code === propsRef.current.selectedCode) return;
+    const feature = featuresByCodeRef.current.get(code);
+    if (feature) {
+      layer.addData(feature);
+      if (typeof layer.bringToFront === 'function') {
+        layer.bringToFront();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!map.getPane('territory-hover')) {
+      const pane = map.createPane('territory-hover');
+      pane.style.zIndex = '470';
+      pane.style.pointerEvents = 'none';
+    }
+
+    const hoverLayer = new LeafletGeoJSON(undefined, {
+      pane: 'territory-hover',
+      interactive: false,
+      onEachFeature: preserveBoundary,
+      style: () => ({
+        smoothFactor: 0,
+        fill: false,
+        color: HOVER_COLOR,
+        weight: municipal ? 1.5 : 1.8,
+        opacity: 0.9,
+        className: 'territory-hover-outline',
+      }),
+    });
+
+    hoverLayer.addTo(map);
+    hoverLayerRef.current = hoverLayer;
+
+    return () => {
+      hoverLayer.remove();
+      hoverLayerRef.current = null;
+    };
+  }, [map, municipal]);
+
   const selectedFeature = useMemo(
     () => collection.features.find((feature) => feature.properties.ibgeCode === selectedCode),
     [collection, selectedCode],
@@ -284,68 +334,6 @@ function Territories({
   const hideFrameRef = useRef<number | null>(null);
   const requestReposition = useRef<() => void>(() => {});
 
-  // Cria o elemento e liga o rastreio do cursor uma única vez: isso não pode
-  // ser recriado a cada troca de indicador/ano, só quando o mapa muda.
-  useEffect(() => {
-    const el = document.createElement('div');
-    el.id = TOOLTIP_ID;
-    el.className = 'map-tooltip';
-    Object.assign(el.style, {
-      position: 'absolute',
-      top: '0',
-      left: '0',
-      opacity: '0',
-      pointerEvents: 'none',
-      willChange: 'transform',
-      zIndex: '650',
-    });
-    map.getContainer().appendChild(el);
-    tooltipElRef.current = el;
-
-    const applyPosition = () => {
-      moveFrameRef.current = null;
-      const point = fixedAnchorRef.current ?? pointerRef.current;
-      if (!point || !tooltipElRef.current) return;
-      const size = map.getSize();
-      if (needsMeasureRef.current) {
-        needsMeasureRef.current = false;
-        const { offsetWidth: width, offsetHeight: height } = tooltipElRef.current;
-        tooltipSizeRef.current = { width, height };
-        offsetRef.current = {
-          dx: point.x + width + 16 > size.x ? -width - 16 : 16,
-          dy: point.y < 90 ? 20 : -14,
-        };
-      }
-      const { dx, dy } = offsetRef.current;
-      // translate3d (não top/left) para não disparar layout a cada frame.
-      const { width, height } = tooltipSizeRef.current;
-      const x = Math.max(TOOLTIP_EDGE, Math.min(point.x + dx, size.x - width - TOOLTIP_EDGE));
-      const y = Math.max(TOOLTIP_EDGE, Math.min(point.y + dy, size.y - height - TOOLTIP_EDGE));
-      tooltipElRef.current.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
-    };
-    const scheduleMove = () => {
-      if (moveFrameRef.current !== null) return;
-      moveFrameRef.current = requestAnimationFrame(applyPosition);
-    };
-    requestReposition.current = scheduleMove;
-
-    const onMouseMove = (event: LeafletMouseEvent) => {
-      pointerRef.current = { x: event.containerPoint.x, y: event.containerPoint.y };
-      // Em modo teclado o tooltip fica ancorado no território focado — o
-      // cursor pode estar em qualquer lugar, inclusive fora do mapa.
-      if (!fixedAnchorRef.current) scheduleMove();
-    };
-    map.on('mousemove', onMouseMove);
-
-    return () => {
-      map.off('mousemove', onMouseMove);
-      if (moveFrameRef.current !== null) cancelAnimationFrame(moveFrameRef.current);
-      if (hideFrameRef.current !== null) cancelAnimationFrame(hideFrameRef.current);
-      tooltipCleanupRef.current?.();
-      el.remove();
-      tooltipElRef.current = null;
-    };
-  }, [map]);
 
   const style = useCallback(
     (feature?: TerritoryFeature): PolylineOptions => {
@@ -360,9 +348,9 @@ function Territories({
         const showDensity = fire?.density != null;
         return {
           smoothFactor: 0,
-          color: hovered ? HOVER_COLOR : '#ffffff',
-          weight: hovered ? 1.2 : municipal ? 0.45 : 0.85,
-          opacity: hovered ? 0.9 : 0.65,
+          color: '#ffffff',
+          weight: municipal ? 0.45 : 0.85,
+          opacity: 0.65,
           fillColor: showDensity ? densityColor(fire?.density) : '#edf0ee',
           fillOpacity: showDensity
             ? hovered
@@ -384,9 +372,9 @@ function Territories({
         const fillOpacity = hasRain ? (hovered ? 0.88 : 0.72) : hovered ? 0.3 : 0.12;
         return {
           smoothFactor: 0,
-          color: hovered ? HOVER_COLOR : '#ffffff',
-          weight: hovered ? (municipal ? 1.4 : 1.6) : municipal ? 0.5 : 0.85,
-          opacity: hovered ? 0.95 : municipal ? 0.7 : 0.85,
+          color: '#ffffff',
+          weight: municipal ? 0.5 : 0.85,
+          opacity: municipal ? 0.7 : 0.85,
           fillOpacity,
           fillColor,
           className: 'territory-shape climate-territory-shape',
@@ -401,9 +389,9 @@ function Territories({
         const fillOpacity = hasColor ? (hovered ? 0.85 : 0.68) : hovered ? 0.35 : 0.18;
         return {
           smoothFactor: 0,
-          color: hovered ? HOVER_COLOR : '#ffffff',
-          weight: hovered ? (municipal ? 1.4 : 1.6) : municipal ? 0.5 : 0.85,
-          opacity: hovered ? 0.95 : municipal ? 0.7 : 0.85,
+          color: '#ffffff',
+          weight: municipal ? 0.5 : 0.85,
+          opacity: municipal ? 0.7 : 0.85,
           fillOpacity,
           fillColor,
           className: 'territory-shape climate-territory-shape',
@@ -412,9 +400,9 @@ function Territories({
       if (isClimate) {
         return {
           smoothFactor: 0,
-          color: hovered ? HOVER_COLOR : '#ffffff',
-          weight: hovered ? (municipal ? 1.4 : 1.6) : municipal ? 0.5 : 0.85,
-          opacity: hovered ? 0.95 : municipal ? 0.7 : 0.85,
+          color: '#ffffff',
+          weight: municipal ? 0.5 : 0.85,
+          opacity: municipal ? 0.7 : 0.85,
           fillOpacity: hovered ? 0.25 : 0.08,
           fillColor: '#f1f5f9',
           className: 'territory-shape climate-territory-shape',
@@ -422,9 +410,9 @@ function Territories({
       }
 
       return {
-        color: hovered ? HOVER_COLOR : BORDER_COLOR,
-        weight: hovered ? (municipal ? 1.2 : 1.5) : municipal ? 0.4 : 0.75,
-        opacity: hovered ? 0.85 : municipal ? 0.55 : 0.8,
+        color: BORDER_COLOR,
+        weight: municipal ? 0.4 : 0.75,
+        opacity: municipal ? 0.55 : 0.8,
         fillOpacity: properties?.classIndex == null ? 0.35 : 0.68,
         fillColor: colorForClass(
           properties?.classIndex ?? null,
@@ -503,8 +491,114 @@ function Territories({
     });
   }, [cancelHide]);
 
+  const clearHover = useCallback(() => {
+    hoveredCode.current = null;
+    if (activeHoveredLayerRef.current) {
+      const prevLayer = activeHoveredLayerRef.current;
+      activeHoveredLayerRef.current = null;
+      const prevFeature = (prevLayer as Path & { feature?: TerritoryFeature }).feature;
+      if (prevFeature) {
+        const normalStyle = propsRef.current.style(prevFeature);
+        prevLayer.setStyle(normalStyle);
+        appliedStyleRef.current.set(prevLayer, styleKey(normalStyle));
+        prevLayer.getElement()?.removeAttribute('aria-describedby');
+      }
+    }
+    updateHoverOutline(null);
+    scheduleHideTooltip();
+  }, [scheduleHideTooltip, updateHoverOutline]);
+
+  // Cria o elemento e liga o rastreio do cursor uma única vez: isso não pode
+  // ser recriado a cada troca de indicador/ano, só quando o mapa muda.
+  useEffect(() => {
+    const el = document.createElement('div');
+    el.id = TOOLTIP_ID;
+    el.className = 'map-tooltip';
+    Object.assign(el.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      opacity: '0',
+      pointerEvents: 'none',
+      willChange: 'transform',
+      zIndex: '650',
+    });
+    map.getContainer().appendChild(el);
+    tooltipElRef.current = el;
+
+    const applyPosition = () => {
+      moveFrameRef.current = null;
+      const point = fixedAnchorRef.current ?? pointerRef.current;
+      if (!point || !tooltipElRef.current) return;
+      const size = map.getSize();
+      if (needsMeasureRef.current) {
+        needsMeasureRef.current = false;
+        const { offsetWidth: width, offsetHeight: height } = tooltipElRef.current;
+        tooltipSizeRef.current = { width, height };
+        offsetRef.current = {
+          dx: point.x + width + 16 > size.x ? -width - 16 : 16,
+          dy: point.y < 90 ? 20 : -14,
+        };
+      }
+      const { dx, dy } = offsetRef.current;
+      // translate3d (não top/left) para não disparar layout a cada frame.
+      const { width, height } = tooltipSizeRef.current;
+      const x = Math.max(TOOLTIP_EDGE, Math.min(point.x + dx, size.x - width - TOOLTIP_EDGE));
+      const y = Math.max(TOOLTIP_EDGE, Math.min(point.y + dy, size.y - height - TOOLTIP_EDGE));
+      tooltipElRef.current.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
+    };
+    const scheduleMove = () => {
+      if (moveFrameRef.current !== null) return;
+      moveFrameRef.current = requestAnimationFrame(applyPosition);
+    };
+    requestReposition.current = scheduleMove;
+
+    const onMouseMove = (event: LeafletMouseEvent) => {
+      pointerRef.current = { x: event.containerPoint.x, y: event.containerPoint.y };
+      // Em modo teclado o tooltip fica ancorado no território focado — o
+      // cursor pode estar em qualquer lugar, inclusive fora do mapa.
+      if (!fixedAnchorRef.current) scheduleMove();
+    };
+    const onMapMouseOut = (event: LeafletMouseEvent) => {
+      const container = map.getContainer();
+      const related = (event.originalEvent as MouseEvent).relatedTarget as Node | null;
+      if (!related || !container.contains(related)) {
+        clearHover();
+      }
+    };
+    const onMoveStart = () => {
+      isMapMovingRef.current = true;
+      clearHover();
+    };
+    const onMoveEnd = () => {
+      isMapMovingRef.current = false;
+    };
+    map.on('mousemove', onMouseMove);
+    map.on('mouseout', onMapMouseOut);
+    map.on('movestart', onMoveStart);
+    map.on('zoomstart', onMoveStart);
+    map.on('moveend', onMoveEnd);
+    map.on('zoomend', onMoveEnd);
+
+    return () => {
+      map.off('mousemove', onMouseMove);
+      map.off('mouseout', onMapMouseOut);
+      map.off('movestart', onMoveStart);
+      map.off('zoomstart', onMoveStart);
+      map.off('moveend', onMoveEnd);
+      map.off('zoomend', onMoveEnd);
+      clearHover();
+      if (moveFrameRef.current !== null) cancelAnimationFrame(moveFrameRef.current);
+      if (hideFrameRef.current !== null) cancelAnimationFrame(hideFrameRef.current);
+      tooltipCleanupRef.current?.();
+      el.remove();
+      tooltipElRef.current = null;
+    };
+  }, [clearHover, map]);
+
   const showTooltipFor = useCallback(
     (properties: MapFeatureProperties, fixedPoint?: Point) => {
+      if (isMapMovingRef.current) return;
       cancelHide();
       const el = tooltipElRef.current;
       if (!el) return;
@@ -586,19 +680,42 @@ function Territories({
       };
 
       const hoverEnter = () => {
+        if (isMapMovingRef.current) return;
+        if (properties.ibgeCode === propsRef.current.selectedCode) return;
+
+        if (activeHoveredLayerRef.current && activeHoveredLayerRef.current !== layer) {
+          const prevLayer = activeHoveredLayerRef.current;
+          const prevFeature = (prevLayer as Path & { feature?: TerritoryFeature }).feature;
+          if (prevFeature) {
+            const normalStyle = propsRef.current.style(prevFeature);
+            prevLayer.setStyle(normalStyle);
+            appliedStyleRef.current.set(prevLayer, styleKey(normalStyle));
+            prevLayer.getElement()?.removeAttribute('aria-describedby');
+          }
+        }
+        activeHoveredLayerRef.current = layer;
         hoveredCode.current = properties.ibgeCode;
+
         restyle();
+        updateHoverOutline(properties.ibgeCode);
         propsRef.current.onHover?.(properties.ibgeCode);
         element?.setAttribute('aria-describedby', TOOLTIP_ID);
       };
 
       const hoverLeave = () => {
-        if (hoveredCode.current === properties.ibgeCode) hoveredCode.current = null;
+        if (hoveredCode.current === properties.ibgeCode) {
+          hoveredCode.current = null;
+          updateHoverOutline(null);
+        }
+        if (activeHoveredLayerRef.current === layer) {
+          activeHoveredLayerRef.current = null;
+        }
         restyle();
         element?.removeAttribute('aria-describedby');
       };
 
       const enter = (event: LeafletMouseEvent) => {
+        if (isMapMovingRef.current) return;
         pointerRef.current = { x: event.containerPoint.x, y: event.containerPoint.y };
         hoverEnter();
         showTooltipFor(properties);
@@ -609,9 +726,25 @@ function Territories({
         scheduleHideTooltip();
       };
 
-      const click = () => propsRef.current.onSelect(properties.ibgeCode);
+      const click = () => {
+        if (activeHoveredLayerRef.current) {
+          const prevLayer = activeHoveredLayerRef.current;
+          activeHoveredLayerRef.current = null;
+          const prevFeature = (prevLayer as Path & { feature?: TerritoryFeature }).feature;
+          if (prevFeature) {
+            const normalStyle = propsRef.current.style(prevFeature);
+            prevLayer.setStyle(normalStyle);
+            appliedStyleRef.current.set(prevLayer, styleKey(normalStyle));
+            prevLayer.getElement()?.removeAttribute('aria-describedby');
+          }
+        }
+        hoveredCode.current = null;
+        updateHoverOutline(null);
+        propsRef.current.onSelect(properties.ibgeCode);
+      };
 
       const drill = () => {
+        clearHover();
         const currentProps = propsRef.current;
         if (currentProps.canDrillDown) {
           currentProps.onDrillDown!(properties.ibgeCode, properties.name);
@@ -663,7 +796,7 @@ function Territories({
       element?.addEventListener('keydown', keydown as EventListener);
       layer.on({ mouseover: enter, mouseout: leave, click, dblclick: drill });
     });
-  }, [featuresByCode, map, municipal, scheduleHideTooltip, showTooltipFor]);
+  }, [clearHover, featuresByCode, map, municipal, scheduleHideTooltip, showTooltipFor, updateHoverOutline]);
 
   // Atualização cirúrgica de estilo: aplica layer.setStyle apenas quando o estilo do polígono mudou
   useEffect(() => {
@@ -694,12 +827,28 @@ function Territories({
       }
     });
 
+    if (hoveredCode.current === selectedCode) {
+      if (activeHoveredLayerRef.current) {
+        const prevLayer = activeHoveredLayerRef.current;
+        activeHoveredLayerRef.current = null;
+        const prevFeature = (prevLayer as Path & { feature?: TerritoryFeature }).feature;
+        if (prevFeature) {
+          const normalStyle = style(prevFeature);
+          prevLayer.setStyle(normalStyle);
+          appliedStyleRef.current.set(prevLayer, styleKey(normalStyle));
+          prevLayer.getElement()?.removeAttribute('aria-describedby');
+        }
+      }
+      hoveredCode.current = null;
+      updateHoverOutline(null);
+    }
+
     const activeCode = activeTooltipCodeRef.current;
     const activeProperties = activeCode ? featuresByCode.get(activeCode)?.properties : undefined;
     if (activeProperties && hideFrameRef.current === null) {
       showTooltipFor(activeProperties, fixedAnchorRef.current ?? undefined);
     }
-  }, [style, selectedCode, featuresByCode, showTooltipFor]);
+  }, [clearHover, style, selectedCode, featuresByCode, showTooltipFor, updateHoverOutline]);
 
   useEffect(() => {
     if (!selectedFeature) return;

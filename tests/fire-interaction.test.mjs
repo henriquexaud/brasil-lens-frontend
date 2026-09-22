@@ -1001,6 +1001,145 @@ test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', as
   assert.equal(opacity(), resting);
 });
 
+test('linha de hover de cidades e estados renderiza em pane superior para ficar sempre por cima', async () => {
+  const data = {
+    type: 'FeatureCollection',
+    bbox: [-56, -16, -55, -15],
+    scope: { level: 'municipality', parent: '51' },
+    features: [
+      {
+        type: 'Feature',
+        id: '5103403',
+        properties: { ibgeCode: '5103403', name: 'Cuiabá', level: 'municipality', value: null },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[-56.1, -15.6], [-56.0, -15.6], [-56.0, -15.5], [-56.1, -15.5], [-56.1, -15.6]]],
+        },
+      },
+    ],
+  };
+
+  await act(async () =>
+    root.render(
+      h(
+        MapContainer,
+        { center: [-15.5, -55.5], zoom: 7, zoomControl: false },
+        h(CaptureMap),
+        h(ChoroplethLayer, {
+          collection: data,
+          weatherByCode: new Map(),
+          selectedCode: null,
+        }),
+      ),
+    ),
+  );
+
+  const hoverPane = map.getPane('territory-hover');
+  assert.ok(hoverPane, 'o pane territory-hover deve existir');
+  assert.equal(hoverPane.style.zIndex, '470', 'o pane territory-hover deve ter zIndex 470');
+  assert.equal(hoverPane.style.pointerEvents, 'none', 'não deve interceptar cliques do mouse');
+
+  let layer;
+  map.eachLayer((candidate) => {
+    if (candidate.feature?.properties?.ibgeCode === '5103403' && candidate.setStyle) layer = candidate;
+  });
+  assert.ok(layer);
+
+  // Inicialmente sem hover outline
+  assert.equal(hoverPane.querySelectorAll('path').length, 0);
+
+  // Ao passar o mouse, a linha de hover é desenhada no pane territory-hover
+  layer.fire('mouseover', { containerPoint: { x: 10, y: 10 } });
+  const hoverPaths = hoverPane.querySelectorAll('path');
+  assert.equal(hoverPaths.length, 1, 'deve desenhar 1 path de contorno no pane territory-hover');
+  assert.ok(hoverPaths[0].classList.contains('territory-hover-outline'));
+
+  // Ao retirar o mouse, o contorno de hover é limpo
+  layer.fire('mouseout');
+  assert.equal(hoverPane.querySelectorAll('path').length, 0);
+});
+
+test('garante apenas um contorno no mapa, sem rastro durante movimentação/zoom e usando cinza suave', async () => {
+  const data = {
+    type: 'FeatureCollection',
+    bbox: [-56, -16, -55, -15],
+    scope: { level: 'municipality', parent: '51' },
+    features: [
+      {
+        type: 'Feature',
+        id: '5103403',
+        properties: { ibgeCode: '5103403', name: 'Cuiabá', level: 'municipality', value: null },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[-56.1, -15.6], [-56.0, -15.6], [-56.0, -15.5], [-56.1, -15.5], [-56.1, -15.6]]],
+        },
+      },
+      {
+        type: 'Feature',
+        id: '5108402',
+        properties: { ibgeCode: '5108402', name: 'Várzea Grande', level: 'municipality', value: null },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[-56.3, -15.6], [-56.2, -15.6], [-56.2, -15.5], [-56.3, -15.5], [-56.3, -15.6]]],
+        },
+      },
+    ],
+  };
+
+  await act(async () =>
+    root.render(
+      h(
+        MapContainer,
+        { center: [-15.5, -55.5], zoom: 7, zoomControl: false },
+        h(CaptureMap),
+        h(ChoroplethLayer, {
+          collection: data,
+          weatherByCode: new Map(),
+          selectedCode: null,
+        }),
+      ),
+    ),
+  );
+
+  const hoverPane = map.getPane('territory-hover');
+  assert.ok(hoverPane);
+
+  const layers = [];
+  map.eachLayer((candidate) => {
+    if (candidate.feature?.properties?.ibgeCode && candidate.setStyle) {
+      layers.push(candidate);
+    }
+  });
+  assert.equal(layers.length, 2);
+
+  // 1. Passa o mouse no primeiro município
+  layers[0].fire('mouseover', { containerPoint: { x: 10, y: 10 } });
+  let hoverPaths = hoverPane.querySelectorAll('path');
+  assert.equal(hoverPaths.length, 1, 'apenas 1 contorno deve existir');
+  assert.match(hoverPaths[0].getAttribute('stroke') ?? '', /#52606d/i, 'deve usar o cinza suave #52606d no lugar do preto');
+
+  // 2. Passa o mouse direto no segundo município sem mouseout do primeiro (movimento rápido)
+  layers[1].fire('mouseover', { containerPoint: { x: 20, y: 20 } });
+  hoverPaths = hoverPane.querySelectorAll('path');
+  assert.equal(hoverPaths.length, 1, 'continua garantindo estritamente apenas 1 contorno sem rastro');
+
+  // 3. Ao iniciar movimentação ou aproximação do mapa (ex: zoom/movestart ao entrar no estado), limpa contorno
+  map.fire('movestart');
+  hoverPaths = hoverPane.querySelectorAll('path');
+  assert.equal(hoverPaths.length, 0, 'movimentação do mapa deve anular o hover para não deixar rastros');
+
+  // 4. Enquanto o mapa está em movimento (aproximação/zoom), eventos de mouseover são ignorados
+  layers[0].fire('mouseover', { containerPoint: { x: 10, y: 10 } });
+  hoverPaths = hoverPane.querySelectorAll('path');
+  assert.equal(hoverPaths.length, 0, 'não deve criar rastro por onde o mouse passa com a aproximação');
+
+  // 5. Ao encerrar o movimento (moveend), o hover volta a funcionar normalmente para um único território
+  map.fire('moveend');
+  layers[0].fire('mouseover', { containerPoint: { x: 10, y: 10 } });
+  hoverPaths = hoverPane.querySelectorAll('path');
+  assert.equal(hoverPaths.length, 1, 'volta a marcar exclusivamente 1 território após fim do movimento');
+});
+
 test('cidade aberta: poucos rótulos vizinhos, menos e mais espaçados com mais municípios', () => {
   const sparse = focusLabelBudget(40);
   const dense = focusLabelBudget(400);

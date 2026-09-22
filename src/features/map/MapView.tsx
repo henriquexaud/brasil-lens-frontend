@@ -46,8 +46,8 @@ const STATE_HALO_STYLE: PolylineOptions = {
 const STATE_OUTLINE_STYLE: PolylineOptions = {
   smoothFactor: 0,
   fill: false,
-  color: 'rgba(30, 58, 75, 0.85)',
-  weight: 2.0,
+  color: 'rgba(71, 85, 105, 0.85)',
+  weight: 1.8,
   opacity: 0.95,
   className: 'state-selected-outline',
 };
@@ -221,6 +221,7 @@ export function MapView({
         />
       </Pane>
       {onViewportChange && <ViewportObserver onChange={onViewportChange} scopeKey={scopeKey} />}
+      <Pane name="territory-hover" style={{ zIndex: 470, pointerEvents: 'none' }} />
       <Pane name="territory-selection" style={{ zIndex: 480, pointerEvents: 'none' }} />
       {brazilOutline && (
         <Pane name="brazil-outline" style={{ zIndex: 420, pointerEvents: 'none' }}>

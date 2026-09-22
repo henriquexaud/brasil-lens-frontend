@@ -93,9 +93,15 @@ body {
 .territory-shape,
 .territory-selection-halo,
 .territory-selection-outline,
+.territory-hover-outline,
 .state-selected-halo,
 .state-selected-outline {
   vector-effect: non-scaling-stroke;
+}
+
+.territory-hover-outline,
+.leaflet-pane.leaflet-territory-hover-pane {
+  pointer-events: none;
 }
 
 /* O foco acompanha a geografia, nunca o retângulo que contém o polígono. */
