@@ -91,7 +91,7 @@ const recoveryListeners = new Set<(source: ExternalSource) => void>();
 
 function sourceOf(path: string): ExternalSource | undefined {
   // Só as rotas que consultam a Open-Meteo; avisos e contornos vêm do banco.
-  if (/^\/weather\/(current|capitals|municipalities|state|viewport)\b/.test(path)) return 'weather';
+  if (/^\/weather\/(current|municipalities|states?|viewport)\b/.test(path)) return 'weather';
   if (path.startsWith('/fire-hotspots')) return 'fire';
   if (path.startsWith('/hydrography')) return 'hydrography';
   return undefined;

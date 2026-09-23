@@ -6,7 +6,7 @@ import { clearSourcePauses } from '@/api/client';
 import {
   useContexts,
   weatherCurrentOptions,
-  useCapitalsWeather,
+  useNationalWeather,
   useSelectedBoundary,
   useFireHotspots,
   useFireSummary,
@@ -408,10 +408,16 @@ export default function App() {
   // de clima é consultado, e com clima ou chuva o INPE não é consultado.
   const weatherStageReady = isClimate && weatherLayerActive && territoryReady && pageVisible;
 
-  const fireSummaryReady = useDeferredReady(
+  const fireSummaryWanted =
+    fireLayerRequested && Boolean(fireHotspotsLayer.data) && !viewport.moving;
+  const fireSummaryDeferred = useDeferredReady(
     `fire-summary:${scope.parent ?? 'BR'}:${fireHotspotsLayer.data?.metadata.windowEnd ?? 'none'}`,
-    fireLayerRequested && Boolean(fireHotspotsLayer.data) && !viewport.moving,
+    fireSummaryWanted,
   );
+  // Longe, o resumo é a própria camada (a coropleta): sai assim que a janela é
+  // conhecida. De perto, espera a ociosidade para não disputar com os pontos.
+  const fireSummaryReady =
+    activeFireMode === 'territorial' ? fireSummaryWanted : fireSummaryDeferred;
   const fireSummary = useFireSummary(
     fireHotspotQuery,
     fireHotspotsLayer.data?.metadata.windowEnd,
@@ -422,15 +428,15 @@ export default function App() {
     selectedCode,
     weatherStageReady && Boolean(selectedCode),
   );
-  const nationalWeather = useCapitalsWeather(
+  const nationalWeather = useNationalWeather(
     weatherStageReady && !isDrilledDown,
     selectedWeather.isFetching || Boolean(viewport.moving),
-    showRainfall,
   );
   useEffect(() => {
-    // A média de chuva do estado não é a leitura da capital que a seleção mostra.
-    if (!nationalWeather.data || showRainfall) return;
-    const data = nationalWeather.data;
+    // Selecionar uma UF mostra a sua capital: a leitura das capitais já serve,
+    // sem nova ida à rede. A média do estado não é essa leitura.
+    const data = nationalWeather.capitals;
+    if (!data) return;
     const updatedAt = Date.parse(data.fetchedAt);
     for (const state of statesOutlineLayer.data?.features ?? []) {
       const city = data.cities.find((item) => item.id === state.properties.abbreviation);
@@ -439,7 +445,7 @@ export default function App() {
         client.setQueryData(key, { ...data, cities: [city], nextOffset: null }, { updatedAt });
       }
     }
-  }, [client, nationalWeather.data, showRainfall, statesOutlineLayer.data]);
+  }, [client, nationalWeather.capitals, statesOutlineLayer.data]);
   const forecastBusy = useIsFetching({ queryKey: ['weather', 'forecast'] });
   const viewportWeatherBusy = useIsFetching({ queryKey: ['weather', 'viewport'] });
   // Pausa de requisições de tela (viewport) apenas durante movimento do mapa ou seleção explícita
@@ -644,7 +650,9 @@ export default function App() {
         byId.set(c.id, c);
       }
     }
-    if (selectedCode) {
+    // Um município selecionado traz a sua própria leitura. Uma UF traz a da
+    // capital, que não substitui a média do estado no mapa.
+    if (selectedCode?.length === 7) {
       for (const c of selectedWeather.data?.cities ?? []) {
         byId.set(c.id, c);
       }
@@ -754,8 +762,11 @@ export default function App() {
     },
     [isClimate, prefetchOverview],
   );
+  // Enquanto a leitura chega, um município usa a do mapa; uma UF espera pela
+  // da capital (o mapa tem a média do estado).
   const city = selectedCode
-    ? (selectedWeather.data?.cities[0] ?? weatherByCode.get(selectedCode))
+    ? (selectedWeather.data?.cities[0] ??
+      (selectedCode.length === 7 ? weatherByCode.get(selectedCode) : undefined))
     : undefined;
 
   const currentView: MapScopeInput = useMemo(
@@ -824,8 +835,7 @@ export default function App() {
               Boolean(municipalities.hasNextPage) &&
               !municipalities.isError &&
               !pauseMunicipalBatching)
-        : nationalWeather.isFetching ||
-          (Boolean(nationalWeather.hasNextPage) && !nationalWeather.isError)) ||
+        : nationalWeather.isFetching || nationalWeather.isRefining) ||
       (showFireHotspots && (fireHotspotsLayer.isFetching || fireSummary.isFetching)) ||
       (showHydrography && hydrographyLayer.isFetching) ||
       (showWeatherAlerts && alerts.isFetching) ||

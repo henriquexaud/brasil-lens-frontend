@@ -60,7 +60,7 @@ test('cota esgotada pausa a fonte inteira até o usuário pedir nova tentativa',
   assert.match(first.message, /limite diário/);
 
   // Outras rotas da mesma fonte falham na hora, sem ir à rede.
-  const second = await apiGet('/weather/capitals').catch((error) => error);
+  const second = await apiGet('/weather/states').catch((error) => error);
   assert.equal(second, first);
   assert.deepEqual(calls, ['/api/v1/weather/state']);
 
@@ -69,8 +69,8 @@ test('cota esgotada pausa a fonte inteira até o usuário pedir nova tentativa',
   assert.equal(calls.length, 2);
 
   clearSourcePauses();
-  await apiGet('/weather/capitals').catch(() => {});
-  assert.equal(calls.at(-1), '/api/v1/weather/capitals');
+  await apiGet('/weather/states').catch(() => {});
+  assert.equal(calls.at(-1), '/api/v1/weather/states');
   clearSourcePauses();
 });
 

@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import type { WeatherCity } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
-import { ESTIMATE_DESCRIPTION, EstimateMark } from '@/features/weather/EstimateMark';
+import {
+  ESTIMATE_DESCRIPTION,
+  EstimateMark,
+  isStateAverage,
+  STATE_AVERAGE_DESCRIPTION,
+} from '@/features/weather/EstimateMark';
 
 import { rainAmount, rainColor } from './rainScale';
 
@@ -82,6 +87,7 @@ export function RainOverview({
       </ol>
       <p className="source-note">
         Acumulado estimado em 24h · Modelagem numérica e dados de superfície.
+        {cities.some(isStateAverage) && ` ${STATE_AVERAGE_DESCRIPTION}.`}
         {ranked.some((city) => city.isInferred) && ` ≈ ${ESTIMATE_DESCRIPTION.toLowerCase()}.`}
       </p>
     </Disclosure>

@@ -63,7 +63,7 @@ test('chuva do mapa é o acumulado de 24 h e "chovendo agora" mostra a proporç�
   assert.equal(rainingNowText({ rainingNow: false }), null);
   assert.equal(rainingNowText({ rainingNow: true }), 'Chovendo agora');
   assert.equal(
-    rainingNowText({ rainingNow: true, rainPoints: 4, rainingPoints: 1 }),
+    rainingNowText({ rainingNow: true, samplePoints: 4, rainingPoints: 1 }),
     'Chovendo agora em 1 de 4 pontos',
   );
 });

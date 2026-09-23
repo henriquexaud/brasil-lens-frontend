@@ -38,6 +38,7 @@ import {
   rainingNowText,
 } from '@/features/rainfall/rainScale';
 import { measurement, weatherDescription } from '@/features/weather/conditions';
+import { isStateAverage } from '@/features/weather/EstimateMark';
 
 const SELECTION_HALO_STYLE: PolylineOptions = {
   smoothFactor: 0,
@@ -114,8 +115,13 @@ function fillTooltipContent(
   add('tooltip-name', properties.name);
   if (properties.parentName) add('tooltip-meta', properties.parentName);
   // Valor interpolado de cidades próximas: marcado de leve, sem esconder o dado.
+  // Um estado no mapa do Brasil feito de vários pontos, também.
   const estimatePrefix = weather?.isInferred ? '≈ ' : '';
-  const estimateSuffix = weather?.isInferred ? ' · estimado' : '';
+  const estimateSuffix = weather?.isInferred
+    ? ' · estimado'
+    : weather && isStateAverage(weather)
+      ? ` · média de ${weather.samplePoints} pontos`
+      : '';
   if (fireActive) {
     if (fire) {
       const count24h = Number(
@@ -628,6 +634,7 @@ function Territories({
         weather?.precipitation24hMm,
         weather?.rainingNow,
         weather?.rainingPoints,
+        weather?.samplePoints,
         weather?.precipitationProbabilityPct,
         weather?.isInferred,
       ]);

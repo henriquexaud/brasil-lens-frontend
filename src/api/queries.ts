@@ -361,8 +361,19 @@ export function useFireHotspotDetails(
   });
 }
 
+/** Os municípios de uma UF já estão no resumo do Brasil: a mesma janela, recortada. */
+function stateFireSummary(summary: FireSummary, parent: string): FireSummary {
+  return {
+    ...summary,
+    municipalities: summary.municipalities.filter((item) => item.ibgeCode.startsWith(parent)),
+    states: summary.states.filter((item) => item.ibgeCode === parent),
+    rankedMunicipalities: undefined,
+  };
+}
+
 export function useFireSummary(query: FireHotspotQuery, at: string | undefined, enabled: boolean) {
   const queryKey = [...queryKeys.fireHotspots(query), 'summary', at];
+  const hours = query.hours ?? FIRE_HOTSPOT_HOURS;
   useCancelWhenDisabled(queryKey, enabled);
   return useQuery({
     queryKey,
@@ -372,7 +383,7 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
         {
           level: query.level,
           parent: query.parent,
-          hours: query.hours ?? FIRE_HOTSPOT_HOURS,
+          hours,
           at,
         },
         signal,
@@ -380,6 +391,17 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
     enabled: enabled && Boolean(at),
     staleTime: Infinity,
     gcTime: 30 * 60 * 1000,
+    // O resumo leva segundos na fonte. Enquanto o novo chega, o mapa não apaga:
+    // a janela anterior do mesmo recorte continua pintada e, ao abrir uma UF,
+    // os municípios dela no resumo do Brasil já pintam o estado.
+    placeholderData: (previous, previousQuery) => {
+      const [, level, parent, previousHours] = previousQuery?.queryKey ?? [];
+      if (!previous || previousHours !== hours) return undefined;
+      if (level === query.level && parent === (query.parent ?? null)) return previous;
+      return level === 'country' && query.level === 'state' && query.parent
+        ? stateFireSummary(previous, query.parent)
+        : undefined;
+    },
   });
 }
 
@@ -757,48 +779,59 @@ export function useSelectedBoundary(code: string | null, enabled: boolean) {
   });
 }
 
+const CAPITALS_KEY = ['weather', 'capitals'];
+const STATES_KEY = ['weather', 'states'];
+
 /**
- * Visão nacional. Temperatura: as capitais, primeiro as cinco regiões e o resto
- * em segundo plano. Chuva: `/weather/states`, a média de pontos dispersos de
- * cada UF numa consulta — chuva é local, e a capital sozinha diria "sem chuva"
- * para o estado inteiro.
+ * Visão nacional em duas etapas, as duas servindo temperatura e chuva — trocar
+ * de camada não consulta nada. Primeiro as 27 capitais numa consulta: o mapa já
+ * pinta cada estado pela sua capital. Depois, na ociosidade, `/weather/states`:
+ * cada UF como a média de pontos espalhados pelo território, ponderada pela
+ * área de cada um. A média reaproveita no servidor as capitais já lidas e, em
+ * cache, dispensa a primeira etapa. As capitais seguem expostas à parte: a
+ * seleção de uma UF mostra a sua capital, não a média.
  */
-export function useCapitalsWeather(enabled: boolean, pause: boolean, rain = false) {
-  const queryKey = ['weather', rain ? 'states-rain' : 'capitals-progressive'];
-  useCancelWhenDisabled(queryKey, enabled);
-  const query = useInfiniteQuery({
-    queryKey,
-    queryFn: ({ signal, pageParam }) =>
-      rain
-        ? apiGet<WeatherCurrentResponse>('/weather/states', undefined, signal)
-        : apiGet<WeatherCurrentResponse>(
-            '/weather/capitals',
-            { offset: pageParam, limit: 6 },
-            signal,
-          ),
-    initialPageParam: 0,
-    getNextPageParam: (last) => last.nextOffset ?? undefined,
-    enabled: enabled && !pause,
-    staleTime: (query) =>
-      Math.max(0, readingExpiry(query.state.data, MAP_FRESHNESS_MS) - query.state.dataUpdatedAt),
+export function useNationalWeather(enabled: boolean, pause: boolean) {
+  const client = useQueryClient();
+  useCancelWhenDisabled(CAPITALS_KEY, enabled);
+  useCancelWhenDisabled(STATES_KEY, enabled);
+  // Lido no render: a consulta da média, logo abaixo, redesenha quando ela chega.
+  const averaged = client.getQueryData<WeatherCurrentResponse>(STATES_KEY) !== undefined;
+  const capitals = useQuery({
+    queryKey: CAPITALS_KEY,
+    queryFn: ({ signal }) =>
+      apiGet<WeatherCurrentResponse>('/weather/current', { forecast: false }, signal),
+    enabled: enabled && !pause && !averaged,
+    staleTime: staleUntilExpiry(MAP_FRESHNESS_MS),
+    gcTime: 20 * 60 * 1000,
+    refetchInterval: enabled && !averaged ? refreshAtExpiry(MAP_FRESHNESS_MS) : false,
+    refetchOnWindowFocus: false,
+  });
+  const refine = useDeferredReady(
+    'weather:states',
+    enabled && (averaged || capitals.data !== undefined || capitals.isError),
+  );
+  const states = useQuery({
+    queryKey: STATES_KEY,
+    queryFn: ({ signal }) => apiGet<WeatherCurrentResponse>('/weather/states', undefined, signal),
+    enabled: refine && !pause,
+    staleTime: staleUntilExpiry(MAP_FRESHNESS_MS),
     gcTime: 20 * 60 * 1000,
     refetchInterval: enabled ? refreshAtExpiry(MAP_FRESHNESS_MS) : false,
     refetchOnWindowFocus: false,
   });
-  const pageCount = query.data?.pages.length ?? 0;
-  useIdleNextPage(query, enabled && !pause, pageCount, 250);
-  const data = useMemo(() => {
-    const first = query.data?.pages[0];
-    if (!first) return undefined;
-    return {
-      ...first,
-      cities: query.data!.pages.flatMap((page) => page.cities),
-      status: query.data!.pages.some((page) => page.status === 'stale')
-        ? ('stale' as const)
-        : first.status,
-    };
-  }, [query.data]);
-  return { ...query, data };
+  const data = states.data ?? capitals.data;
+  return {
+    data,
+    capitals: capitals.data,
+    /** Os estados já são médias, não mais as capitais. */
+    averaged: states.data !== undefined,
+    error: states.data ? states.error : (states.error ?? capitals.error),
+    isError: !data && (states.isError || capitals.isError),
+    isFetching: capitals.isFetching || states.isFetching,
+    /** A segunda etapa ainda vai chegar. */
+    isRefining: enabled && !pause && !states.data && !states.isError,
+  };
 }
 
 /**

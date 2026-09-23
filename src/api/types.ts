@@ -365,8 +365,8 @@ export interface WeatherCity {
   precipitation24hMm?: number | null;
   /** Chovendo no intervalo mais recente (precipitação ou código de chuva). */
   rainingNow?: boolean;
-  /** Mapa do Brasil: pontos do estado na média de chuva e quantos têm chuva agora. */
-  rainPoints?: number | null;
+  /** Mapa do Brasil: pontos medidos na média do estado e quantos têm chuva agora. */
+  samplePoints?: number | null;
   rainingPoints?: number | null;
   weatherCode: number | null;
   forecast: WeatherForecastDay[];

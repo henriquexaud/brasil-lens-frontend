@@ -162,12 +162,20 @@ TypeScript roda em `strict`, com `noUnusedLocals`, `noUncheckedIndexedAccess` e
 ### Contexto de clima
 
 Compartilha mapa, busca, seleção, destaque e navegação entre estados e
-municípios com o contexto sociopolítico. O Brasil exibe temperaturas nas
-capitais; selecionar uma UF mostra as condições da capital como referência.
+municípios com o contexto sociopolítico. O Brasil chega em duas etapas, as
+duas servindo temperatura e chuva (trocar de camada não consulta nada):
+primeiro as 27 capitais numa consulta (`/weather/current?forecast=false`), que
+já pintam cada estado; depois, na ociosidade, `/weather/states` troca cada UF
+pela média de pontos espalhados pelo território — um a cada ~60 mil km², de 2
+a 8 —, cada ponto pesando a área que representa (polígonos de Thiessen sobre a
+malha municipal). A pílula continua na capital; o tooltip diz "média de N
+pontos". Com a média em cache, as capitais nem são pedidas. Selecionar uma UF
+mostra as condições da capital, já aquecidas pela primeira etapa, sem trocar
+a cor do estado no mapa.
 Ao entrar na UF, `/weather/state` traz o estado inteiro em uma requisição
 (amostra medida e demais municípios estimados no servidor); só se ele falhar
-`/weather/municipalities` completa o mapa em lotes de 16.
-As 27 capitais chegam em lotes de seis, começando com referências das cinco regiões.
+`/weather/municipalities` completa o mapa em lotes de 16. Os pontos da média
+nacional são o começo dessa amostra: abrir a UF os reaproveita.
 As consultas começam depois do mapa, usam os momentos ociosos do navegador
 e pausam enquanto uma seleção ou previsão carrega. Sair do recorte cancela
 o lote pendente; os já concluídos permanecem no cache.
@@ -189,11 +197,12 @@ No zoom próximo, o backend engrossa a grade
 de medição quando a área passa de 80 células.
 A previsão de três dias (`forecast=true`) só carrega ao abrir **Próximos dias**.
 
-**Chuva** pinta o acumulado das últimas 24 h. No Brasil, cada estado é a média
-de quatro pontos dispersos (`/weather/states`), não só a capital; dentro da UF,
-os mesmos municípios medidos e estimados do clima. "Chovendo agora" vem do último
-intervalo de 15 minutos: um anel discreto no ponto da pílula, uma linha no
-tooltip (no Brasil, "em 1 de 4 pontos") e a contagem no ranking de chuva.
+**Chuva** pinta o acumulado das últimas 24 h. No Brasil, cada estado é a mesma
+média ponderada pela área (a chuva média de uma região, pelo método de
+Thiessen), não só a capital; dentro da UF, os mesmos municípios medidos e
+estimados do clima. "Chovendo agora" vem do último intervalo de 15 minutos: um
+anel discreto no ponto da pílula, uma linha no tooltip (no Brasil, "em 1 de 8
+pontos") e a contagem no ranking de chuva.
 
 O painel mostra o dado principal. **Mais detalhes** reúne os outros valores,
 horário e referência espacial. **Camadas e fontes** consulta os avisos INMET,
@@ -222,6 +231,13 @@ No Brasil, ela pinta estados; dentro da UF, pinta municípios. Ambos usam a mesm
 escala fixa de focos por 1.000 km², com áreas canônicas IBGE e totais INPE de 48h.
 Ao desligar fogo, a temperatura volta a preencher o mapa. No zoom próximo (≥9),
 os pontos WMS acrescentam os detalhes reais de cada detecção.
+
+Longe, o resumo de focos é a própria camada: sai assim que os metadados dão a
+janela, sem esperar a ociosidade (de perto, espera, para não disputar com os
+pontos). O mapa não apaga enquanto um resumo chega: a janela anterior do mesmo
+recorte continua pintada na atualização de 10 minutos e, ao abrir uma UF, os
+municípios dela no resumo do Brasil já pintam o estado até o resumo próprio
+chegar.
 
 Tooltips informam contagens 24h/48h, densidade, área e última detecção. O ranking
 fica recolhido por padrão. Detalhes de satélite, FRP e risco são buscados ao clicar

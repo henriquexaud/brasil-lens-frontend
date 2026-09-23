@@ -3,7 +3,12 @@ import type { WeatherCity } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
 import { colorForTemperature } from '@/features/map/colors';
 
-import { ESTIMATE_DESCRIPTION, EstimateMark } from './EstimateMark';
+import {
+  ESTIMATE_DESCRIPTION,
+  EstimateMark,
+  isStateAverage,
+  STATE_AVERAGE_DESCRIPTION,
+} from './EstimateMark';
 
 export interface ClimateOverviewProps {
   cities?: WeatherCity[];
@@ -58,11 +63,15 @@ export function ClimateOverview({
   }
 
   const hasEstimate = [...hottest, ...coldest].some((city) => city.isInferred);
+  // No Brasil, as capitais chegam primeiro; depois, cada estado é uma média.
+  const averaged = !isDrilledDown && cities.some(isStateAverage);
   const title = isDrilledDown
     ? scopeName
       ? `Cidade mais quente e mais fria · ${scopeName}`
       : 'Cidade mais quente e mais fria'
-    : 'Capital mais quente e capital mais fria';
+    : averaged
+      ? 'Estado mais quente e estado mais frio'
+      : 'Capital mais quente e capital mais fria';
 
   return (
     <Disclosure title={title} className="climate-ranking" defaultOpen={false}>
@@ -139,6 +148,7 @@ export function ClimateOverview({
       </div>
       <p className="source-note">
         Leituras e previsão horária · Modelagem numérica Open-Meteo e dados de superfície.
+        {averaged && ` ${STATE_AVERAGE_DESCRIPTION}.`}
         {hasEstimate && ` ≈ ${ESTIMATE_DESCRIPTION.toLowerCase()}.`}
       </p>
     </Disclosure>

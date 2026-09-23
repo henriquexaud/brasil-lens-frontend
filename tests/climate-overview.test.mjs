@@ -214,3 +214,28 @@ test('ClimateOverview marca cidades estimadas com ≈ e explica no rodapé', asy
   assert.equal(measured.textContent, '19°C');
   assert.match(document.querySelector('.source-note').textContent, /≈ estimado a partir de cidades próximas\./);
 });
+
+test('ClimateOverview nomeia estados quando o Brasil já é a média de cada UF', async () => {
+  const states = [
+    { id: 'MT', name: 'Mato Grosso', temperatureC: 33.1, stateAbbreviation: 'MT', samplePoints: 8 },
+    { id: 'PR', name: 'Paraná', temperatureC: 16.4, stateAbbreviation: 'PR', samplePoints: 3 },
+    { id: 'DF', name: 'Distrito Federal', temperatureC: 24, stateAbbreviation: 'DF', samplePoints: 1 },
+  ];
+
+  await act(async () =>
+    root.render(h(ClimateOverview, { cities: states, onSelect: () => {}, isDrilledDown: false })),
+  );
+
+  const summary = document.querySelector('.disclosure-trigger span');
+  assert.equal(summary.textContent, 'Estado mais quente e estado mais frio');
+  const details = document.querySelector('details');
+  await act(async () => {
+    details.open = true;
+    details.dispatchEvent(new dom.window.Event('toggle'));
+  });
+  assert.match(document.querySelector('.climate-ranking-city').textContent, /Mato Grosso/);
+  assert.match(
+    document.querySelector('.source-note').textContent,
+    /média de pontos do seu território, ponderada pela área/,
+  );
+});

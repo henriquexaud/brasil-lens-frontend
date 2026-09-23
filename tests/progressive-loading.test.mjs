@@ -22,7 +22,7 @@ const scratch = await mkdtemp(join(frontend, 'node_modules', '.progressive-tests
 const modulePath = join(scratch, 'harness.mjs');
 const compiled = await build({
   stdin: {
-    contents: `export { useMunicipalityWeather, useUserStateWeather, useWeatherCurrent, weatherCurrentOptions, useFireHotspots, useFireHotspotDetails, useFireSummary, useHydrography, useViewportWeather, useCapitalsWeather, useVisibleMunicipalities, useSelectedBoundary, useMapLayer } from './src/api/queries';
+    contents: `export { useMunicipalityWeather, useUserStateWeather, useWeatherCurrent, weatherCurrentOptions, useFireHotspots, useFireHotspotDetails, useFireSummary, useHydrography, useViewportWeather, useNationalWeather, useVisibleMunicipalities, useSelectedBoundary, useMapLayer } from './src/api/queries';
     export { useDeferredReady } from './src/lib/useDeferredReady';
     export { Disclosure } from './src/components/Disclosure';
     export { LocationButton } from './src/features/search/LocationButton';`,
@@ -51,7 +51,7 @@ const {
   useHydrography,
   useDeferredReady,
   useViewportWeather,
-  useCapitalsWeather,
+  useNationalWeather,
   useVisibleMunicipalities,
   useSelectedBoundary,
   useMapLayer,
@@ -325,6 +325,46 @@ test('resumo de fogo espera o período dos metadados e cancela ao desligar a cam
   assert.equal(requests[0].signal.aborted, true);
 });
 
+test('resumo de fogo não apaga o mapa: nova janela e UF aberta reaproveitam o anterior', async () => {
+  let result;
+  function Summary({ query, at }) {
+    result = useFireSummary(query, at, true);
+    return null;
+  }
+  const fire = (ibgeCode, count) => ({ ibgeCode, name: ibgeCode, state: 'SP', count, density: count });
+  let release;
+  respond = async (url) => {
+    if (url.searchParams.get('at') !== '2026-09-20T10:00:00Z') {
+      await new Promise((resolve) => { release = resolve; });
+    }
+    return new Response(JSON.stringify({
+      windowStart: '2026-09-19T10:00:00Z', windowEnd: url.searchParams.get('at'), hours: 24, total: 3,
+      municipalities: [fire('3550308', 2), fire('3304557', 1)],
+      states: [fire('35', 2), fire('33', 1)],
+      rankedMunicipalities: [fire('3550308', 2), fire('3304557', 1)],
+      unassignedCount: 0, areaSource: 'IBGE',
+    }));
+  };
+  const brazil = { level: 'country' };
+  await render(h(Summary, { query: brazil, at: '2026-09-20T10:00:00Z' }));
+  await until(() => result.data);
+
+  // A janela seguinte do Brasil: o mapa segue pintado com a anterior.
+  await render(h(Summary, { query: brazil, at: '2026-09-20T10:10:00Z' }));
+  await until(() => release);
+  assert.equal(result.isPlaceholderData, true);
+  assert.equal(result.data.windowEnd, '2026-09-20T10:00:00Z');
+  release(); release = undefined;
+  await until(() => !result.isPlaceholderData);
+
+  // Abrir São Paulo: os municípios dele no resumo do Brasil pintam na hora.
+  await render(h(Summary, { query: { level: 'state', parent: '35' }, at: undefined }));
+  assert.equal(result.isPlaceholderData, true);
+  assert.deepEqual(result.data.municipalities.map((m) => m.ibgeCode), ['3550308']);
+  assert.deepEqual(result.data.states.map((s) => s.ibgeCode), ['35']);
+  assert.equal(result.data.rankedMunicipalities, undefined, 'o ranking é refeito com a UF');
+});
+
 
 test('localização só pede permissão após clique e resolve o município sem geocoder externo', async () => {
   let gpsCalls = 0, located;
@@ -436,27 +476,44 @@ test('condições atuais só voltam à rede quando a leitura vence', async () =>
   await until(() => requests.length === 3);
 });
 
-test('capitais aparecem por lote e carregamento nacional pausa para a seleção', async () => {
+test('Brasil: capitais numa consulta, depois a média dos estados; a seleção pausa', async () => {
   let result;
-  function Capitals({ pause = false, enabled = true }) {
-    result = useCapitalsWeather(enabled, pause);
+  function National({ pause = false, enabled = true }) {
+    result = useNationalWeather(enabled, pause);
     return null;
   }
-  respond = async (url) => new Response(JSON.stringify(
-    page([url.searchParams.get('offset') === '0' ? 'SP' : 'RJ'],
-      url.searchParams.get('offset') === '0' ? 6 : null),
-  ));
-  await render(h(Capitals));
-  await until(() => result.data?.cities.length === 1);
-  assert.equal(requests[0].url.pathname, '/api/v1/weather/capitals');
-  await render(h(Capitals, { pause: true }));
-  await tick(280); await runIdle();
-  assert.equal(requests.length, 1);
-  await render(h(Capitals));
-  await tick(280); await runIdle();
+  respond = async (url) => {
+    const body = page(['SP', 'RJ']);
+    if (url.pathname.endsWith('/weather/states')) {
+      body.cities = body.cities.map((item) => ({ ...item, samplePoints: 4 }));
+    }
+    return new Response(JSON.stringify(body));
+  };
+  await render(h(National));
   await until(() => result.data?.cities.length === 2);
-  assert.deepEqual(result.data.cities.map((c) => c.id), ['SP', 'RJ']);
-  assert.equal(result.hasNextPage, false);
+  assert.equal(requests[0].url.pathname, '/api/v1/weather/current');
+  assert.equal(requests[0].url.searchParams.get('forecast'), 'false');
+  assert.equal(result.averaged, false);
+  assert.equal(result.isRefining, true);
+
+  // A seleção pausa a segunda etapa.
+  await render(h(National, { pause: true }));
+  await tick(220); await runIdle();
+  assert.equal(requests.length, 1);
+  await render(h(National));
+  await tick(220); await runIdle();
+  await until(() => result.averaged);
+  assert.equal(requests[1].url.pathname, '/api/v1/weather/states');
+  assert.equal(result.data.cities[0].samplePoints, 4);
+  assert.equal(result.capitals.cities[0].samplePoints, undefined, 'a seleção usa a capital');
+  assert.equal(result.isRefining, false);
+
+  // Com a média em cache, voltar ao Brasil não pede nada: nem as capitais.
+  await render(h(National, { enabled: false }));
+  await render(h(National));
+  await tick(220); await runIdle();
+  assert.equal(requests.length, 2);
+  assert.equal(result.data.cities[0].samplePoints, 4);
 });
 
 test('malha oficial chega em páginas, preserva contornos e cancela o viewport antigo', async () => {
@@ -548,17 +605,20 @@ test('mapa pinta a malha leve, troca pela detalhada na ociosidade e busca valore
   assert.deepEqual(paths().slice(3), ['/api/v1/map/values?2010']);
 });
 
-test('chuva no Brasil vem por estado numa consulta, sem os lotes de capitais', async () => {
+test('Brasil com a primeira etapa fora do ar ainda tenta a média dos estados', async () => {
   let result;
-  function States() {
-    result = useCapitalsWeather(true, false, true);
+  function National() {
+    result = useNationalWeather(true, false);
     return null;
   }
-  respond = async () => new Response(JSON.stringify(page(['SP', 'RJ'])));
-  await render(h(States));
-  await until(() => result.data?.cities.length === 2);
-  await tick(280); await runIdle();
-  assert.equal(requests.length, 1);
-  assert.equal(requests[0].url.pathname, '/api/v1/weather/states');
-  assert.equal(result.hasNextPage, false);
+  respond = async (url) =>
+    url.pathname.endsWith('/weather/states')
+      ? new Response(JSON.stringify(page(['SP'])))
+      : new Response(JSON.stringify({ error: { code: 'not_found', message: 'x' } }), { status: 404 });
+  await render(h(National));
+  await until(() => result.isError);
+  await tick(220); await runIdle();
+  await until(() => result.averaged);
+  assert.deepEqual(requests.map((r) => r.url.pathname), ['/api/v1/weather/current', '/api/v1/weather/states']);
+  assert.equal(result.error, null);
 });

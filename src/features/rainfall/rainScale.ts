@@ -34,12 +34,12 @@ export function rainAmount(city: {
 /** "Chovendo agora", com a proporção de pontos na visão do Brasil. */
 export function rainingNowText(city: {
   rainingNow?: boolean;
-  rainPoints?: number | null;
+  samplePoints?: number | null;
   rainingPoints?: number | null;
 }): string | null {
   if (!city.rainingNow) return null;
-  return city.rainPoints && city.rainingPoints != null
-    ? `Chovendo agora em ${city.rainingPoints} de ${city.rainPoints} pontos`
+  return city.samplePoints && city.rainingPoints != null
+    ? `Chovendo agora em ${city.rainingPoints} de ${city.samplePoints} pontos`
     : 'Chovendo agora';
 }
 
