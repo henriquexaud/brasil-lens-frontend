@@ -2,8 +2,10 @@
  * Menu do contexto socioeconômico com navegação em categorias segmentadas
  * (População, Economia, Trabalho & Renda, Território) e pílulas de análises específicas.
  */
-import { useId, useMemo, useRef, useState } from 'react';
-import type { Indicator } from '@/api/types';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { apiGet } from '@/api/client';
+import type { Indicator, TerritoryLevel } from '@/api/types';
 import { Select } from '@/components/Select';
 import {
   formatIndicatorUnit,
@@ -20,6 +22,8 @@ interface Props {
   selectedYear: string;
   onYearChange: (year: string) => void;
   resolvedYear: number | null;
+  level?: TerritoryLevel;
+  parentCode?: string | null;
 }
 
 export function ControlPanel({
@@ -29,10 +33,25 @@ export function ControlPanel({
   selectedYear,
   onYearChange,
   resolvedYear,
+  level = 'state',
+  parentCode = null,
 }: Props) {
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
+
+  const prefetchIndicator = useCallback(
+    (key: string) => {
+      void queryClient.prefetchQuery({
+        queryKey: ['map-values', level, parentCode, key, selectedYear],
+        queryFn: ({ signal }) =>
+          apiGet('/map/values', { level, parent: parentCode, indicator: key, year: selectedYear }, signal),
+        staleTime: 30 * 60 * 1000,
+      });
+    },
+    [queryClient, level, parentCode, selectedYear],
+  );
 
   // Agrupa os indicadores recebidos da API nas categorias principais
   const categories = useMemo(
@@ -93,6 +112,8 @@ export function ControlPanel({
                 role="tab"
                 aria-selected={isActive}
                 className={`indicator-segment-btn ${isActive ? 'is-active' : ''}`}
+                onMouseEnter={() => prefetchIndicator(cat.defaultKey)}
+                onFocus={() => prefetchIndicator(cat.defaultKey)}
                 onClick={() => {
                   if (cat.id !== activeCategoryId) {
                     setExpanded(false);
@@ -123,6 +144,8 @@ export function ControlPanel({
                 className={`indicator-pill-btn ${isActive ? 'is-active' : ''}`}
                 aria-pressed={isActive}
                 title={indicator.name}
+                onMouseEnter={() => prefetchIndicator(indicator.key)}
+                onFocus={() => prefetchIndicator(indicator.key)}
                 onClick={() => {
                   setExpanded(false);
                   onIndicatorChange(indicator.key);

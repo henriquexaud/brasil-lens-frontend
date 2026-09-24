@@ -206,13 +206,14 @@ function withValues(
   geometry: MapFeatureCollection,
   values: MapValuesResponse,
 ): MapFeatureCollection {
-  const byCode = new Map(values.values.map((item) => [item.ibgeCode, item]));
+  const items = Array.isArray(values?.values) ? values.values : [];
+  const byCode = new Map(items.map((item) => [item.ibgeCode, item]));
   return {
     ...geometry,
-    indicator: values.indicator,
-    statistics: values.statistics,
-    classification: values.classification,
-    features: geometry.features.map((feature) => {
+    indicator: values?.indicator ?? null,
+    statistics: values?.statistics ?? null,
+    classification: values?.classification ?? null,
+    features: (geometry?.features ?? []).map((feature) => {
       const item = byCode.get(feature.properties.ibgeCode);
       return {
         ...feature,
@@ -261,27 +262,83 @@ export function useMapLayer(query: MapQuery, enabled = true) {
     enabled: enabled && Boolean(indicator),
     staleTime: 30 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
-    placeholderData: (previous) => previous,
+    placeholderData: (previousData, previousQuery) => {
+      if (!previousData || !previousQuery) return undefined;
+      const key = previousQuery.queryKey as unknown[];
+      // Só mantém dados anteriores se for exatamente o mesmo escopo e indicador (ex.: trocando ano)
+      if (
+        key[0] === 'map-values' &&
+        key[1] === level &&
+        key[2] === parent &&
+        key[3] === indicator
+      ) {
+        return previousData;
+      }
+      return undefined;
+    },
   });
 
   const geometry = detail.data ?? (overview.isPlaceholderData ? undefined : overview.data);
   const scopeValues =
-    values.data && values.data.level === level && (values.data.parent ?? null) === parent
+    values.data &&
+    Array.isArray(values.data.values) &&
+    values.data.level === level &&
+    (values.data.parent ?? null) === parent &&
+    (!indicator || values.data.indicator?.key === indicator)
       ? values.data
       : undefined;
+
   const merged = useMemo(() => {
     if (!geometry) return undefined;
     if (!indicator) return geometry;
-    return scopeValues ? withValues(geometry, scopeValues) : undefined;
+    if (scopeValues) return withValues(geometry, scopeValues);
+    // Transição de indicador: mantém os polígonos no mapa em tom neutro enquanto busca os novos valores,
+    // garantindo que nunca exiba dados ou classificação do indicador antigo.
+    return {
+      ...geometry,
+      indicator: null,
+      statistics: null,
+      classification: null,
+      features: geometry.features.map((feature) => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          value: null,
+          normalizedValue: null,
+          classIndex: null,
+        },
+      })),
+    };
   }, [geometry, indicator, scopeValues]);
+
   const last = useRef<MapFeatureCollection | undefined>(undefined);
-  if (merged) last.current = merged;
+  if (
+    merged &&
+    merged.scope.level === level &&
+    (merged.scope.parent ?? null) === parent &&
+    (!indicator || merged.indicator?.key === indicator)
+  ) {
+    last.current = merged;
+  }
+
+  const validLast =
+    last.current &&
+    last.current.scope.level === level &&
+    (last.current.scope.parent ?? null) === parent &&
+    (!indicator || last.current.indicator?.key === indicator)
+      ? last.current
+      : undefined;
+
+  const isPendingValues = Boolean(indicator) && !scopeValues;
 
   return {
-    data: merged ?? last.current,
+    data: merged ?? validLast,
     error: overview.error ?? values.error,
     isFetching: overview.isFetching || values.isFetching,
-    isPlaceholderData: !merged || (Boolean(indicator) && values.isPlaceholderData),
+    isPlaceholderData:
+      !merged ||
+      (Boolean(indicator) && values.isPlaceholderData) ||
+      isPendingValues,
   };
 }
 

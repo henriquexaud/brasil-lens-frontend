@@ -19,21 +19,33 @@ interface Props {
   indicator: MapIndicatorMeta | null;
   classification: MapClassification | null;
   statistics: MapStatistics | null;
+  loading?: boolean;
 }
 
-export function Legend({ indicator, classification, statistics }: Props) {
+export function Legend({ indicator, classification, statistics, loading }: Props) {
   if (!indicator) return null;
-  const contentKey = `${indicator.key}:${indicator.year}`;
+  const contentKey = `${indicator.key}:${indicator.year ?? 'latest'}`;
   if (!classification || !statistics) {
     return (
       <figure className="legend" aria-label={`Legenda de ${indicator.name}`}>
         <figcaption key={contentKey} className="legend-title">
           <AnimatedText text={indicator.name} />
+          {indicator.unit && <span className="legend-meta">{unitLabel(indicator.unit)}</span>}
         </figcaption>
-        <div className="legend-missing">
-          <span className="legend-step" style={{ background: NO_DATA_COLOR }} />
-          Sem dados para este recorte
-        </div>
+        {loading ? (
+          <div className="legend-ramp is-loading" aria-hidden="true">
+            <span className="legend-step" style={{ background: NO_DATA_COLOR, opacity: 0.6 }} />
+            <span className="legend-step" style={{ background: NO_DATA_COLOR, opacity: 0.7 }} />
+            <span className="legend-step" style={{ background: NO_DATA_COLOR, opacity: 0.8 }} />
+            <span className="legend-step" style={{ background: NO_DATA_COLOR, opacity: 0.9 }} />
+            <span className="legend-step" style={{ background: NO_DATA_COLOR, opacity: 1.0 }} />
+          </div>
+        ) : (
+          <div className="legend-missing">
+            <span className="legend-step" style={{ background: NO_DATA_COLOR }} />
+            Sem dados para este recorte
+          </div>
+        )}
       </figure>
     );
   }

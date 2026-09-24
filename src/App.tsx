@@ -29,6 +29,7 @@ import type {
   HydroQuery,
   MapQuery,
   MapFeatureCollection,
+  MapIndicatorMeta,
   MapScopeInput,
   SavedView,
   WeatherCity,
@@ -358,9 +359,28 @@ export default function App() {
         ? mapLayer.data
         : (climateMunicipalCollection ?? statesOutlineLayer.data)
       : mapLayer.data;
+  const showsCurrentIndicator =
+    isClimate || collection?.indicator?.key === indicatorKey;
   const showsCurrentScope =
-    collection?.scope.level === scope.level && (collection?.scope.parent ?? null) === scope.parent;
+    collection?.scope.level === scope.level &&
+    (collection?.scope.parent ?? null) === scope.parent &&
+    showsCurrentIndicator;
   const scopeReady = Boolean(showsCurrentScope && (isClimate || !mapLayer.isPlaceholderData));
+  const currentIndicatorMeta = useMemo<MapIndicatorMeta | null>(() => {
+    if (!currentIndicator) return null;
+    return {
+      key: currentIndicator.key,
+      name: currentIndicator.name,
+      unit: currentIndicator.unit,
+      decimalPlaces: currentIndicator.decimalPlaces,
+      year:
+        collection?.indicator?.key === indicatorKey
+          ? collection.indicator.year
+          : (currentIndicator.latestYear ?? (Number(effectiveYear) || null)),
+      requestedYear: effectiveYear,
+      availableYears: currentIndicator.availableYears,
+    };
+  }, [currentIndicator, collection?.indicator, indicatorKey, effectiveYear]);
   const backgroundReady =
     useDeferredReady(`${context}:${scope.level}:${scope.parent}`, scopeReady) && pageVisible;
   // A prontidão territorial é deliberadamente independente de clima. Ela é
@@ -388,7 +408,9 @@ export default function App() {
     (selectedCode
       ? (selectedBoundary.data?.features.find((f) => f.properties.ibgeCode === selectedCode) ??
         climateMunicipalCollection?.features.find((f) => f.properties.ibgeCode === selectedCode) ??
-        mapLayer.data?.features.find((f) => f.properties.ibgeCode === selectedCode))
+        (mapLayer.data?.indicator?.key === indicatorKey
+          ? mapLayer.data?.features.find((f) => f.properties.ibgeCode === selectedCode)
+          : undefined))
       : undefined);
 
   // O WMS de focos é a segunda etapa. Só depois de seus metadados chegarem o
@@ -1044,6 +1066,8 @@ export default function App() {
               selectedYear={effectiveYear}
               onYearChange={setYear}
               resolvedYear={showsCurrentScope ? (collection?.indicator?.year ?? null) : null}
+              level={scope.level}
+              parentCode={scope.parent}
             />
           )}
           {failure && (
@@ -1094,7 +1118,7 @@ export default function App() {
                   <TerritoryDetailPanel
                     key={selectedCode}
                     feature={selectedFeature}
-                    indicator={collection?.indicator ?? null}
+                    indicator={currentIndicatorMeta}
                     onClose={() => setSelectedCode(null)}
                     onDrillDown={drillIntoState}
                   />
@@ -1103,7 +1127,7 @@ export default function App() {
                 !isClimate &&
                 !isDrilledDown && (
                   <BrazilOverviewPanel
-                    indicator={collection?.indicator ?? null}
+                    indicator={currentIndicatorMeta}
                     selectedYear={effectiveYear}
                   />
                 )
@@ -1221,9 +1245,19 @@ export default function App() {
               ) : null
             ) : (
               <Legend
-                indicator={collection?.indicator ?? null}
-                classification={collection?.classification ?? null}
-                statistics={collection?.statistics ?? null}
+                key={indicatorKey}
+                indicator={currentIndicatorMeta}
+                classification={
+                  collection?.indicator?.key === indicatorKey
+                    ? (collection?.classification ?? null)
+                    : null
+                }
+                statistics={
+                  collection?.indicator?.key === indicatorKey
+                    ? (collection?.statistics ?? null)
+                    : null
+                }
+                loading={mapLayer.isFetching || mapLayer.isPlaceholderData}
               />
             )}
           </Suspense>

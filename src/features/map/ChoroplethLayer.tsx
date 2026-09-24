@@ -603,7 +603,7 @@ function Territories({
   }, [clearHover, map]);
 
   const showTooltipFor = useCallback(
-    (properties: MapFeatureProperties, fixedPoint?: Point) => {
+    (code: string, fixedPoint?: Point) => {
       if (isMapMovingRef.current) return;
       cancelHide();
       const el = tooltipElRef.current;
@@ -617,16 +617,22 @@ function Territories({
         climateMode: cm = true,
         collection: col,
       } = propsRef.current;
-      const weather = wb?.get(properties.ibgeCode);
+      const currentFeature = featuresByCodeRef.current.get(code);
+      const properties = currentFeature?.properties;
+      if (!properties) return;
+
+      const weather = wb?.get(code);
       const content = JSON.stringify([
         properties.name,
         properties.parentName,
         properties.value,
-        fb?.get(properties.ibgeCode),
+        col.indicator?.key,
+        col.indicator?.year,
+        col.indicator?.unit,
+        fb?.get(code),
         fm,
         rm,
         cm,
-        col.indicator,
         weather?.temperatureC,
         weather?.weatherCode,
         weather?.precipitationSumMm,
@@ -639,7 +645,7 @@ function Territories({
         weather?.isInferred,
       ]);
       if (
-        activeTooltipCodeRef.current !== properties.ibgeCode ||
+        activeTooltipCodeRef.current !== code ||
         activeTooltipContentRef.current !== content
       ) {
         tooltipCleanupRef.current?.();
@@ -648,7 +654,7 @@ function Territories({
           properties,
           col,
           weather,
-          fb?.get(properties.ibgeCode),
+          fb?.get(code),
           fh,
           Boolean(fm),
           Boolean(rm),
@@ -656,7 +662,7 @@ function Territories({
         );
         activeTooltipContentRef.current = content;
         needsMeasureRef.current = true;
-        activeTooltipCodeRef.current = properties.ibgeCode;
+        activeTooltipCodeRef.current = code;
       }
       fixedAnchorRef.current = fixedPoint ?? null;
       el.style.opacity = '1';
@@ -675,20 +681,25 @@ function Territories({
       const territory = layer as Path & { feature: TerritoryFeature };
       const feature = territory.feature;
       if (!feature) return;
-      const properties = feature.properties;
+      const initialProperties = feature.properties;
       const element = layer.getElement();
+
+      const getCode = () => (layer as Path & { feature?: TerritoryFeature }).feature?.properties.ibgeCode ?? initialProperties.ibgeCode;
 
       // O hover usa o mesmo `style()` do resto da camada: um estilo à parte
       // divergia dele (na chuva, um município sem chuva ficava quase branco).
       const restyle = () => {
-        const nextStyle = propsRef.current.style(territory.feature);
+        const currentFeature = (layer as Path & { feature?: TerritoryFeature }).feature;
+        if (!currentFeature) return;
+        const nextStyle = propsRef.current.style(currentFeature);
         layer.setStyle(nextStyle);
         appliedStyleRef.current.set(layer, styleKey(nextStyle));
       };
 
       const hoverEnter = () => {
         if (isMapMovingRef.current) return;
-        if (properties.ibgeCode === propsRef.current.selectedCode) return;
+        const code = getCode();
+        if (!code || code === propsRef.current.selectedCode) return;
 
         if (activeHoveredLayerRef.current && activeHoveredLayerRef.current !== layer) {
           const prevLayer = activeHoveredLayerRef.current;
@@ -701,16 +712,17 @@ function Territories({
           }
         }
         activeHoveredLayerRef.current = layer;
-        hoveredCode.current = properties.ibgeCode;
+        hoveredCode.current = code;
 
         restyle();
-        updateHoverOutline(properties.ibgeCode);
-        propsRef.current.onHover?.(properties.ibgeCode);
+        updateHoverOutline(code);
+        propsRef.current.onHover?.(code);
         element?.setAttribute('aria-describedby', TOOLTIP_ID);
       };
 
       const hoverLeave = () => {
-        if (hoveredCode.current === properties.ibgeCode) {
+        const code = getCode();
+        if (code && hoveredCode.current === code) {
           hoveredCode.current = null;
           updateHoverOutline(null);
         }
@@ -725,7 +737,8 @@ function Territories({
         if (isMapMovingRef.current) return;
         pointerRef.current = { x: event.containerPoint.x, y: event.containerPoint.y };
         hoverEnter();
-        showTooltipFor(properties);
+        const code = getCode();
+        if (code) showTooltipFor(code);
       };
 
       const leave = () => {
@@ -747,16 +760,21 @@ function Territories({
         }
         hoveredCode.current = null;
         updateHoverOutline(null);
-        propsRef.current.onSelect(properties.ibgeCode);
+        const code = getCode();
+        if (code) propsRef.current.onSelect(code);
       };
 
       const drill = () => {
         clearHover();
+        const code = getCode();
+        if (!code) return;
         const currentProps = propsRef.current;
+        const currentFeature = featuresByCodeRef.current.get(code);
+        const name = currentFeature?.properties.name ?? initialProperties.name;
         if (currentProps.canDrillDown) {
-          currentProps.onDrillDown!(properties.ibgeCode, properties.name);
+          currentProps.onDrillDown!(code, name);
         } else if (currentProps.municipal && layer instanceof Polygon) {
-          currentProps.onSelect(properties.ibgeCode);
+          currentProps.onSelect(code);
           scheduleHideTooltip();
           map.stop();
           map.flyToBounds(layer.getBounds(), {
@@ -770,8 +788,10 @@ function Territories({
 
       const focus = () => {
         hoverEnter();
+        const code = getCode();
+        if (!code) return;
         const center = map.latLngToContainerPoint((layer as Polygon).getBounds().getCenter());
-        showTooltipFor(properties, { x: center.x, y: center.y });
+        showTooltipFor(code, { x: center.x, y: center.y });
       };
 
       const keydown = (event: KeyboardEvent) => {
@@ -785,10 +805,10 @@ function Territories({
 
       element?.setAttribute('tabindex', '0');
       element?.setAttribute('role', 'button');
-      element?.setAttribute('aria-label', properties.name);
+      element?.setAttribute('aria-label', initialProperties.name);
       element?.setAttribute(
         'aria-pressed',
-        String(properties.ibgeCode === propsRef.current.selectedCode),
+        String(initialProperties.ibgeCode === propsRef.current.selectedCode),
       );
       element?.setAttribute('aria-keyshortcuts', 'Enter Space Shift+Enter');
       element?.setAttribute(
@@ -804,6 +824,11 @@ function Territories({
       layer.on({ mouseover: enter, mouseout: leave, click, dblclick: drill });
     });
   }, [clearHover, featuresByCode, map, municipal, scheduleHideTooltip, showTooltipFor, updateHoverOutline]);
+
+  // Limpa o hover e esconde o tooltip ao trocar de escopo territorial
+  useEffect(() => {
+    clearHover();
+  }, [collection.scope.level, collection.scope.parent, clearHover]);
 
   // Atualização cirúrgica de estilo: aplica layer.setStyle apenas quando o estilo do polígono mudou
   useEffect(() => {
@@ -851,9 +876,8 @@ function Territories({
     }
 
     const activeCode = activeTooltipCodeRef.current;
-    const activeProperties = activeCode ? featuresByCode.get(activeCode)?.properties : undefined;
-    if (activeProperties && hideFrameRef.current === null) {
-      showTooltipFor(activeProperties, fixedAnchorRef.current ?? undefined);
+    if (activeCode && hideFrameRef.current === null) {
+      showTooltipFor(activeCode, fixedAnchorRef.current ?? undefined);
     }
   }, [clearHover, style, selectedCode, featuresByCode, showTooltipFor, updateHoverOutline]);
 
