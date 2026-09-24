@@ -20,7 +20,7 @@ import {
   useFollowedMunicipalities,
   useFollowMunicipality,
   useUnfollowMunicipality,
-} from '@/api/queries';
+} from './useFollowedMunicipalities';
 import type { FollowedMunicipality } from '@/api/types';
 import { ErrorMessage } from '@/components/Feedback';
 

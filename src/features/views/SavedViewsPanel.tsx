@@ -22,9 +22,9 @@ import {
   useCreateSavedView,
   useDeleteSavedView,
   useSavedViews,
-  useTerritories,
   useUpdateSavedView,
-} from '@/api/queries';
+} from './useSavedViews';
+import { useTerritories } from '@/api/queries';
 import type { Indicator, MapScopeInput, SavedView } from '@/api/types';
 import { ErrorMessage } from '@/components/Feedback';
 import { levelPluralLabel } from '@/lib/format';

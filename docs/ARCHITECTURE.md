@@ -44,7 +44,7 @@ flowchart TD
     end
 
     subgraph STATE[" Gerenciamento de Estado Assíncrono "]
-        TQ["api/queries.ts<br/>(Hooks TanStack Query)"]
+        TQ["api/queries.ts + features/*/queries.ts<br/>(Hooks TanStack Query)"]
     end
 
     subgraph NET[" Cliente HTTP Tipado "]
@@ -76,20 +76,25 @@ Estrutura de diretórios:
 
 ```
 frontend/src/
-├── api/                    # Cliente HTTP tipado, contratos Pydantic espelhados e hooks TanStack Query
+├── api/                    # Cliente HTTP, contratos, chaves e ciclo de vida das consultas compartilhadas
+├── app/                    # Preferências persistidas e seleção da camada temática
 ├── components/             # Componentes genéricos e reutilizáveis (Select, Feedback, Modais)
 ├── features/
 │   ├── controls/           # Painel de controle superior (seleção de indicadores, anos e busca)
 │   ├── detail/             # Painel lateral com resumo e séries históricas do território selecionado
-│   ├── follow/             # Funcionalidade de seguir municípios favoritos
-│   ├── map/                # Componente principal do Leaflet, camadas de coropleta e legendas
-│   ├── views/              # Gerenciamento e persistência das visualizações salvas (CRUD)
-│   └── weather/            # Camadas climáticas, focos de calor do INPE e alertas meteorológicos
+│   ├── follow/             # Painel e consultas de municípios seguidos
+│   ├── map/                # Malha, seleção territorial, interações Leaflet e tooltip
+│   ├── views/              # Painel e consultas de visualizações salvas (CRUD)
+│   └── weather/            # Consultas climáticas, composição das leituras e apresentação
 ├── lib/                    # Funções utilitárias (formatação pt-BR de números, moedas e unidades)
 ├── App.tsx                 # Composição central da aplicação
 ├── main.tsx                # Ponto de entrada React com QueryClientProvider
 └── styles.css              # Sistema coeso de estilos via CSS custom properties (design tokens)
 ```
+
+`App.tsx` coordena o fluxo entre domínios. `useTerritoryMap` prepara a malha e a seleção antes de habilitar as camadas temáticas; `useWeatherMapData` combina as respostas climáticas já disponíveis para o mapa. As preferências ficam em `useAppPreferences`. Consultas com regras próprias ficam junto das funcionalidades (`weather/queries.ts`, `views/useSavedViews.ts` e `follow/useFollowedMunicipalities.ts`); `api/queries.ts` preserva as exportações públicas existentes para consumidores e testes. `queryKeys.ts` centraliza as chaves compartilhadas e `queryLifecycle.ts` contém apenas os efeitos comuns de cancelamento e paginação.
+
+`WeatherPanel` compõe o detalhe selecionado; previsão e cartões de estado de fogo/chuva são componentes de apresentação separados. `ChoroplethLayer` mantém os eventos e estilos Leaflet, enquanto `territoryTooltip.ts` constrói somente o conteúdo textual do tooltip.
 
 ---
 
@@ -98,4 +103,3 @@ frontend/src/
 1. **Code-Splitting e Lazy Loading:** Componentes secundários ou acionados apenas sob demanda (como o painel de visualizações salvas e detalhes climáticos estendidos) são carregados de forma assíncrona com `React.lazy()` e `Suspense`.
 2. **Separação de Chunks (Vendor Chunking):** A configuração do Vite (`vite.config.ts`) separa dependências pesadas (`react`, `react-dom`, `leaflet`, `@tanstack/react-query`) em chunks independentes, maximizando o reaproveitamento do cache do navegador entre versões da aplicação.
 3. **Nginx com Cache Estratégico:** No container de produção, o `nginx.conf` define cabeçalhos de expiração longa (`Cache-Control: public, max-age=31536000, immutable`) para arquivos com hash no nome (`dist/assets/`), enquanto o `index.html` nunca é cacheado para garantir atualizações instantâneas.
-

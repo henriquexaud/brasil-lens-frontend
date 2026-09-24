@@ -1,27 +1,21 @@
 /** Composição e prioridade: mapa → camada atual → detalhes solicitados. */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { geoJSON } from 'leaflet';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { clearSourcePauses } from '@/api/client';
 import {
   useContexts,
   weatherCurrentOptions,
   useNationalWeather,
-  useSelectedBoundary,
   useFireHotspots,
   useFireSummary,
-  useVisibleMunicipalities,
   useViewportWeather,
   useHydrography,
-  useIndicators,
-  useMapLayer,
   usePrefetchOverview,
   useWeatherAlerts,
   useWeatherCurrent,
   useMunicipalityWeather,
   useUserStateWeather,
   FIRE_HOTSPOT_HOURS,
-  type FollowTarget,
 } from '@/api/queries';
 import type {
   DataContext,
@@ -29,9 +23,6 @@ import type {
   FireMunicipality,
   FollowedMunicipality,
   HydroQuery,
-  MapQuery,
-  MapFeatureCollection,
-  MapIndicatorMeta,
   MapScopeInput,
   SavedView,
   WeatherCity,
@@ -40,22 +31,23 @@ import { Select } from '@/components/Select';
 import { ScopeHeader } from '@/components/ScopeHeader';
 import { EmptyState, ErrorMessage, TopProgress } from '@/components/Feedback';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ControlPanel, LATEST_YEAR } from '@/features/controls/ControlPanel';
+import { ControlPanel } from '@/features/controls/ControlPanel';
 import { Legend } from '@/features/map/Legend';
 import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
 import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
-import { resolveSelectedStateOutline } from '@/features/map/stateBoundary';
+import { useTerritoryMap } from '@/features/map/useTerritoryMap';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
 import { FollowedMunicipalitiesPanel } from '@/features/follow/FollowedMunicipalitiesPanel';
+import type { FollowTarget } from '@/features/follow/useFollowedMunicipalities';
 import { SavedViewsPanel } from '@/features/views/SavedViewsPanel';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { useDeferredReady } from '@/lib/useDeferredReady';
-import { rainAmount } from '@/features/rainfall/rainScale';
-import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
+import { useWeatherMapData } from '@/features/weather/useWeatherMapData';
+import { useAppPreferences } from '@/app/useAppPreferences';
 
 const HydrographyLayer = lazy(() =>
   import('@/features/map/HydrographyLayer').then((module) => ({
@@ -120,60 +112,25 @@ export default function App() {
     resetScope,
     isDrilledDown,
   } = useMapScope();
-  const [indicatorKey, setIndicatorKey] = useState<string>(() => {
-    const saved = loadSessionState();
-    return typeof saved.indicatorKey === 'string' ? saved.indicatorKey : 'population';
-  });
-  const [year, setYear] = useState<string>(() => {
-    const saved = loadSessionState();
-    return typeof saved.year === 'string' ? saved.year : LATEST_YEAR;
-  });
-  const [context, setContext] = useState<DataContext>(() => {
-    const saved = loadSessionState();
-    if (
-      saved.context === 'climate_environmental' ||
-      saved.context === 'sociopolitical'
-    ) {
-      return saved.context;
-    }
-    return 'sociopolitical';
-  });
-  const [showWeatherAlerts, setShowWeatherAlerts] = useState<boolean>(() => {
-    const saved = loadSessionState();
-    return typeof saved.showWeatherAlerts === 'boolean' ? saved.showWeatherAlerts : true;
-  });
-  const [showHydrography, setShowHydrography] = useState<boolean>(() => {
-    const saved = loadSessionState();
-    return typeof saved.showHydrography === 'boolean' ? saved.showHydrography : true;
-  });
-  const [activeThematicLayer, setActiveThematicLayer] = useState<
-    'climate' | 'fire' | 'rainfall' | 'none'
-  >(() => {
-    const saved = loadSessionState();
-    if (saved.activeThematicLayer === 'fire') return 'fire';
-    if (saved.activeThematicLayer === 'rainfall') return 'rainfall';
-    if (saved.activeThematicLayer === 'none') return 'none';
-    return 'climate';
-  });
-
-  const showClimate = activeThematicLayer === 'climate';
-  const showFireHotspots = activeThematicLayer === 'fire';
-  const showRainfall = activeThematicLayer === 'rainfall';
-  // Clima e chuva vêm da mesma resposta da Open-Meteo: ligar um ou outro é a
-  // mesma consulta, nunca duas.
-  const weatherLayerActive = showClimate || showRainfall;
-
-  const handleToggleClimate = useCallback((show: boolean) => {
-    setActiveThematicLayer(show ? 'climate' : 'none');
-  }, []);
-
-  const handleToggleFireHotspots = useCallback((show: boolean) => {
-    setActiveThematicLayer(show ? 'fire' : 'none');
-  }, []);
-
-  const handleToggleRainfall = useCallback((show: boolean) => {
-    setActiveThematicLayer(show ? 'rainfall' : 'none');
-  }, []);
+  const {
+    indicatorKey,
+    setIndicatorKey,
+    year,
+    setYear,
+    context,
+    setContext,
+    showWeatherAlerts,
+    setShowWeatherAlerts,
+    showHydrography,
+    setShowHydrography,
+    showClimate,
+    showFireHotspots,
+    showRainfall,
+    weatherLayerActive,
+    handleToggleClimate,
+    handleToggleFireHotspots,
+    handleToggleRainfall,
+  } = useAppPreferences();
 
   const [viewport, setViewport] = useState<MapViewport>({ zoom: 4 });
   const activeFireMode = fireMode(viewport.zoom);
@@ -197,30 +154,6 @@ export default function App() {
   const pageVisible = usePageVisible();
   const isClimate = context === 'climate_environmental';
   const client = useQueryClient();
-
-  useEffect(() => {
-    saveSessionState({
-      context,
-      indicatorKey,
-      year,
-      showWeatherAlerts,
-      showHydrography,
-      showClimate,
-      showFireHotspots,
-      showRainfall,
-      activeThematicLayer,
-    });
-  }, [
-    context,
-    indicatorKey,
-    year,
-    showWeatherAlerts,
-    showHydrography,
-    showClimate,
-    showFireHotspots,
-    showRainfall,
-    activeThematicLayer,
-  ]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -258,162 +191,34 @@ export default function App() {
   );
   const contextsQuery = useContexts();
   const contexts = contextsQuery.data?.contexts ?? [];
-  const indicatorsQuery = useIndicators(scope.level, context, !isClimate);
-  const indicators = indicatorsQuery.data?.indicators ?? [];
-  const currentIndicator = indicators.find((indicator) => indicator.key === indicatorKey);
-  const effectiveYear = useMemo(() => {
-    if (year === LATEST_YEAR) return year;
-    const years = currentIndicator?.availableYears ?? [];
-    if (indicatorsQuery.isPlaceholderData || years.length === 0) return year;
-    return years.includes(Number(year)) ? year : LATEST_YEAR;
-  }, [year, currentIndicator, indicatorsQuery.isPlaceholderData]);
-  const mapQuery: MapQuery = useMemo(
-    () => ({
-      level: scope.level,
-      parent: scope.parent,
-      indicator: isClimate ? undefined : indicatorKey,
-      year: isClimate ? LATEST_YEAR : effectiveYear,
-    }),
-    [scope.level, scope.parent, indicatorKey, effectiveYear, isClimate],
-  );
-  // O indicador padrão é conhecido: mapa e catálogo podem começar juntos.
-  const mapLayer = useMapLayer(
-    mapQuery,
-    isClimate ||
-      indicators.length > 0 ||
-      (context === 'sociopolitical' && indicatorsQuery.isPending),
-  );
-  // Mesma malha da visão nacional: a consulta de geometria é compartilhada.
-  const statesOutlineLayer = useMapLayer({ level: 'state', year: LATEST_YEAR }, true);
-  const selectedStateOutline = useMemo(() => {
-    if (!isDrilledDown || !scope.parent) return null;
-    if (mapLayer.data?.parentFeature) {
-      return mapLayer.data.parentFeature;
-    }
-    return resolveSelectedStateOutline(
-      isDrilledDown,
-      scope.parent,
-      statesOutlineLayer.data?.scope.lod === 'detail' ? statesOutlineLayer.data?.features : null,
-      statesOutlineLayer.data?.features,
-    );
-  }, [isDrilledDown, scope.parent, mapLayer.data?.parentFeature, statesOutlineLayer.data]);
-  const closeMunicipalView =
-    isDrilledDown && viewport.zoom >= 8 && viewport.scopeKey === `municipality:${scope.parent}`;
-  const selectedBoundary = useSelectedBoundary(selectedCode, isClimate);
-  const stateViewportKey = `municipality:${scope.parent}`;
-  const viewportIsInState = isDrilledDown && viewport.scopeKey === stateViewportKey;
-  const hasCompleteMunicipalLayer =
-    mapLayer.data?.scope.level === 'municipality' &&
-    mapLayer.data.scope.parent === scope.parent &&
-    (mapLayer.data.features.length ?? 0) > 0;
-  const visibleMunicipalities = useVisibleMunicipalities(
-    // A malha municipal acompanha a janela visível apenas se a malha do estado ainda não estiver carregada.
-    viewportIsInState ? viewport.bbox : undefined,
-    isClimate &&
-      isDrilledDown &&
-      Boolean(selectedStateOutline) &&
-      viewportIsInState &&
-      pageVisible &&
-      !hasCompleteMunicipalLayer,
-    scope.parent,
-    Boolean(viewport.moving) || selectedBoundary.isFetching,
-  );
-  // O contorno do estado permite navegar imediatamente, antes dos lotes municipais.
-  const climateMunicipalCollection = useMemo<MapFeatureCollection | undefined>(() => {
-    if (!isClimate || !isDrilledDown || !selectedStateOutline) return undefined;
-    const bounds = geoJSON(selectedStateOutline).getBounds();
-    const baseFeatures =
-      mapLayer.data?.scope.level === 'municipality' &&
-      mapLayer.data.scope.parent === scope.parent &&
-      mapLayer.data.features.length > 0
-        ? mapLayer.data.features
-        : (visibleMunicipalities.data?.features ?? []);
-    const byCode = new Map(baseFeatures.map((f) => [f.id, f]));
-    for (const f of selectedBoundary.data?.features ?? []) byCode.set(f.id, f);
-    const features = [...byCode.values()];
-    if (features.length === 0) return undefined;
-    return {
-      type: 'FeatureCollection',
-      scope: {
-        level: 'municipality',
-        parent: scope.parent,
-        lod: 'canonical',
-        count: features.length,
-      },
-      bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
-      features,
-      indicator: null,
-      statistics: null,
-      classification: null,
-    };
-  }, [
-    isClimate,
-    isDrilledDown,
+  const {
+    indicatorsQuery,
+    indicators,
+    effectiveYear,
+    mapLayer,
+    statesOutlineLayer,
     selectedStateOutline,
-    mapLayer.data,
-    visibleMunicipalities.data,
-    selectedBoundary.data,
-    scope.parent,
-  ]);
-  const collection =
-    isClimate && isDrilledDown
-      ? mapLayer.data?.scope.level === 'municipality' && mapLayer.data.scope.parent === scope.parent
-        ? mapLayer.data
-        : (climateMunicipalCollection ?? statesOutlineLayer.data)
-      : mapLayer.data;
-  const showsCurrentIndicator =
-    isClimate || collection?.indicator?.key === indicatorKey;
-  const showsCurrentScope =
-    collection?.scope.level === scope.level &&
-    (collection?.scope.parent ?? null) === scope.parent &&
-    showsCurrentIndicator;
-  const scopeReady = Boolean(showsCurrentScope && (isClimate || !mapLayer.isPlaceholderData));
-  const currentIndicatorMeta = useMemo<MapIndicatorMeta | null>(() => {
-    if (!currentIndicator) return null;
-    return {
-      key: currentIndicator.key,
-      name: currentIndicator.name,
-      unit: currentIndicator.unit,
-      decimalPlaces: currentIndicator.decimalPlaces,
-      year:
-        collection?.indicator?.key === indicatorKey
-          ? collection.indicator.year
-          : (currentIndicator.latestYear ?? (Number(effectiveYear) || null)),
-      requestedYear: effectiveYear,
-      availableYears: currentIndicator.availableYears,
-    };
-  }, [currentIndicator, collection?.indicator, indicatorKey, effectiveYear]);
-  const backgroundReady =
-    useDeferredReady(`${context}:${scope.level}:${scope.parent}`, scopeReady) && pageVisible;
-  // A prontidão territorial é deliberadamente independente de clima. Ela é
-  // a barreira que impede camadas pesadas de aparecerem antes das fronteiras:
-  // no país, a malha estadual; dentro de uma UF, o primeiro lote municipal
-  // (ou o município selecionado, quando ele foi buscado diretamente).
-  const territoryReady = isClimate
-    ? isDrilledDown
-      ? Boolean(
-          selectedStateOutline &&
-          ((collection?.features.length ?? 0) > 0 ||
-            (mapLayer.data?.features.length ?? 0) > 0 ||
-            (visibleMunicipalities.data?.features.length ?? 0) > 0 ||
-            (selectedBoundary.data?.features.length ?? 0) > 0),
-        )
-      : Boolean(statesOutlineLayer.data && showsCurrentScope)
-    : scopeReady;
-  const selectedFeature =
-    (showsCurrentScope
-      ? collection?.features.find((feature) => feature.properties.ibgeCode === selectedCode)
-      : undefined) ??
-    (selectedCode && selectedCode.length === 2
-      ? statesOutlineLayer.data?.features.find((f) => f.properties.ibgeCode === selectedCode)
-      : undefined) ??
-    (selectedCode
-      ? (selectedBoundary.data?.features.find((f) => f.properties.ibgeCode === selectedCode) ??
-        climateMunicipalCollection?.features.find((f) => f.properties.ibgeCode === selectedCode) ??
-        (mapLayer.data?.indicator?.key === indicatorKey
-          ? mapLayer.data?.features.find((f) => f.properties.ibgeCode === selectedCode)
-          : undefined))
-      : undefined);
+    closeMunicipalView,
+    selectedBoundary,
+    visibleMunicipalities,
+    collection,
+    showsCurrentScope,
+    scopeReady,
+    currentIndicatorMeta,
+    backgroundReady,
+    territoryReady,
+    selectedFeature,
+  } = useTerritoryMap({
+    scope,
+    context,
+    isClimate,
+    indicatorKey,
+    year,
+    isDrilledDown,
+    viewport,
+    selectedCode,
+    pageVisible,
+  });
 
   // O WMS de focos é a segunda etapa. Só depois de seus metadados chegarem o
   // clima começa; assim as duas fontes não concorrem pelo primeiro lote.
@@ -628,155 +433,26 @@ export default function App() {
   );
   const prefetchOverview = usePrefetchOverview();
 
-  const [userSelectedCities, setUserSelectedCities] = useState<Map<string, WeatherCity>>(
-    () => new Map(),
-  );
-
-  // Limpa as cidades manuais ao trocar de estado ou voltar ao mapa nacional
-  useEffect(() => {
-    setUserSelectedCities(new Map());
-  }, [scope.parent]);
-
-  // Mantém no mapa qualquer município que for consultado/selecionado pelo usuário
-  useEffect(() => {
-    if (isDrilledDown && selectedCode?.length === 7 && selectedWeather.data?.cities?.length) {
-      setUserSelectedCities((prev) => {
-        const incoming = selectedWeather.data?.cities ?? [];
-        let hasChanges = false;
-        for (const c of incoming) {
-          if (prev.get(c.id) !== c) {
-            hasChanges = true;
-            break;
-          }
-        }
-        if (!hasChanges) return prev;
-        const next = new Map(prev);
-        for (const c of incoming) {
-          next.set(c.id, c);
-        }
-        return next;
-      });
-    }
-  }, [isDrilledDown, selectedCode, selectedWeather.data]);
-
-  const weatherCities = useMemo(() => {
-    const cities = isDrilledDown
-      ? (stateWeather.data?.cities ??
-        municipalities.data?.pages.flatMap((page) => page.cities) ??
-        [])
-      : (nationalWeather.data?.cities ?? []);
-    const byId = new Map(cities.map((city) => [city.id, city]));
-    if (closeMunicipalView) {
-      for (const city of nearbyWeather.data?.cities ?? []) byId.set(city.id, city);
-    }
-    if (isDrilledDown) {
-      for (const c of userSelectedCities.values()) {
-        byId.set(c.id, c);
-      }
-    }
-    // Um município selecionado traz a sua própria leitura. Uma UF traz a da
-    // capital, que não substitui a média do estado no mapa.
-    if (selectedCode?.length === 7) {
-      for (const c of selectedWeather.data?.cities ?? []) {
-        byId.set(c.id, c);
-      }
-    }
-    const all = [...byId.values()];
-    if (isDrilledDown && scope.parent) {
-      return all.filter((c) => c.id.startsWith(scope.parent!));
-    }
-    return all;
-  }, [
-    isDrilledDown,
-    scope.parent,
-    stateWeather.data,
-    municipalities.data,
-    closeMunicipalView,
-    nearbyWeather.data,
-    nationalWeather.data,
-    userSelectedCities,
-    selectedCode,
-    selectedWeather.data,
-  ]);
-
-  const maxRainfall = useMemo(() => {
-    if (
-      currentWeather?.summary?.maxRainfall !== undefined &&
-      currentWeather?.summary?.maxRainfall !== null
-    ) {
-      return currentWeather.summary.maxRainfall;
-    }
-    if (!weatherCities.length) return undefined;
-    let max = 0;
-    for (const c of weatherCities) {
-      const val = rainAmount(c);
-      if (val > max) max = val;
-    }
-    return max;
-  }, [currentWeather?.summary?.maxRainfall, weatherCities]);
-
-  const { minTemperature, maxTemperature } = useMemo(() => {
-    if (
-      currentWeather?.summary?.minTemperature !== undefined &&
-      currentWeather?.summary?.minTemperature !== null &&
-      currentWeather?.summary?.maxTemperature !== undefined &&
-      currentWeather?.summary?.maxTemperature !== null
-    ) {
-      return {
-        minTemperature: currentWeather.summary.minTemperature,
-        maxTemperature: currentWeather.summary.maxTemperature,
-      };
-    }
-    const valid = weatherCities.filter(
-      (c) => c.temperatureC != null && Number.isFinite(c.temperatureC),
-    );
-    const first = valid[0];
-    if (!first) return { minTemperature: undefined, maxTemperature: undefined };
-    let min = first.temperatureC;
-    let max = first.temperatureC;
-    for (const c of valid) {
-      if (c.temperatureC < min) min = c.temperatureC;
-      if (c.temperatureC > max) max = c.temperatureC;
-    }
-    return { minTemperature: min, maxTemperature: max };
-  }, [
-    currentWeather?.summary?.minTemperature,
-    currentWeather?.summary?.maxTemperature,
+  const {
     weatherCities,
-  ]);
-
-  // Leituras ficam guardadas por cidade dentro do recorte: a janela de
-  // viewport muda durante o pan/zoom e sua resposta pode chegar vazia por um
-  // instante, e uma cidade não deve perder a cor só porque saiu da janela.
-  // Uma estimativa (interpolada no servidor) nunca substitui uma medição já
-  // recebida para o mesmo horário ou mais recente.
-  const knownWeatherRef = useRef({ scope: scope.parent, byId: new Map<string, WeatherCity>() });
-  const knownWeather = useMemo(() => {
-    if (knownWeatherRef.current.scope !== scope.parent) {
-      knownWeatherRef.current = { scope: scope.parent, byId: new Map() };
-    }
-    const { byId } = knownWeatherRef.current;
-    for (const city of weatherCities) {
-      const known = byId.get(city.id);
-      const keepMeasured =
-        city.isInferred &&
-        known &&
-        !known.isInferred &&
-        Date.parse(known.observedAt) >= Date.parse(city.observedAt);
-      if (!keepMeasured) byId.set(city.id, city);
-    }
-    return [...byId.values()];
-  }, [scope.parent, weatherCities]);
-  const weatherByCode = useMemo(() => {
-    const result = new Map(knownWeather.map((city) => [city.id, city]));
-    // No mapa do Brasil a leitura é da capital, identificada pela sigla da UF.
-    for (const feature of collection?.features ?? []) {
-      const abbreviation = feature.properties.abbreviation;
-      const city = abbreviation ? result.get(abbreviation) : undefined;
-      if (city) result.set(feature.properties.ibgeCode, city);
-    }
-    return result;
-  }, [knownWeather, collection]);
+    knownWeather,
+    weatherByCode,
+    maxRainfall,
+    minTemperature,
+    maxTemperature,
+  } = useWeatherMapData({
+    scope,
+    isDrilledDown,
+    closeMunicipalView,
+    selectedCode,
+    stateWeather,
+    municipalities,
+    nearbyWeather,
+    nationalWeather,
+    selectedWeather,
+    currentWeather,
+    collection,
+  });
   // Hover é só feedback visual com o que já está na tela: nenhum dado de
   // município é buscado antes do clique. O painel de uma UF no contexto
   // sociopolítico, leitura do banco, ainda é antecipado.
@@ -803,7 +479,7 @@ export default function App() {
       setIndicatorKey(view.indicatorKey);
       setYear(view.year);
     },
-    [applyScope],
+    [applyScope, setIndicatorKey, setYear],
   );
   const failure =
     contextsQuery.error ??
@@ -897,11 +573,10 @@ export default function App() {
 
   const isMunicipalityActive = Boolean(
     isDrilledDown &&
-      selectedCode &&
-      (selectedCode.length === 7 || selectedFeature?.properties.level === 'municipality'),
+    selectedCode &&
+    (selectedCode.length === 7 || selectedFeature?.properties.level === 'municipality'),
   );
-  const stateScopeName =
-    scope.parentName ?? selectedFeature?.properties.parentName ?? 'Estado';
+  const stateScopeName = scope.parentName ?? selectedFeature?.properties.parentName ?? 'Estado';
 
   // O que "Seguir" grava é só o código; nome e UF servem à linha otimista.
   const followTarget: FollowTarget | null = useMemo(() => {
@@ -967,7 +642,14 @@ export default function App() {
       backAriaLabel: undefined,
       handleBack: undefined,
     };
-  }, [isMunicipalityActive, isDrilledDown, selectedCode, stateScopeName, resetScope, setSelectedCode]);
+  }, [
+    isMunicipalityActive,
+    isDrilledDown,
+    selectedCode,
+    stateScopeName,
+    resetScope,
+    setSelectedCode,
+  ]);
 
   const activeAlertsStateCode = useMemo(() => {
     if (isDrilledDown && scope.parent) return scope.parent;
