@@ -237,8 +237,7 @@ export default function App() {
   // de clima é consultado, e com clima ou chuva o INPE não é consultado.
   const weatherStageReady = isClimate && weatherLayerActive && territoryReady && pageVisible;
 
-  const fireSummaryWanted =
-    fireLayerRequested && Boolean(fireHotspotsLayer.data) && !viewport.moving;
+  const fireSummaryWanted = fireLayerRequested && Boolean(fireHotspotsLayer.data);
   const fireSummaryDeferred = useDeferredReady(
     `fire-summary:${scope.parent ?? 'BR'}:${fireHotspotsLayer.data?.metadata.windowEnd ?? 'none'}`,
     fireSummaryWanted,

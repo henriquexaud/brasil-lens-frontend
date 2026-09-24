@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { geoJSON } from 'leaflet';
 import {
   useIndicators,
@@ -6,7 +6,13 @@ import {
   useSelectedBoundary,
   useVisibleMunicipalities,
 } from '@/api/queries';
-import type { DataContext, MapFeatureCollection, MapIndicatorMeta, MapQuery } from '@/api/types';
+import type {
+  DataContext,
+  MapFeature,
+  MapFeatureCollection,
+  MapIndicatorMeta,
+  MapQuery,
+} from '@/api/types';
 import { LATEST_YEAR } from '@/features/controls/ControlPanel';
 import { resolveSelectedStateOutline } from './stateBoundary';
 import type { MapViewport } from './ViewportObserver';
@@ -81,10 +87,28 @@ export function useTerritoryMap({
   const selectedBoundary = useSelectedBoundary(selectedCode, isClimate);
   const stateViewportKey = `municipality:${scope.parent}`;
   const viewportIsInState = isDrilledDown && viewport.scopeKey === stateViewportKey;
-  const hasCompleteMunicipalLayer =
+  const lastStateParentRef = useRef<string | null>(null);
+  const lastCompleteMunicipalMapRef = useRef<MapFeatureCollection | undefined>(undefined);
+  const accumulatedMunicipalitiesRef = useRef<Map<string, MapFeature>>(new Map());
+
+  if (lastStateParentRef.current !== scope.parent) {
+    lastStateParentRef.current = scope.parent;
+    lastCompleteMunicipalMapRef.current = undefined;
+    accumulatedMunicipalitiesRef.current.clear();
+  }
+
+  const isCurrentStateMesh =
     mapLayer.data?.scope.level === 'municipality' &&
     mapLayer.data.scope.parent === scope.parent &&
     (mapLayer.data.features.length ?? 0) > 0;
+
+  if (isCurrentStateMesh && mapLayer.data) {
+    lastCompleteMunicipalMapRef.current = mapLayer.data;
+  }
+
+  const hasCompleteMunicipalLayer =
+    isCurrentStateMesh || Boolean(lastCompleteMunicipalMapRef.current);
+
   const visibleMunicipalities = useVisibleMunicipalities(
     // A malha municipal acompanha a janela visível apenas se a malha do estado ainda não estiver carregada.
     viewportIsInState ? viewport.bbox : undefined,
@@ -97,16 +121,36 @@ export function useTerritoryMap({
     scope.parent,
     Boolean(viewport.moving) || selectedBoundary.isFetching,
   );
+
+  useEffect(() => {
+    if (visibleMunicipalities.data?.features) {
+      for (const f of visibleMunicipalities.data.features) {
+        accumulatedMunicipalitiesRef.current.set(f.id, f);
+      }
+    }
+  }, [visibleMunicipalities.data]);
+
+  useEffect(() => {
+    if (selectedBoundary.data?.features) {
+      for (const f of selectedBoundary.data.features) {
+        accumulatedMunicipalitiesRef.current.set(f.id, f);
+      }
+    }
+  }, [selectedBoundary.data]);
+
   // O contorno do estado permite navegar imediatamente, antes dos lotes municipais.
   const climateMunicipalCollection = useMemo<MapFeatureCollection | undefined>(() => {
     if (!isClimate || !isDrilledDown || !selectedStateOutline) return undefined;
     const bounds = geoJSON(selectedStateOutline).getBounds();
+    const completeMap = isCurrentStateMesh
+      ? mapLayer.data
+      : lastCompleteMunicipalMapRef.current;
+
     const baseFeatures =
-      mapLayer.data?.scope.level === 'municipality' &&
-      mapLayer.data.scope.parent === scope.parent &&
-      mapLayer.data.features.length > 0
-        ? mapLayer.data.features
-        : (visibleMunicipalities.data?.features ?? []);
+      completeMap && completeMap.features.length > 0
+        ? completeMap.features
+        : (visibleMunicipalities.data?.features ?? [...accumulatedMunicipalitiesRef.current.values()]);
+
     const byCode = new Map(baseFeatures.map((f) => [f.id, f]));
     for (const f of selectedBoundary.data?.features ?? []) byCode.set(f.id, f);
     const features = [...byCode.values()];
@@ -129,17 +173,20 @@ export function useTerritoryMap({
     isClimate,
     isDrilledDown,
     selectedStateOutline,
+    isCurrentStateMesh,
     mapLayer.data,
     visibleMunicipalities.data,
     selectedBoundary.data,
     scope.parent,
   ]);
+  const effectiveCompleteMap = isCurrentStateMesh
+    ? mapLayer.data
+    : lastCompleteMunicipalMapRef.current;
+
   const collection =
     isClimate && isDrilledDown
-      ? mapLayer.data?.scope.level === 'municipality' && mapLayer.data.scope.parent === scope.parent
-        ? mapLayer.data
-        : (climateMunicipalCollection ?? statesOutlineLayer.data)
-      : mapLayer.data;
+      ? (effectiveCompleteMap ?? climateMunicipalCollection ?? statesOutlineLayer.data)
+      : (mapLayer.data ?? (isDrilledDown ? effectiveCompleteMap : undefined));
   const showsCurrentIndicator = isClimate || collection?.indicator?.key === indicatorKey;
   const showsCurrentScope =
     collection?.scope.level === scope.level &&

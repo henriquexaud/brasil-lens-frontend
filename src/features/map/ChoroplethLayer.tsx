@@ -1,5 +1,4 @@
-/** GeoJSON from the API; interaction changes presentation only. */
-import type { Feature, Geometry } from 'geojson';
+import type { Feature, Geometry, MultiPolygon, Polygon as GeoJSONPolygon } from 'geojson';
 import {
   GeoJSON as LeafletGeoJSON,
   type LeafletMouseEvent,
@@ -252,8 +251,8 @@ function Territories({
                 ? 0.45
                 : 0.68
             : hovered
-              ? 0.2
-              : 0.07,
+              ? 0.45
+              : 0.35,
           className: 'territory-shape climate-territory-shape',
         };
       }
@@ -734,7 +733,15 @@ function Territories({
       if (!feature) return;
 
       if (layer instanceof Polygon && previousFeature.geometry !== feature.geometry) {
-        layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(feature.geometry.coordinates, 2));
+        try {
+          const isMulti = feature.geometry.type === 'MultiPolygon';
+          const coords = (feature.geometry as MultiPolygon | GeoJSONPolygon).coordinates;
+          if (coords) {
+            layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(coords, isMulti ? 2 : 1));
+          }
+        } catch {
+          // Garante que eventual erro de coordenadas em um polígono não interrompa os demais
+        }
       }
       territory.feature = feature;
 
@@ -781,8 +788,16 @@ function Territories({
       ref.current?.eachLayer((layer) => {
         if (!(layer instanceof Polygon)) return;
         if (layer.feature?.geometry !== selectedFeature.geometry) {
-          layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(selectedFeature.geometry.coordinates, 2));
-          layer.feature = selectedFeature;
+          try {
+            const isMulti = selectedFeature.geometry.type === 'MultiPolygon';
+            const coords = (selectedFeature.geometry as MultiPolygon | GeoJSONPolygon).coordinates;
+            if (coords) {
+              layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(coords, isMulti ? 2 : 1));
+            }
+            layer.feature = selectedFeature;
+          } catch {
+            // Garante que erro de coordenadas não quebre a seleção
+          }
         }
       });
     }

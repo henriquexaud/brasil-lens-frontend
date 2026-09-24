@@ -318,7 +318,7 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
   const queryKey = [...queryKeys.fireHotspots(query), 'summary', at];
   const hours = query.hours ?? FIRE_HOTSPOT_HOURS;
   useCancelWhenDisabled(queryKey, enabled);
-  return useQuery({
+  const result = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
       apiGet<FireSummary>(
@@ -346,6 +346,30 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
         : undefined;
     },
   });
+
+  const lastValidRef = useRef<FireSummary | undefined>(undefined);
+  const lastScopeRef = useRef<string>('');
+  const currentScope = `${query.level}:${query.parent ?? 'BR'}`;
+
+  if (lastScopeRef.current !== currentScope) {
+    lastScopeRef.current = currentScope;
+    if (result.data) {
+      lastValidRef.current = result.data;
+    } else if (lastValidRef.current && query.level === 'state' && query.parent) {
+      lastValidRef.current = stateFireSummary(lastValidRef.current, query.parent);
+    } else {
+      lastValidRef.current = undefined;
+    }
+  } else if (result.data) {
+    lastValidRef.current = result.data;
+  }
+
+  const effectiveData = result.data ?? lastValidRef.current;
+
+  return {
+    ...result,
+    data: effectiveData,
+  };
 }
 
 /** Definição única da consulta de overview, usada pelo hook e pelo prefetch. */
