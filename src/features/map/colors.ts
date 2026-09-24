@@ -30,19 +30,11 @@ const DEFAULT_RAMP = [
 ] as const;
 
 /**
- * Famílias de cor por tipo de dado. Valores exatamente como definidos no
- * sistema de cores do produto (`COLOR_SYSTEM.md`) — não ajustar aqui sem
- * atualizar o documento.
- *
- * `electionDiverging` é a única não-sequencial: usa dois extremos que se
- * afastam de um centro neutro ("equilíbrio"), não um mínimo→máximo. Ainda sem
- * indicador que a use — ver `COLOR_SYSTEM.md`.
+ * Famílias de cor por tipo de dado efetivamente implementadas no produto.
  */
 export const PALETTES = {
   greenBrasil: ['#EAF6ED', '#C3E4CB', '#7BC48B', '#2E9C57', '#0B6B33'],
   jadeEconomico: ['#EDF7F5', '#C8E7DF', '#86C8B7', '#3C9F88', '#176A59'],
-  electionDiverging: ['#1D4E89', '#7FA9D6', '#E8E3DC', '#D98C8C', '#A63232'],
-  rain: ['#EDF6FD', '#BFDDF4', '#78B8E6', '#2D87C8', '#0E5A96'],
   temperature: [
     '#2454C6',
     '#2F7DE1',
@@ -54,12 +46,6 @@ export const PALETTES = {
     '#FF9B38',
     '#F04432',
   ],
-  humidity: ['#EDF9F8', '#BFE9E4', '#75CFC2', '#2EA79A', '#176D67'],
-  wind: ['#F1F4FA', '#D3DDF0', '#A5B8DE', '#718EC4', '#46659E'],
-  drought: ['#FBF6E9', '#EFD9A8', '#D9B56A', '#B88734', '#7F5A1E'],
-  flora: ['#EEF7EA', '#CBE5BE', '#95C97B', '#4D9D4A', '#216B2E'],
-  fauna: ['#FAF4E6', '#E8D3A1', '#C9AE63', '#9A7B31', '#664F1D'],
-  conservation: ['#EDF8F4', '#C8E7DB', '#84C7AA', '#3F9B77', '#1E6651'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type PaletteKey = keyof typeof PALETTES;

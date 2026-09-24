@@ -197,6 +197,7 @@ test('alternar rápido envia as escritas na ordem dos cliques', async () => {
   await until(() => followButton() && !followButton().disabled);
 
   await act(async () => followButton().click());
+  await tick(10);
   await act(async () => followButton().click());
   await until(() => followButton().getAttribute('aria-pressed') === 'false');
 

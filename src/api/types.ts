@@ -12,7 +12,7 @@ export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 export type GeometryLod = 'canonical' | 'overview' | 'detail';
 export type IndicatorOrigin = 'sourced' | 'derived';
 /** Agrupamento temático de indicadores. Ver GET /contexts. */
-export type DataContext = 'sociopolitical' | 'climate_environmental' | 'biodiversity';
+export type DataContext = 'sociopolitical' | 'climate_environmental';
 
 /** [oeste, sul, leste, norte] — mesma ordem do GeoJSON. */
 export type BoundingBox = [number, number, number, number];

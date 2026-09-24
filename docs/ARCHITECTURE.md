@@ -29,9 +29,50 @@ O produto possui duas categorias distintas de estado:
 
 ---
 
-## 3. Organização por Features
+## 3. Organização por Features e Fluxo de Componentes
 
 O código-fonte sob `src/` adota o padrão de organização por domínio funcional (*feature-driven*):
+
+```mermaid
+flowchart TD
+    subgraph UI[" Camada de Apresentação (React) "]
+        direction LR
+        CTRL["features/controls<br/>(Filtros e Busca)"]
+        MAP["features/map<br/>(Leaflet & Coropletas)"]
+        DET["features/detail<br/>(Painel Lateral)"]
+        WEATH["features/weather<br/>(Clima e Alertas)"]
+    end
+
+    subgraph STATE[" Gerenciamento de Estado Assíncrono "]
+        TQ["api/queries.ts<br/>(Hooks TanStack Query)"]
+    end
+
+    subgraph NET[" Cliente HTTP Tipado "]
+        CLI["api/client.ts<br/>(fetch & ApiErrorResponse)"]
+        TYPES["api/types.ts<br/>(Contratos TypeScript)"]
+    end
+
+    subgraph BACKEND[" Backend API "]
+        API["FastAPI / PostGIS"]
+    end
+
+    CTRL & MAP & DET & WEATH <--> TQ
+    TQ <--> CLI
+    CLI -.-> TYPES
+    CLI <-->|"JSON / GeoJSON"| API
+
+    classDef ui fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
+    classDef state fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#92400e;
+    classDef net fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a;
+    classDef back fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#15803d;
+
+    class CTRL,MAP,DET,WEATH ui;
+    class TQ state;
+    class CLI,TYPES net;
+    class API back;
+```
+
+Estrutura de diretórios:
 
 ```
 frontend/src/

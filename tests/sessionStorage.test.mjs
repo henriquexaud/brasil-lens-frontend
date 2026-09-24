@@ -101,8 +101,8 @@ test('loadSessionState trata JSON corrompido sem quebrar', () => {
 });
 
 test('clearSessionState remove a chave da sessão', () => {
-  saveSessionState({ context: 'biodiversity' });
-  assert.equal(loadSessionState().context, 'biodiversity');
+  saveSessionState({ context: 'climate_environmental' });
+  assert.equal(loadSessionState().context, 'climate_environmental');
   clearSessionState();
   assert.deepEqual(loadSessionState(), {});
 });

@@ -164,8 +164,8 @@ function seedCityWeather(
 }
 
 /**
- * Contextos de dados disponíveis (sociopolítico, clima/ambiente,
- * biodiversidade) e os providers registrados em cada um. Metadado do backend,
+ * Contextos de dados disponíveis (sociopolítico, clima/ambiente)
+ * e os providers registrados em cada um. Metadado do backend,
  * não muda entre ingestões — mesmo `staleTime` longo do catálogo.
  */
 export function useContexts() {

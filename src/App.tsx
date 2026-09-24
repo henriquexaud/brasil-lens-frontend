@@ -132,7 +132,6 @@ export default function App() {
     const saved = loadSessionState();
     if (
       saved.context === 'climate_environmental' ||
-      saved.context === 'biodiversity' ||
       saved.context === 'sociopolitical'
     ) {
       return saved.context;
@@ -1058,15 +1057,12 @@ export default function App() {
                 label="Contexto de dados"
                 hideLabel
                 value={context}
-                options={contexts.map((item) => {
-                  const isAvailable =
-                    item.indicatorCount > 0 || item.key === 'climate_environmental';
-                  return {
+                options={contexts
+                  .filter((item) => item.indicatorCount > 0 || item.key === 'climate_environmental')
+                  .map((item) => ({
                     value: item.key,
-                    label: isAvailable ? item.name : `${item.name} — Em breve`,
-                    disabled: !isAvailable,
-                  };
-                })}
+                    label: item.name,
+                  }))}
                 onChange={(value) => setContext(value as DataContext)}
               />
             )}
