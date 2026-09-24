@@ -670,6 +670,8 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
           loading: false,
           onClose: () => {},
           onDrillDown: () => {},
+          fireMunicipality: { ibgeCode: '3550308', count: 12, count24h: 12, density: 4.5 },
+          fireLoading: false,
           fireActive: false,
           rainActive: false,
         }),
@@ -683,9 +685,12 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
   assert.match(panel.textContent, /24°/);
   assert.match(panel.textContent, /Sensação de 25°/);
 
-  // Não deve exibir disclosure de Quantidade de chuva no modo clima puro
+  // Não deve exibir disclosure de Quantidade de chuva nem Focos de calor no modo clima puro
   const summaries = Array.from(document.querySelectorAll('summary')).map((s) => s.textContent);
   assert.equal(summaries.some((text) => text.includes('Quantidade de chuva')), false);
+  assert.equal(summaries.some((text) => text.includes('Focos de calor')), false);
+  assert.doesNotMatch(panel.textContent, /Focos de calor/);
+  assert.doesNotMatch(panel.textContent, /focos \/ 1\.000 km²/);
 
   // Não deve existir disclosure de "Mais detalhes", apenas "Próximos dias"
   const details = Array.from(document.querySelectorAll('details'));

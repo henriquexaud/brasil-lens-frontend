@@ -158,17 +158,6 @@ export function WeatherPanel({
           Ver municípios <span aria-hidden="true">→</span>
         </button>
       )}
-
-      {/* Focos de calor disponíveis quando não é a camada ativa */}
-      {!fireActive && !rainActive && (fireMunicipality || fireLoading) && (
-        <Disclosure
-          title="Focos de calor"
-          defaultOpen={Boolean(fireMunicipality && fireMunicipality.count > 0)}
-          className="weather-disclosure"
-        >
-          <FireStatusSection fire={fireMunicipality} loading={fireLoading} hours={fireHours} />
-        </Disclosure>
-      )}
     </section>
   );
 }

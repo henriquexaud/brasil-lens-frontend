@@ -18,7 +18,7 @@ import {
   FIRE_HOTSPOT_HOURS,
 } from '@/api/queries';
 import type {
-  DataContext,
+  // DataContext, // Oculto temporariamente para apresentação
   FireHotspotQuery,
   FireMunicipality,
   FollowedMunicipality,
@@ -27,7 +27,7 @@ import type {
   SavedView,
   WeatherCity,
 } from '@/api/types';
-import { Select } from '@/components/Select';
+// import { Select } from '@/components/Select'; // Oculto temporariamente para apresentação
 import { ScopeHeader } from '@/components/ScopeHeader';
 import { EmptyState, ErrorMessage, TopProgress } from '@/components/Feedback';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -118,7 +118,7 @@ export default function App() {
     year,
     setYear,
     context,
-    setContext,
+    // setContext, // Temporariamente fixado em clima
     showWeatherAlerts,
     setShowWeatherAlerts,
     showHydrography,
@@ -190,7 +190,7 @@ export default function App() {
     [drillIntoState, setSelectedCode],
   );
   const contextsQuery = useContexts();
-  const contexts = contextsQuery.data?.contexts ?? [];
+  // const contexts = contextsQuery.data?.contexts ?? []; // Oculto temporariamente para apresentação
   const {
     indicatorsQuery,
     indicators,
@@ -732,7 +732,8 @@ export default function App() {
               if (mobilePeek) setMobilePeek(false);
             }}
           >
-            {contexts.length > 1 && (
+            {/* Temporário para apresentação: select de contexto oculto e fixado em Clima */}
+            {/* {contexts.length > 1 && (
               <Select
                 id="context"
                 label="Contexto de dados"
@@ -746,7 +747,7 @@ export default function App() {
                   }))}
                 onChange={(value) => setContext(value as DataContext)}
               />
-            )}
+            )} */}
             <ScopeHeader
               name={scope.parentName ?? 'Brasil'}
               onBack={handleBack}

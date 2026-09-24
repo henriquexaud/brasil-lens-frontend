@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import type { DataContext } from '@/api/types';
 import { LATEST_YEAR } from '@/features/controls/ControlPanel';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
@@ -13,13 +14,12 @@ export function useAppPreferences() {
     const saved = loadSessionState();
     return typeof saved.year === 'string' ? saved.year : LATEST_YEAR;
   });
-  const [context, setContext] = useState<DataContext>(() => {
-    const saved = loadSessionState();
-    if (saved.context === 'climate_environmental' || saved.context === 'sociopolitical') {
-      return saved.context;
-    }
-    return 'sociopolitical';
-  });
+  // Temporário para apresentação: padrão fixo no contexto de Clima ('climate_environmental')
+  // sem permitir alteração para outro contexto.
+  const [context] = useState<DataContext>('climate_environmental');
+  const setContext: Dispatch<SetStateAction<DataContext>> = useCallback(() => {
+    // Bloqueado temporariamente para apresentação: impede troca de contexto
+  }, []);
   const [showWeatherAlerts, setShowWeatherAlerts] = useState<boolean>(() => {
     const saved = loadSessionState();
     return typeof saved.showWeatherAlerts === 'boolean' ? saved.showWeatherAlerts : true;
