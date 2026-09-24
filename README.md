@@ -1,22 +1,59 @@
 # Brasil Lens — Interface Web (Frontend)
 
-Interface web interativa da plataforma **Brasil Lens**, desenvolvida para visualização e análise espacial de dados socioeconômicos, demográficos e ambientais do Brasil através de mapas coropléticos em múltiplos níveis (País, Região, Estado e Município).
+O **Brasil Lens** é uma aplicação web interativa que transforma dados públicos de demografia, economia e meio ambiente do Brasil em mapas temáticos fáceis de explorar e compreender.
 
-Este repositório contém a **Interface Web (SPA)** construída com React 18, TypeScript e Leaflet, empacotada com Vite e servida em produção através de container Nginx de alta performance.
-
-> **Importante para Avaliação:**
-> - **Dockerfile da Interface:** Presente na raiz deste repositório ([`Dockerfile`](Dockerfile)), utilizando build multi-estágio (Node 22 para compilação e Nginx Alpine leve para servir o bundle).
-> - **Docker Compose da Interface:** Presente na raiz deste repositório ([`docker-compose.yml`](docker-compose.yml)), permitindo subir a interface isoladamente com um único comando. *(A aplicação completa — banco, redis, api e frontend — também pode ser orquestrada a partir da raiz do repositório da API).*
+Este repositório contém o **código da interface de usuário (SPA)** desenvolvida em React, TypeScript e Leaflet, responsável por desenhar o mapa, aplicar cores proporcionais aos indicadores e oferecer controles intuitivos para navegação.
 
 ---
 
-## Funcionalidades Principais
+## Como a Aplicação Funciona
 
-- **Mapa Coroplético Interativo:** Visualização de indicadores socioeconômicos com cálculo dinâmico de quantis e classificação cromática.
-- **Navegação Multinível com Drill-Down:** Exploração contínua do Brasil até o nível de cada um dos 5.570 municípios.
-- **Carregamento Progressivo (LOD):** Exibição instantânea com malha simplificada (`overview`) e refinamento em alta definição (`detail`) durante a ociosidade do navegador.
-- **Camadas Ambientais em Tempo Real:** Visualização de temperatura, chuva acumulada (Open-Meteo), focos de queimadas e WMS (INPE) e alertas de risco (INMET/CEMADEN).
-- **Painel de Controle e CRUD de Visualizações:** Filtros de indicador e ano, busca debounced de municípios e gerenciamento completo de recortes salvos pelo usuário.
+O propósito da interface é permitir que qualquer usuário visualize a realidade dos estados e municípios brasileiros sem precisar lidar com tabelas complexas ou termos técnicos.
+
+```mermaid
+flowchart LR
+    USER["Usuário"]
+
+    subgraph APP["Brasil Lens — Interface Web"]
+        direction TB
+        PANEL["Painel de Controle<br/>Seleção de Indicador e Ano"]
+        MAP["Mapa Coroplético<br/>Navegação País / Estado / Município"]
+        DETAIL["Painel de Detalhes<br/>Estatísticas e Séries Históricas"]
+    end
+
+    subgraph BACKEND["API REST (Backend)"]
+        API["Servidor FastAPI<br/>GeoJSON + Classes de Cores"]
+    end
+
+    USER -->|"1. Escolhe indicador"| PANEL
+    PANEL -->|"2. Solicita recorte"| API
+    API -->|"3. Entrega geometrias e dados"| MAP
+    MAP -->|"4. Seleciona localidade"| DETAIL
+    DETAIL -.->|"5. Salva visualização"| API
+
+    classDef user fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a;
+    classDef ui fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
+    classDef map fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#15803d;
+    classDef api fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#92400e;
+
+    class USER user;
+    class PANEL,DETAIL ui;
+    class MAP map;
+    class API api;
+```
+
+1. **Escolha de Indicadores:** O usuário escolhe o que deseja analisar (por exemplo: população, PIB per capita, desemprego, temperatura ou focos de queimada).
+2. **Navegação Visual:** O mapa se colore automaticamente de acordo com os valores de cada região. Clicar duas vezes em um estado aproxima a câmera e revela todos os seus municípios.
+3. **Resumo e Marcadores:** Ao clicar em um município, abre-se um painel com os dados completos e o usuário pode salvar aquele recorte de visualização para consultar quando quiser.
+
+---
+
+## Estrutura de Containers (Docker)
+
+Para atender a todos os requisitos de entrega e avaliação:
+
+- **Dockerfile da Interface:** Localizado na raiz deste repositório ([`Dockerfile`](Dockerfile)), configurado com build multi-etapas (Node 22 para compilação e Nginx Alpine leve para servir os arquivos estáticos).
+- **Docker Compose da Interface:** Localizado na raiz deste repositório ([`docker-compose.yml`](docker-compose.yml)), permitindo subir a interface web isoladamente com um único comando. *(Nota: a solução completa integrada com banco e API também pode ser iniciada a partir do repositório da API).*
 
 ---
 
@@ -24,7 +61,7 @@ Este repositório contém a **Interface Web (SPA)** construída com React 18, Ty
 
 ### Opção 1: Execução com Docker e Docker Compose (Recomendado)
 
-Esta opção constrói o bundle de produção e disponibiliza a interface no Nginx:
+Constrói a aplicação e a disponibiliza através de um servidor Nginx:
 
 #### 1. Clonar o repositório
 ```bash
@@ -36,23 +73,26 @@ cd brasil-lens-frontend
 ```bash
 docker compose up --build --wait
 ```
-*Acesse a aplicação em:* [`http://localhost:5173`](http://localhost:5173)
+*Acesse a interface no navegador:* [`http://localhost:5173`](http://localhost:5173)
 
-> **Nota:** Para que o mapa exiba os dados, a API backend deve estar em execução na porta `8000`. Para subir a solução inteira de uma vez (banco + API + frontend), use o repositório principal: [`brasil-lens-backend`](https://github.com/henriquexaud/brasil-lens-backend).
+> **Atenção:** Para que o mapa carregue as informações, certifique-se de que a API backend esteja em execução na porta `8000`. Para rodar a aplicação completa (banco, api e frontend) conjuntamente, consulte o repositório principal: [`brasil-lens-backend`](https://github.com/henriquexaud/brasil-lens-backend).
 
-Para parar o container: `docker compose down`.
+Para parar o container:
+```bash
+docker compose down
+```
 
 ---
 
-### Opção 2: Desenvolvimento Local com Node.js
+### Opção 2: Instalação Local com Node.js (Ambiente de Desenvolvimento)
 
-Para desenvolvimento com recarga automática (*Hot Module Replacement*):
+Para executar com recarga em tempo real durante o desenvolvimento:
 
 #### 1. Pré-requisitos
-- Node.js versão 20 ou superior (versão recomendada: 22)
+- Node.js instalado (versão 20 ou superior, recomendada 22)
 - Gerenciador de pacotes `npm`
 
-#### 2. Instalar dependências
+#### 2. Instalar as dependências
 ```bash
 npm install
 ```
@@ -61,7 +101,7 @@ npm install
 ```bash
 npm run dev
 ```
-*O Vite iniciará o servidor local em:* [`http://localhost:5173`](http://localhost:5173)
+*Acesse no navegador através do endereço:* [`http://localhost:5173`](http://localhost:5173)
 
 ---
 
@@ -70,31 +110,31 @@ npm run dev
 | Comando | Descrição |
 |---|---|
 | `npm run dev` | Inicia o servidor local de desenvolvimento com hot-reload |
-| `npm run build` | Compila o TypeScript (`tsc -b`) e gera o bundle de produção minificado em `dist/` |
-| `npm run lint` | Executa o ESLint e validação estrita de tipos com `tsc --noEmit` |
+| `npm run build` | Compila o projeto em TypeScript e gera os arquivos finais de produção na pasta `dist/` |
+| `npm run lint` | Executa o linter ESLint e validação estrita de tipos do TypeScript |
 | `npm test` | Executa os testes automatizados da interface |
-| `npm run format`| Formata o código-fonte de acordo com as regras do Prettier |
+| `npm run format` | Formata todo o código-fonte automaticamente com Prettier |
 
 ---
 
 ## Configuração (Variáveis de Ambiente)
 
-As configurações são definidas no arquivo `.env` (baseado em [`.env.example`](.env.example)):
+Para alterar a porta ou o endereço da API consumida pela interface, copie o arquivo [`.env.example`](.env.example) para `.env`:
 
-| Variável | Valor Padrão | Descrição |
+| Variável | Valor Padrão | Para que serve |
 |---|---|---|
-| `VITE_API_BASE_URL` | `http://localhost:8000/api/v1` | URL base da API REST consumida pelo navegador |
-| `WEB_PORT` | `5173` | Porta publicada no host pelo Docker Compose |
+| `VITE_API_BASE_URL` | `http://localhost:8000/api/v1` | Endereço da API REST utilizado pelo navegador |
+| `WEB_PORT` | `5173` | Porta local publicada no Docker Compose |
 
-> **Atenção:** Como o Vite processa as variáveis `VITE_*` durante a compilação do bundle (*build time*), qualquer alteração na URL da API requer uma nova compilação (`npm run build` ou `docker compose up --build`).
+> **Nota:** As variáveis iniciadas por `VITE_` são incorporadas ao código durante o processo de compilação (*build*). Se você alterar a URL da API no `.env`, reconstrua o projeto com `npm run build` ou `docker compose up --build`.
 
 ---
 
-## Documentação Técnica Aprofundada
+## Documentação Técnica Detalhada
 
-Para consultar a documentação detalhada sobre o funcionamento interno, arquitetura e convenções visuais, acesse a pasta [`docs/`](docs/):
+Os detalhes de implementação, arquitetura interna e padrões visuais estão documentados na pasta [`docs/`](docs/):
 
-- 🏛️ [**Arquitetura do Frontend (`docs/ARCHITECTURE.md`)**](docs/ARCHITECTURE.md): Organização por features, gerenciamento de estado com TanStack Query e estratégias de performance.
-- 🗺️ [**Funcionalidades e Camadas do Mapa (`docs/FEATURES_AND_LAYERS.md`)**](docs/FEATURES_AND_LAYERS.md): Detalhamento do mapa coroplético, LOD, camadas climáticas, focos de calor do INPE e alertas.
-- 🔌 [**Integração com a API (`docs/API_INTEGRATION.md`)**](docs/API_INTEGRATION.md): Cliente HTTP, tipagem estrita espelhando o backend, resiliência e invalidação cirúrgica de cache.
-- 🎨 [**Sistema de Cores Cartográficas (`docs/COLOR_SYSTEM.md`)**](docs/COLOR_SYSTEM.md): Paletas temáticas por contexto (Socioeconômico, Clima e Queimadas) e acessibilidade.
+- 🏛️ [**Arquitetura do Frontend (`docs/ARCHITECTURE.md`)**](docs/ARCHITECTURE.md): Organização das pastas por funcionalidades (*features*), gerenciamento de estado assíncrono com TanStack Query e estratégias de performance.
+- 🗺️ [**Camadas e Recursos do Mapa (`docs/FEATURES_AND_LAYERS.md`)**](docs/FEATURES_AND_LAYERS.md): Como funcionam as camadas de indicadores, carregamento em duas etapas (LOD), clima e focos de calor.
+- 🔌 [**Integração com a API (`docs/API_INTEGRATION.md`)**](docs/API_INTEGRATION.md): Como a interface se comunica com o backend, tipagem estrita de dados e tratamento de erros.
+- 🎨 [**Sistema de Cores Cartográficas (`docs/COLOR_SYSTEM.md`)**](docs/COLOR_SYSTEM.md): Definição das paletas cromáticas por contexto temático e acessibilidade.
