@@ -1,295 +1,100 @@
-# Brasil Lens — frontend
+# Brasil Lens — Interface Web (Frontend)
 
-Mapa coroplético interativo do Brasil: escolha um indicador e um ano, passe o
-cursor sobre os estados, abra um estado para ver os municípios e salve os
-recortes que quiser rever.
+Interface web interativa da plataforma **Brasil Lens**, desenvolvida para visualização e análise espacial de dados socioeconômicos, demográficos e ambientais do Brasil através de mapas coropléticos em múltiplos níveis (País, Região, Estado e Município).
 
-A API, o banco e a ingestão dos dados do IBGE estão no repositório principal,
-**[brasil-lens-backend](https://github.com/henriquexaud/brasil-lens-backend)** —
-que também sobe este frontend com um único comando.
+Este repositório contém a **Interface Web (SPA)** construída com React 18, TypeScript e Leaflet, empacotada com Vite e servida em produção através de container Nginx de alta performance.
 
-**Princípio central:** o browser nunca fala com o IBGE. Todo dado vem da API do
-projeto, que entrega GeoJSON já com valor, estatística e classes de coropleta —
-este frontend renderiza sem transformar.
+> **Importante para Avaliação:**
+> - **Dockerfile da Interface:** Presente na raiz deste repositório ([`Dockerfile`](Dockerfile)), utilizando build multi-estágio (Node 22 para compilação e Nginx Alpine leve para servir o bundle).
+> - **Docker Compose da Interface:** Presente na raiz deste repositório ([`docker-compose.yml`](docker-compose.yml)), permitindo subir a interface isoladamente com um único comando. *(A aplicação completa — banco, redis, api e frontend — também pode ser orquestrada a partir da raiz do repositório da API).*
 
 ---
 
-## Como rodar
+## Funcionalidades Principais
 
-### Aplicação completa (recomendado)
+- **Mapa Coroplético Interativo:** Visualização de indicadores socioeconômicos com cálculo dinâmico de quantis e classificação cromática.
+- **Navegação Multinível com Drill-Down:** Exploração contínua do Brasil até o nível de cada um dos 5.570 municípios.
+- **Carregamento Progressivo (LOD):** Exibição instantânea com malha simplificada (`overview`) e refinamento em alta definição (`detail`) durante a ociosidade do navegador.
+- **Camadas Ambientais em Tempo Real:** Visualização de temperatura, chuva acumulada (Open-Meteo), focos de queimadas e WMS (INPE) e alertas de risco (INMET/CEMADEN).
+- **Painel de Controle e CRUD de Visualizações:** Filtros de indicador e ano, busca debounced de municípios e gerenciamento completo de recortes salvos pelo usuário.
 
-Banco + API + este frontend, a partir do repositório do backend — não é preciso
-clonar este repositório:
+---
 
-```bash
-git clone https://github.com/henriquexaud/brasil-lens-backend.git
-cd brasil-lens-backend
-docker compose up --build --wait
-docker compose run --rm api python -m app.jobs.bootstrap    # dados do IBGE (~10 min, só na 1ª vez)
-```
+## Instruções de Instalação e Execução
 
-Abra <http://localhost:5173>.
+### Opção 1: Execução com Docker e Docker Compose (Recomendado)
 
-### Só o frontend, com Docker
+Esta opção constrói o bundle de produção e disponibiliza a interface no Nginx:
 
-Com a API já no ar em `http://localhost:8000` (no backend:
-`docker compose up --build --wait db api`):
-
+#### 1. Clonar o repositório
 ```bash
 git clone https://github.com/henriquexaud/brasil-lens-frontend.git
 cd brasil-lens-frontend
-docker compose up --build --wait     # http://localhost:5173
 ```
 
-### Desenvolvimento, com Node
+#### 2. Subir o container
+```bash
+docker compose up --build --wait
+```
+*Acesse a aplicação em:* [`http://localhost:5173`](http://localhost:5173)
 
-Requer Node 20+ (a imagem usa 22). Recarrega o navegador a cada edição:
+> **Nota:** Para que o mapa exiba os dados, a API backend deve estar em execução na porta `8000`. Para subir a solução inteira de uma vez (banco + API + frontend), use o repositório principal: [`brasil-lens-backend`](https://github.com/henriquexaud/brasil-lens-backend).
 
+Para parar o container: `docker compose down`.
+
+---
+
+### Opção 2: Desenvolvimento Local com Node.js
+
+Para desenvolvimento com recarga automática (*Hot Module Replacement*):
+
+#### 1. Pré-requisitos
+- Node.js versão 20 ou superior (versão recomendada: 22)
+- Gerenciador de pacotes `npm`
+
+#### 2. Instalar dependências
 ```bash
 npm install
-npm run dev      # http://localhost:5173
 ```
 
----
-
-## Arquitetura
-
-```mermaid
-flowchart LR
-    IBGE["IBGE / SIDRA<br/>APIs públicas"]
-    API["<b>brasil-lens-backend</b><br/>FastAPI + PostgreSQL/PostGIS"]
-    WEB["<b>brasil-lens-frontend</b><br/>React + Leaflet"]
-
-    IBGE -- "ingestão offline" --> API
-    API -- "GET: GeoJSON, catálogo, detalhe" --> WEB
-    WEB -- "POST · PUT · DELETE /views" --> API
-    IBGE -. "nunca acessado pelo browser" .-x WEB
-```
-
-O diagrama completo, com as camadas do backend, está no
-[README do backend](https://github.com/henriquexaud/brasil-lens-backend#arquitetura).
-
-Stack: React 18 · Vite 6 · TypeScript 5.7 (strict) · TanStack Query 5 ·
-Leaflet 1.9 · react-leaflet 4. Versões fixadas em [`package.json`](package.json).
-
-Não há Redux nem store global: o único estado difícil do produto são respostas
-de servidor cacheadas por (indicador, ano, escopo), que é exatamente o que o
-TanStack Query resolve. O estado de interface (indicador escolhido, território
-selecionado) mora em `useState` e em hooks locais.
-
----
-
-## Configuração
-
-Tudo tem default; para mudar, copie [`.env.example`](.env.example) para `.env`.
-
-| Variável | Default | Observação |
-|---|---|---|
-| `VITE_API_BASE_URL` | `http://localhost:8000/api/v1` | URL da API usada pelo **navegador** |
-| `WEB_PORT` | `5173` | porta publicada pelo `docker-compose.yml` |
-
-O Vite resolve `import.meta.env.VITE_*` em tempo de **build**: a URL é assada no
-bundle. Mudá-la exige reconstruir (`docker compose up --build` ou
-`npm run build`) — editar o `.env` com o bundle pronto não tem efeito. No
-Docker, ela entra como `--build-arg`.
-
-A API precisa listar a origem deste frontend em `CORS_ORIGINS` (o default do
-backend já inclui `http://localhost:5173`), senão o navegador recusa
-`POST`/`PUT`/`DELETE` já no preflight.
-
----
-
-## O que o frontend consome
-
-| Método | Rota | Onde |
-|---|---|---|
-| `GET` | `/map?level=&parent=&lod=` | malha do mapa: `overview` primeiro, `detail` na ociosidade (`useMapLayer`) |
-| `GET` | `/map/values?level=&parent=&indicator=&year=` | valores e classes da coropleta, sem geometria (`useMapLayer`) |
-| `GET` | `/indicators?level=` | seletores de indicador e ano (`useIndicators`) |
-| `GET` | `/territories/{code}/overview` | painel de detalhe (`useTerritoryOverview`) |
-| `GET` | `/territories?level=state` | nomes das UFs nas visualizações (`useTerritories`) |
-| `GET` | `/views` | lista de visualizações salvas (`useSavedViews`) |
-| `POST` | `/views` | "Salvar atual" (`useCreateSavedView`) |
-| `PUT` | `/views/{id}` | renomear (`useUpdateSavedView`) |
-| `DELETE` | `/views/{id}` | excluir, com confirmação (`useDeleteSavedView`) |
-
-`src/api/client.ts` é o único lugar que conhece URLs; `src/api/types.ts` espelha
-os schemas Pydantic do backend à mão, sem `any`, para uma mudança de contrato
-aparecer na compilação e não em runtime.
-
-Nenhuma escrita é otimista: cada mutação invalida a lista e a interface passa a
-refletir o banco. Em uma lista de marcadores, mostrar uma linha que o servidor
-recusou seria pior que esperar 40 ms.
-
----
-
-## Estrutura
-
-```
-src/
-  api/                client.ts (fetch + erros tipados), queries.ts (hooks), types.ts
-  components/         Select.tsx, Feedback.tsx
-  features/
-    map/              MapView.tsx, ChoroplethLayer.tsx, Legend.tsx, colors.ts, useMapScope.ts
-    controls/         ControlPanel.tsx — filtros de indicador e ano
-    detail/           TerritoryDetailPanel.tsx
-    views/            SavedViewsPanel.tsx — o CRUD de visualizações
-  lib/format.ts       formatação pt-BR (números, moeda, unidades)
-  styles.css          um único arquivo, com tokens em :root
-  App.tsx, main.tsx
-Dockerfile            build do Vite + nginx
-nginx.conf            SPA fallback e cache dos assets com hash
-docker-compose.yml    sobe só este frontend
-```
-
-Convenções: **componentes React em `PascalCase`** (arquivo e símbolo); hooks e
-utilitários em `camelCase`; um diretório por *feature*, não por tipo de arquivo.
-
----
-
-## Qualidade
-
+#### 3. Iniciar o servidor de desenvolvimento
 ```bash
-npm run lint      # eslint + tsc --noEmit
-npm test          # animações, disclosures e prioridade das consultas
-npm run format    # prettier
-npm run build     # tsc -b && vite build
+npm run dev
 ```
+*O Vite iniciará o servidor local em:* [`http://localhost:5173`](http://localhost:5173)
 
-TypeScript roda em `strict`, com `noUnusedLocals`, `noUncheckedIndexedAccess` e
-`verbatimModuleSyntax`.
+---
 
-### Contexto de clima
+## Scripts Disponíveis
 
-Compartilha mapa, busca, seleção, destaque e navegação entre estados e
-municípios com o contexto sociopolítico. O Brasil chega em duas etapas, as
-duas servindo temperatura e chuva (trocar de camada não consulta nada):
-primeiro as 27 capitais numa consulta (`/weather/current?forecast=false`), que
-já pintam cada estado; depois, na ociosidade, `/weather/states` troca cada UF
-pela média de pontos espalhados pelo território — um a cada ~60 mil km², de 2
-a 8 —, cada ponto pesando a área que representa (polígonos de Thiessen sobre a
-malha municipal). A pílula continua na capital; o tooltip diz "média de N
-pontos". Com a média em cache, as capitais nem são pedidas. Selecionar uma UF
-mostra as condições da capital, já aquecidas pela primeira etapa, sem trocar
-a cor do estado no mapa.
-Ao entrar na UF, `/weather/state` traz o estado inteiro em uma requisição
-(amostra medida e demais municípios estimados no servidor); só se ele falhar
-`/weather/municipalities` completa o mapa em lotes de 16. Os pontos da média
-nacional são o começo dessa amostra: abrir a UF os reaproveita.
-As consultas começam depois do mapa, usam os momentos ociosos do navegador
-e pausam enquanto uma seleção ou previsão carrega. Sair do recorte cancela
-o lote pendente; os já concluídos permanecem no cache.
+| Comando | Descrição |
+|---|---|
+| `npm run dev` | Inicia o servidor local de desenvolvimento com hot-reload |
+| `npm run build` | Compila o TypeScript (`tsc -b`) e gera o bundle de produção minificado em `dist/` |
+| `npm run lint` | Executa o ESLint e validação estrita de tipos com `tsc --noEmit` |
+| `npm test` | Executa os testes automatizados da interface |
+| `npm run format`| Formata o código-fonte de acordo com as regras do Prettier |
 
-Selecionar ou buscar um município reutiliza esses dados imediatamente,
-consultando `/weather/current?territory=<IBGE>&forecast=false` se necessário.
-A Open-Meteo muda as condições a cada 15 minutos, e o backend guarda cada
-leitura por esse tempo (cidade selecionada) ou 30 minutos (capitais, estado e
-área visível): a próxima atualização é agendada pelo horário da própria
-leitura, nunca antes de dois minutos, em vez de a cada cinco minutos fixos.
-O hover é só feedback visual com os dados já na tela: nenhum dado de município
-é buscado antes do clique.
+---
 
-Dentro da UF, o estado inteiro mostra os rótulos que couberem sem sobreposição.
-Com uma cidade aberta, o foco é ela: no máximo 4 a 8 vizinhos medidos, mais
-espaçados quanto mais municípios houver na tela; os demais seguem pela cor da
-escala. Os rótulos já na tela têm preferência, para não trocarem a cada dado novo.
-No zoom próximo, o backend engrossa a grade
-de medição quando a área passa de 80 células.
-A previsão de três dias (`forecast=true`) só carrega ao abrir **Próximos dias**.
+## Configuração (Variáveis de Ambiente)
 
-**Chuva** pinta o acumulado das últimas 24 h. No Brasil, cada estado é a mesma
-média ponderada pela área (a chuva média de uma região, pelo método de
-Thiessen), não só a capital; dentro da UF, os mesmos municípios medidos e
-estimados do clima. "Chovendo agora" vem do último intervalo de 15 minutos: um
-anel discreto no ponto da pílula, uma linha no tooltip (no Brasil, "em 1 de 8
-pontos") e a contagem no ranking de chuva.
+As configurações são definidas no arquivo `.env` (baseado em [`.env.example`](.env.example)):
 
-O painel mostra o dado principal. **Mais detalhes** reúne os outros valores,
-horário e referência espacial. **Camadas e fontes** consulta os avisos INMET,
-permite habilitar sua sobreposição e apresenta fontes e atualização manual.
-Os avisos ficam abaixo das divisas e não interceptam cliques. Nenhuma chave
-de API é necessária; a atribuição da Open-Meteo permanece no mapa.
+| Variável | Valor Padrão | Descrição |
+|---|---|---|
+| `VITE_API_BASE_URL` | `http://localhost:8000/api/v1` | URL base da API REST consumida pelo navegador |
+| `WEB_PORT` | `5173` | Porta publicada no host pelo Docker Compose |
 
-### Hierarquia e carregamento
+> **Atenção:** Como o Vite processa as variáveis `VITE_*` durante a compilação do bundle (*build time*), qualquer alteração na URL da API requer uma nova compilação (`npm run build` ou `docker compose up --build`).
 
-Mapa e catálogo do indicador iniciam juntos. A busca consulta o backend
-(sem acento, ordenada por relevância) só a partir de duas letras digitadas,
-com um debounce curto. O valor principal
-sociopolítico vem do próprio mapa; os demais indicadores só são consultados
-ao expandir **Mais detalhes**. Ajustes de ano, informações da fonte e ações de
-visualizações salvas ficam recolhidos. Painéis de detalhe e camadas climáticas
-têm bundles separados, carregados quando entram em uso; React, Leaflet e
-TanStack Query ficam em chunks próprios, que continuam no cache do navegador
-quando um deploy muda só o código do app. Hover, seleção,
-busca e botões contextuais orientam a navegação, sem textos instrucionais fixos.
+---
 
-### Clima, focos de calor e hidrografia
+## Documentação Técnica Aprofundada
 
-O clima é carregado primeiro, após a base cartográfica. **Camadas e fontes → Focos de
-calor (INPE)** liga/desliga a pintura dominante, preservando a escolha na sessão.
-No Brasil, ela pinta estados; dentro da UF, pinta municípios. Ambos usam a mesma
-escala fixa de focos por 1.000 km², com áreas canônicas IBGE e totais INPE de 48h.
-Ao desligar fogo, a temperatura volta a preencher o mapa. No zoom próximo (≥9),
-os pontos WMS acrescentam os detalhes reais de cada detecção.
+Para consultar a documentação detalhada sobre o funcionamento interno, arquitetura e convenções visuais, acesse a pasta [`docs/`](docs/):
 
-Longe, o resumo de focos é a própria camada: sai assim que os metadados dão a
-janela, sem esperar a ociosidade (de perto, espera, para não disputar com os
-pontos). O mapa não apaga enquanto um resumo chega: a janela anterior do mesmo
-recorte continua pintada na atualização de 10 minutos e, ao abrir uma UF, os
-municípios dela no resumo do Brasil já pintam o estado até o resumo próprio
-chegar.
-
-Tooltips informam contagens 24h/48h, densidade, área e última detecção. O ranking
-fica recolhido por padrão. Detalhes de satélite, FRP e risco são buscados ao clicar
-no ponto; não são tratados como área queimada ou probabilidade de incêndio.
-
-O botão ao lado direito da busca solicita localização somente após clique, resolve
-o município no backend e aproxima o mapa. Selecionar uma cidade pela busca ou pelo
-mapa também a enquadra. No zoom ≥8 dentro de uma UF, o clima de todos os
-municípios visíveis chega numa consulta (`/weather/viewport?zoom=`): o backend
-mede uma cidade por célula da grade — 0,5° no zoom 8, 0,25° no 9, todas a partir
-do 10 — e estima as vizinhas, marcadas com o "≈" discreto. A área pedida é
-arredondada para essa grade, então arrastar dentro dela reaproveita a mesma
-consulta. O backend usa Redis para compartilhar essas leituras entre usuários.
-
-Hidrografia permanece por último, depois das consultas principais e de um período
-ocioso; rios simplificados chegam primeiro, lagos depois, sem loader invasivo. A
-escala limita os dados baixados, e azul/espessura são secundários. Busca, seleção,
-contornos e duplo clique territorial permanecem disponíveis.
-
-### Contornos oficiais e atualização progressiva
-
-Toda malha de `/map` chega primeiro no LOD `overview` — cerca de 6× menor e com
-diferença abaixo de um pixel nos zooms do Brasil e da UF — e é trocada pela
-`detail` quando o navegador fica ocioso; só os polígonos redesenham, sem
-recriar a camada. Os valores da coropleta vêm à parte (`/map/values`): trocar
-indicador ou ano custa alguns KB, e contorno dos estados, coropleta e clima
-dividem a mesma malha em cache. Enquanto ela não chega, páginas de 24 malhas
-canônicas (`/weather/municipal-boundaries`) cobrem o viewport. Busca e seleção
-carregam uma geometria individual quando necessário e reutilizam as que já chegaram.
-
-Cada lote acrescenta os caminhos SVG ao mapa existente, preservando foco e
-interação. O clima do estado chega em uma requisição (`/weather/state`): uma
-amostra de municípios é medida e os demais são estimados no servidor a partir
-das cidades próximas. Estimativas aparecem com um "≈" discreto antes do valor
-(marcadores, rankings), "estimado" no tooltip e uma nota curta no painel;
-selecionar ou aproximar de um município troca a estimativa pela leitura
-medida. Se o estado não responder, lotes municipais completam o mapa, e
-municípios ainda sem clima permanecem neutros. Movimento e seleção pausam os próximos lotes; mudança
-de área cancela consultas antigas, e abas ocultas suspendem o trabalho secundário.
-Alertas e camadas opcionais não bloqueiam o primeiro desenho nem aguardam todos
-os municípios.
-
-### Camadas exclusivas, falhas e novas tentativas
-
-Clima, chuva e focos de calor são exclusivos também na rede: com focos ativos
-nenhuma consulta de clima sai (nem o prefetch do hover), e com clima ou chuva o
-INPE não é consultado. Clima e chuva vêm da mesma resposta da Open-Meteo, então
-nunca geram duas consultas. Avisos e hidrografia seguem os próprios interruptores.
-
-Falhas mostram a mensagem real do backend no rodapé das camadas, com o próximo
-passo. Só falhas passageiras (rede, servidor reiniciando) são repetidas pelo
-React Query, até duas vezes. Quando uma fonte externa falha, `api/client.ts`
-pausa todas as rotas dela: fonte indisponível espera 30 s, 1 min, 2 min… até
-5 min e volta sozinha; cota esgotada (`provider_rate_limited`) fica pausada até
-o usuário clicar em **Tentar novamente**.
+- 🏛️ [**Arquitetura do Frontend (`docs/ARCHITECTURE.md`)**](docs/ARCHITECTURE.md): Organização por features, gerenciamento de estado com TanStack Query e estratégias de performance.
+- 🗺️ [**Funcionalidades e Camadas do Mapa (`docs/FEATURES_AND_LAYERS.md`)**](docs/FEATURES_AND_LAYERS.md): Detalhamento do mapa coroplético, LOD, camadas climáticas, focos de calor do INPE e alertas.
+- 🔌 [**Integração com a API (`docs/API_INTEGRATION.md`)**](docs/API_INTEGRATION.md): Cliente HTTP, tipagem estrita espelhando o backend, resiliência e invalidação cirúrgica de cache.
+- 🎨 [**Sistema de Cores Cartográficas (`docs/COLOR_SYSTEM.md`)**](docs/COLOR_SYSTEM.md): Paletas temáticas por contexto (Socioeconômico, Clima e Queimadas) e acessibilidade.

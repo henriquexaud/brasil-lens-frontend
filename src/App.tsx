@@ -21,11 +21,13 @@ import {
   useMunicipalityWeather,
   useUserStateWeather,
   FIRE_HOTSPOT_HOURS,
+  type FollowTarget,
 } from '@/api/queries';
 import type {
   DataContext,
   FireHotspotQuery,
   FireMunicipality,
+  FollowedMunicipality,
   HydroQuery,
   MapQuery,
   MapFeatureCollection,
@@ -47,6 +49,7 @@ import { useMapScope } from '@/features/map/useMapScope';
 import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
 import { resolveSelectedStateOutline } from '@/features/map/stateBoundary';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
+import { FollowedMunicipalitiesPanel } from '@/features/follow/FollowedMunicipalitiesPanel';
 import { SavedViewsPanel } from '@/features/views/SavedViewsPanel';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
 import { usePageVisible } from '@/lib/usePageVisible';
@@ -901,6 +904,43 @@ export default function App() {
   const stateScopeName =
     scope.parentName ?? selectedFeature?.properties.parentName ?? 'Estado';
 
+  // O que "Seguir" grava é só o código; nome e UF servem à linha otimista.
+  const followTarget: FollowTarget | null = useMemo(() => {
+    if (!isClimate || !isMunicipalityActive || !selectedCode) return null;
+    const stateCode = scope.parent ?? selectedCode.slice(0, 2);
+    return {
+      municipalityCode: selectedCode,
+      name: selectedFeature?.properties.name ?? city?.name ?? null,
+      stateCode,
+      stateName: scope.parentName ?? selectedFeature?.properties.parentName ?? null,
+      stateAbbreviation: city?.stateAbbreviation ?? null,
+    };
+  }, [
+    isClimate,
+    isMunicipalityActive,
+    selectedCode,
+    scope.parent,
+    scope.parentName,
+    selectedFeature?.properties.name,
+    selectedFeature?.properties.parentName,
+    city?.name,
+    city?.stateAbbreviation,
+  ]);
+  const openFollowedMunicipality = useCallback(
+    (item: FollowedMunicipality) => {
+      if (!item.name || !item.stateCode) return;
+      handleSearchSelect({
+        ibgeCode: item.municipalityCode,
+        name: item.name,
+        level: 'municipality',
+        abbreviation: item.stateAbbreviation,
+        parentCode: item.stateCode,
+        parentName: item.stateName,
+      });
+    },
+    [handleSearchSelect],
+  );
+
   const { backLabel, backAriaLabel, handleBack } = useMemo(() => {
     if (isMunicipalityActive) {
       return {
@@ -1218,6 +1258,9 @@ export default function App() {
               </>
             )}
           </Suspense>
+          {isClimate && (
+            <FollowedMunicipalitiesPanel current={followTarget} onOpen={openFollowedMunicipality} />
+          )}
           {!isClimate && indicators.length > 0 && (
             <SavedViewsPanel
               current={currentView}

@@ -248,6 +248,24 @@ export interface SavedViewListResponse {
   pagination: Pagination;
 }
 
+/**
+ * Município seguido no contexto Clima. O backend guarda só o código IBGE;
+ * nome e UF chegam resolvidos na leitura (nulos se o município sumir do
+ * catálogo depois de seguido).
+ */
+export interface FollowedMunicipality {
+  municipalityCode: string;
+  name: string | null;
+  stateCode: string | null;
+  stateName: string | null;
+  stateAbbreviation: string | null;
+  followedAt: string;
+}
+
+export interface FollowedMunicipalityListResponse {
+  municipalities: FollowedMunicipality[];
+}
+
 export interface TerritoryListResponse {
   territories: TerritorySummary[];
   pagination: Pagination;

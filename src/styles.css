@@ -1298,6 +1298,76 @@ body {
   }
 }
 
+/* ----------------------------------------------------- municípios seguidos -- */
+
+/*
+ * Reaproveita a seção de visualizações salvas (`.saved-views`, `.views-*`).
+ * Só o alternador "Seguir ↔ Seguindo" e a linha do município aberto são novos.
+ */
+
+.follow-btn {
+  min-width: 0;
+}
+
+.follow-btn-label,
+.follow-btn-hover-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.follow-btn-label strong {
+  font-weight: 600;
+}
+
+.follow-btn.is-following {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgb(65 111 123 / 7%);
+}
+
+.follow-btn-hover-label {
+  display: none;
+}
+
+@media (hover: hover) {
+  .follow-btn.is-following:hover {
+    border-color: var(--danger);
+    background: var(--surface);
+    color: var(--danger);
+  }
+  .follow-btn.is-following:hover svg,
+  .follow-btn.is-following:hover .follow-btn-label {
+    display: none;
+  }
+  .follow-btn.is-following:hover .follow-btn-hover-label {
+    display: inline;
+  }
+}
+
+.follow-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.follow-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.views-item.is-current {
+  background: var(--surface-muted);
+}
+
+.views-item.is-current .views-name {
+  color: var(--accent);
+}
+
+.views-apply:disabled {
+  cursor: default;
+}
+
 /* ------------------------------------------------------------- legenda -- */
 
 .legend-slot {
