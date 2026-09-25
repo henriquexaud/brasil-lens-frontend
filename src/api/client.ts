@@ -152,6 +152,31 @@ export function onSourceRecovered(listener: (source: ExternalSource) => void): (
   return () => recoveryListeners.delete(listener);
 }
 
+/* --------------------------------------------------- atualização forçada --
+ *
+ * O botão "Atualizar dados" precisa que, desta vez, o backend ignore o
+ * frescor normal (15/30 min) e busque a fonte na hora — mas só nas rotas de
+ * clima e só nesta rajada de consultas, nunca no polling automático. Em vez
+ * de espalhar um parâmetro por cada `queryFn` de `features/weather/queries.ts`,
+ * a janela abaixo marca a rajada inteira: todo GET de clima disparado nos
+ * próximos instantes (a invalidação é síncrona; todas as consultas ativas
+ * partem no mesmo tick) sai com `force=true`. O backend decide o resto —
+ * inclusive ignorar o pedido se a última leitura tiver menos de 5 minutos
+ * (ver `FORCE_MIN_AGE` em `app/services/weather_forecast.py`).
+ */
+const FORCE_WEATHER_REFRESH_WINDOW_MS = 4_000;
+let forceWeatherRefreshUntil = 0;
+
+/** Municípios ficam de fora de propósito: o clique já não os refaz (ver `App.tsx`). */
+function isForceableWeatherPath(path: string): boolean {
+  return /^\/weather\/(current|state|states|viewport)\b/.test(path);
+}
+
+/** Pedido explícito do usuário — chamar logo antes de invalidar as consultas de clima. */
+export function requestForcedWeatherRefresh() {
+  forceWeatherRefreshUntil = Date.now() + FORCE_WEATHER_REFRESH_WINDOW_MS;
+}
+
 type QueryValue = string | number | boolean | null | undefined;
 
 export function buildUrl(path: string, params?: Record<string, QueryValue>): string {
@@ -184,7 +209,12 @@ async function request<T>(
   const paused = source && activePause(source);
   if (paused) throw paused;
 
-  const response = await fetch(buildUrl(path, params), {
+  const effectiveParams =
+    method === 'GET' && Date.now() < forceWeatherRefreshUntil && isForceableWeatherPath(path)
+      ? { ...params, force: true }
+      : params;
+
+  const response = await fetch(buildUrl(path, effectiveParams), {
     method,
     headers:
       body === undefined

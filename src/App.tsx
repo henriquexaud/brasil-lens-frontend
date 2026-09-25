@@ -1,7 +1,7 @@
 /** Composição e prioridade: mapa → camada atual → detalhes solicitados. */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
-import { clearSourcePauses } from '@/api/client';
+import { clearSourcePauses, requestForcedWeatherRefresh } from '@/api/client';
 import {
   useContexts,
   weatherCurrentOptions,
@@ -918,6 +918,11 @@ export default function App() {
                     // Pedido explícito do usuário: libera também as fontes pausadas,
                     // inclusive por cota esgotada.
                     clearSourcePauses();
+                    // Com a última leitura há mais de 5 min, o backend busca a fonte
+                    // na hora em vez de só agendar a renovação em segundo plano
+                    // (ver `FORCE_MIN_AGE`/`force` em `app/services/weather_forecast.py`).
+                    // Com menos de 5 min, o pedido é ignorado — o dado já é recente.
+                    requestForcedWeatherRefresh();
                     // Os lotes municipais só rodam se o estado falhar: refazê-los junto
                     // com ele seria uma segunda consulta à mesma fonte. Ficam apenas
                     // marcados como desatualizados.
