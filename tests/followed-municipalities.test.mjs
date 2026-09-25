@@ -69,15 +69,35 @@ function fakeServer({ failWrites = false } = {}) {
       if (path === '/me/followed-municipalities' && method === 'GET') {
         return Response.json({ municipalities: [...followed.values()] });
       }
-      const code = path.split('/').pop();
       if (this.failWrites) {
         return Response.json(
           { error: { code: 'internal_error', message: 'Falha ao gravar.' } },
           { status: 500 },
         );
       }
+      const notifMatch = path.match(/^\/me\/followed-municipalities\/(\d+)\/notifications$/);
+      if (notifMatch && method === 'POST') {
+        const code = notifMatch[1];
+        const item = followed.get(code);
+        if (!item) {
+          return Response.json(
+            { error: { code: 'followed_municipality_not_found', message: 'não segue' } },
+            { status: 404 },
+          );
+        }
+        const { enabled } = JSON.parse(init.body);
+        const updated = { ...item, notificationsEnabled: enabled };
+        followed.set(code, updated);
+        return Response.json(updated);
+      }
+      const code = path.split('/').pop();
       if (method === 'PUT') {
-        const item = { ...SAO_PAULO, municipalityCode: code, followedAt: '2026-09-23T12:00:00Z' };
+        const item = {
+          ...SAO_PAULO,
+          municipalityCode: code,
+          followedAt: '2026-09-23T12:00:00Z',
+          notificationsEnabled: true,
+        };
         followed.set(code, item);
         return Response.json(item, { status: 201 });
       }
@@ -139,6 +159,7 @@ async function render(props) {
 
 const $ = (selector) => dom.window.document.querySelector(selector);
 const followButton = () => $('.follow-btn');
+const bellButton = () => $('.views-notif-toggle');
 
 test('fora de um município não há botão de seguir, só o estado vazio', async () => {
   await render({ current: null });
@@ -207,4 +228,38 @@ test('alternar rápido envia as escritas na ordem dos cliques', async () => {
   await until(() => requests.filter((r) => r.startsWith('GET')).length >= 2);
   assert.equal(server.followed.size, 0);
   assert.equal(followButton().getAttribute('aria-pressed'), 'false');
+});
+
+test('seguir liga as notificações por padrão, com o sino discreto sempre visível', async () => {
+  await render({ current: SAO_PAULO });
+  await until(() => followButton() && !followButton().disabled);
+
+  await act(async () => followButton().click());
+  await until(() => bellButton());
+  assert.equal(bellButton().getAttribute('aria-pressed'), 'true');
+  assert.ok(bellButton().classList.contains('is-enabled'));
+});
+
+test('o sino alterna as notificações de um município seguido via POST otimista', async () => {
+  server.followed.set('3550308', {
+    ...SAO_PAULO,
+    followedAt: '2026-09-20T12:00:00Z',
+    notificationsEnabled: true,
+  });
+  await render({ current: SAO_PAULO });
+  await until(() => bellButton());
+  assert.equal(bellButton().getAttribute('aria-pressed'), 'true');
+
+  await act(async () => bellButton().click());
+  // Muda no clique, antes de o POST responder.
+  assert.equal(bellButton().getAttribute('aria-pressed'), 'false');
+  assert.equal(bellButton().classList.contains('is-enabled'), false);
+
+  await until(() => requests.some((r) => r.startsWith('POST')));
+  assert.ok(requests.includes('POST /api/v1/me/followed-municipalities/3550308/notifications'));
+  await until(() => server.followed.get('3550308').notificationsEnabled === false);
+
+  await act(async () => bellButton().click());
+  await until(() => bellButton().getAttribute('aria-pressed') === 'true');
+  await until(() => server.followed.get('3550308').notificationsEnabled === true);
 });

@@ -1116,7 +1116,12 @@ body {
 .views-skeleton-item {
   height: 32px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(90deg, var(--surface-muted) 25%, #ebf0f1 50%, var(--surface-muted) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--surface-muted) 25%,
+    #ebf0f1 50%,
+    var(--surface-muted) 75%
+  );
   background-size: 200% 100%;
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }
@@ -1238,7 +1243,9 @@ body {
 
 .views-actions-group .views-action {
   opacity: 0.6;
-  transition: opacity var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
 }
 
 .views-item:hover .views-action,
@@ -1296,6 +1303,23 @@ body {
   .views-action {
     opacity: 1;
   }
+}
+
+/* Sino de notificações: ao contrário do "x", fica sempre visível (não só no
+ * hover da linha) — discreto pela cor e pelo tamanho, não por estar oculto. */
+.views-notif-toggle {
+  opacity: 0.55;
+  color: var(--text-faint);
+}
+
+.views-notif-toggle.is-enabled {
+  opacity: 0.85;
+  color: var(--accent);
+}
+
+.views-notif-toggle:hover,
+.views-notif-toggle:focus-visible {
+  opacity: 1;
 }
 
 /* ----------------------------------------------------- municípios seguidos -- */
@@ -2416,9 +2440,10 @@ body {
 .weather-alert-muni-chip.is-link {
   cursor: pointer;
   color: var(--text);
-  transition: background-color var(--motion-ui) var(--ease-out),
-              border-color var(--motion-ui) var(--ease-out),
-              color var(--motion-ui) var(--ease-out);
+  transition:
+    background-color var(--motion-ui) var(--ease-out),
+    border-color var(--motion-ui) var(--ease-out),
+    color var(--motion-ui) var(--ease-out);
 }
 
 .weather-alert-muni-chip.is-link:hover,
@@ -2432,7 +2457,9 @@ body {
 .weather-alert-muni-chip .bulletin-external-icon {
   font-size: 9px;
   opacity: 0.7;
-  transition: transform var(--motion-ui) var(--ease-out), opacity var(--motion-ui) var(--ease-out);
+  transition:
+    transform var(--motion-ui) var(--ease-out),
+    opacity var(--motion-ui) var(--ease-out);
 }
 
 .weather-alert-muni-chip.is-link:hover .bulletin-external-icon,

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiDelete, apiGet, apiPut } from '@/api/client';
+import { apiDelete, apiGet, apiPost, apiPut } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import type { FollowedMunicipality, FollowedMunicipalityListResponse } from '@/api/types';
 
@@ -71,7 +71,7 @@ function useOptimisticFollowMutation<TVariables>(
 }
 
 /** O que a interface já sabe do município — só para a linha otimista. */
-export type FollowTarget = Omit<FollowedMunicipality, 'followedAt'>;
+export type FollowTarget = Omit<FollowedMunicipality, 'followedAt' | 'notificationsEnabled'>;
 
 export function useFollowMunicipality() {
   return useOptimisticFollowMutation(
@@ -80,7 +80,10 @@ export function useFollowMunicipality() {
     (list, target) =>
       list.some((item) => item.municipalityCode === target.municipalityCode)
         ? list
-        : [{ ...target, followedAt: new Date().toISOString() }, ...list],
+        : [
+            { ...target, followedAt: new Date().toISOString(), notificationsEnabled: true },
+            ...list,
+          ],
   );
 }
 
@@ -88,5 +91,26 @@ export function useUnfollowMunicipality() {
   return useOptimisticFollowMutation(
     (code: string) => apiDelete(`${FOLLOWED_PATH}/${code}`),
     (list, code) => list.filter((item) => item.municipalityCode !== code),
+  );
+}
+
+export interface SetNotificationsVariables {
+  code: string;
+  enabled: boolean;
+}
+
+/**
+ * Liga/desliga o alerta de um município já seguido. Mesmo ciclo otimista das
+ * demais escritas — e a mesma fila, então alternar o sino no meio de um
+ * seguir/deixar em voo nunca chega invertido ao servidor.
+ */
+export function useSetMunicipalityNotifications() {
+  return useOptimisticFollowMutation(
+    ({ code, enabled }: SetNotificationsVariables) =>
+      apiPost<FollowedMunicipality>(`${FOLLOWED_PATH}/${code}/notifications`, { enabled }),
+    (list, { code, enabled }) =>
+      list.map((item) =>
+        item.municipalityCode === code ? { ...item, notificationsEnabled: enabled } : item,
+      ),
   );
 }

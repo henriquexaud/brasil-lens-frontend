@@ -11,7 +11,12 @@
  * assim que a seção monta, mesmo recolhida, para que abrir um município já
  * saiba se ele é seguido.
  *
- * Nada de alertas aqui ainda — só a relação `usuário ↔ município`.
+ * Deixar de seguir é exclusividade do alternador "Seguindo" no topo — a
+ * lista não tem um "x" próprio; para remover um município é preciso abri-lo
+ * no mapa primeiro. Cada item da lista tem só um sino discreto, que liga/
+ * desliga o alerta daquele vínculo (ligado por padrão ao seguir). Mesmo
+ * ciclo otimista das outras escritas. Nada de canal de disparo aqui ainda —
+ * só a preferência.
  */
 import { useEffect, useRef, useState } from 'react';
 
@@ -19,6 +24,7 @@ import {
   type FollowTarget,
   useFollowedMunicipalities,
   useFollowMunicipality,
+  useSetMunicipalityNotifications,
   useUnfollowMunicipality,
 } from './useFollowedMunicipalities';
 import type { FollowedMunicipality } from '@/api/types';
@@ -50,20 +56,50 @@ function PinIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+/** Sino do alerta de notificações: aberto quando ligado, com um traço quando desligado. */
+function BellIcon({ size = 13, muted = false }: { size?: number; muted?: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" width={size} height={size} aria-hidden="true">
+      <path
+        d="M8 2.5a3.5 3.5 0 0 0-3.5 3.5v1.7c0 .85-.27 1.68-.77 2.36L3 11h10l-.73-.94c-.5-.68-.77-1.5-.77-2.36V6A3.5 3.5 0 0 0 8 2.5Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.3 13a1.75 1.75 0 0 0 3.4 0"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+      {muted && (
+        <path
+          d="M2.8 2.8l10.4 10.4"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  );
+}
+
 export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
   const disclosureRef = useRef<HTMLDetailsElement>(null);
   const [open, setOpen] = useState(current !== null);
-  const [confirmingCode, setConfirmingCode] = useState<string | null>(null);
 
   const listQuery = useFollowedMunicipalities();
   const follow = useFollowMunicipality();
   const unfollow = useUnfollowMunicipality();
+  const notifications = useSetMunicipalityNotifications();
 
   const municipalities = listQuery.data?.municipalities ?? [];
   const currentCode = current?.municipalityCode ?? null;
   const isFollowing =
     currentCode !== null && municipalities.some((item) => item.municipalityCode === currentCode);
-  const writeError = follow.error ?? unfollow.error;
+  const writeError = follow.error ?? unfollow.error ?? notifications.error;
 
   // Entrar no nível municipal abre a seção: é ali que o gesto de seguir faz
   // sentido. Trocar de município com ela fechada não a reabre.
@@ -75,6 +111,7 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
   function resetErrors() {
     follow.reset();
     unfollow.reset();
+    notifications.reset();
   }
 
   function toggleCurrent() {
@@ -84,10 +121,9 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
     else follow.mutate(current);
   }
 
-  function remove(code: string) {
+  function toggleNotifications(item: FollowedMunicipality) {
     resetErrors();
-    setConfirmingCode(null);
-    unfollow.mutate(code);
+    notifications.mutate({ code: item.municipalityCode, enabled: !item.notificationsEnabled });
   }
 
   const currentLabel = current?.name ?? 'município';
@@ -99,12 +135,9 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
       ref={disclosureRef}
       className="panel-section disclosure saved-views followed-municipalities"
       open={open}
-      onToggle={(event) => {
-        setOpen(event.currentTarget.open);
-        if (!event.currentTarget.open) setConfirmingCode(null);
-      }}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
       onKeyDown={(event) => {
-        if (event.key === 'Escape' && !confirmingCode && disclosureRef.current?.open) {
+        if (event.key === 'Escape' && disclosureRef.current?.open) {
           event.stopPropagation();
           disclosureRef.current.open = false;
           disclosureRef.current.querySelector('summary')?.focus();
@@ -226,54 +259,28 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
                     </span>
                   </button>
 
-                  {confirmingCode === code ? (
-                    <span className="views-confirm">
-                      <button
-                        type="button"
-                        className="views-confirm-yes"
-                        onClick={() => remove(code)}
-                      >
-                        Deixar de seguir?
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button views-action"
-                        aria-label="Cancelar"
-                        title="Cancelar"
-                        onClick={() => setConfirmingCode(null)}
-                      >
-                        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                          <path
-                            d="M4 4l8 8M12 4l-8 8"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            fill="none"
-                          />
-                        </svg>
-                      </button>
-                    </span>
-                  ) : (
-                    <div className="views-actions-group">
-                      <button
-                        type="button"
-                        className="icon-button views-action"
-                        aria-label={`Deixar de seguir ${name}`}
-                        title="Deixar de seguir"
-                        onClick={() => setConfirmingCode(code)}
-                      >
-                        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                          <path
-                            d="M4 4l8 8M12 4l-8 8"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            fill="none"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    className={
+                      item.notificationsEnabled
+                        ? 'icon-button views-notif-toggle is-enabled'
+                        : 'icon-button views-notif-toggle'
+                    }
+                    aria-pressed={item.notificationsEnabled}
+                    aria-label={
+                      item.notificationsEnabled
+                        ? `Desativar notificações de ${name}`
+                        : `Ativar notificações de ${name}`
+                    }
+                    title={
+                      item.notificationsEnabled
+                        ? 'Notificações ativadas'
+                        : 'Notificações desativadas'
+                    }
+                    onClick={() => toggleNotifications(item)}
+                  >
+                    <BellIcon muted={!item.notificationsEnabled} />
+                  </button>
                 </li>
               );
             })}

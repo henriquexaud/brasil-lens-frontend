@@ -472,8 +472,12 @@ export {
   useFollowedMunicipalities,
   useFollowMunicipality,
   useUnfollowMunicipality,
+  useSetMunicipalityNotifications,
 } from '@/features/follow/useFollowedMunicipalities';
-export type { FollowTarget } from '@/features/follow/useFollowedMunicipalities';
+export type {
+  FollowTarget,
+  SetNotificationsVariables,
+} from '@/features/follow/useFollowedMunicipalities';
 
 export {
   weatherCurrentOptions,
