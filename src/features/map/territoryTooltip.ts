@@ -11,7 +11,6 @@ import { measurement, weatherDescription } from '@/features/weather/conditions';
 import { isStateAverage } from '@/features/weather/EstimateMark';
 
 // textContent keeps API names and units as text, including accents and symbols.
-// Animações do tooltip são canceladas quando o território muda.
 export function fillTooltipContent(
   el: HTMLElement,
   properties: MapFeatureProperties,
@@ -103,5 +102,4 @@ export function fillTooltipContent(
     el.append(valEl);
     add('tooltip-meta', weatherDescription(weather.weatherCode) + estimateSuffix);
   }
-  return () => {};
 }

@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useWeatherAlerts } from '@/api/queries';
 import type { WeatherAlertCollection, WeatherCurrentResponse } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
 import { describeError, ErrorMessage } from '@/components/Feedback';
@@ -7,12 +6,7 @@ import { formatRelativeTime } from '@/lib/format';
 import { WeatherAlertCard } from './WeatherAlertCard';
 import { WeatherAlertGroupCard } from './WeatherAlertGroupCard';
 import { WeatherAlertsNationalSummary } from './WeatherAlertsNationalSummary';
-import {
-  IBGE_UF_MAP,
-  UF_NAMES,
-  groupStateAlerts,
-  partitionMunicipalityAlerts,
-} from './alertUtils';
+import { IBGE_UF_MAP, UF_NAMES, groupStateAlerts, partitionMunicipalityAlerts } from './alertUtils';
 
 export interface WeatherOptionsProps {
   showAlerts: boolean;
@@ -27,11 +21,10 @@ export interface WeatherOptionsProps {
   error: unknown;
   loading: boolean;
   onRefresh: () => void;
-  alertsData?: WeatherAlertCollection;
-  alertsPending?: boolean;
+  alertsData: WeatherAlertCollection | undefined;
+  alertsPending: boolean;
+  alertsError: unknown;
   scopeName?: string;
-  selectedCode?: string | null;
-  parentCode?: string | null;
 }
 
 export function WeatherOptions({
@@ -48,75 +41,52 @@ export function WeatherOptions({
   onRefresh,
   alertsData,
   alertsPending,
+  alertsError,
   scopeName,
-  selectedCode,
-  parentCode,
 }: WeatherOptionsProps) {
-  const fallbackAlerts = useWeatherAlerts(showAlerts && alertsPending === undefined && !alertsData);
-
-  const activeAlerts = alertsData ?? fallbackAlerts.data;
-  const isAlertsPending = alertsPending ?? fallbackAlerts.isPending;
-  const alertsError = fallbackAlerts.error;
-
   // Lógica progressiva: Brasil (nacional) → Estado → Município
-  const effectiveCode = selectedCode !== undefined ? selectedCode : code;
-  const effectiveParent = parentCode !== undefined ? parentCode : null;
-
-  const territoryLevel: 'national' | 'state' | 'municipality' = useMemo(() => {
-    if (effectiveCode && effectiveCode.length > 2) {
-      return 'municipality';
-    }
-    if ((effectiveCode && effectiveCode.length === 2) || effectiveParent) {
-      return 'state';
-    }
-    return 'national';
-  }, [effectiveCode, effectiveParent]);
-
-  const stateCode = useMemo(() => {
-    if (territoryLevel === 'municipality' && effectiveCode) {
-      return effectiveParent ?? effectiveCode.slice(0, 2);
-    }
-    if (territoryLevel === 'state') {
-      return (effectiveCode && effectiveCode.length === 2 ? effectiveCode : effectiveParent) ?? null;
-    }
-    return null;
-  }, [territoryLevel, effectiveCode, effectiveParent]);
-
-  const municipalityCode = territoryLevel === 'municipality' ? effectiveCode : null;
+  const territoryLevel = code?.length === 7 ? 'municipality' : code ? 'state' : 'national';
+  const stateCode = code?.slice(0, 2) ?? null;
+  const municipalityCode = territoryLevel === 'municipality' ? code : null;
   const stateUf = stateCode ? IBGE_UF_MAP[stateCode] : undefined;
   const stateName = scopeName ?? (stateUf ? UF_NAMES[stateUf] : undefined);
 
   // Visão de estado: ocorrências semelhantes agrupadas (ex.: Risco hidrológico · 8 municípios)
   const groupedStateAlerts = useMemo(() => {
-    if (territoryLevel !== 'state' || !stateCode || !activeAlerts?.features) {
+    if (territoryLevel !== 'state' || !stateCode || !alertsData?.features) {
       return [];
     }
-    return groupStateAlerts(activeAlerts.features, stateCode);
-  }, [territoryLevel, stateCode, activeAlerts?.features]);
+    return groupStateAlerts(alertsData.features, stateCode);
+  }, [territoryLevel, stateCode, alertsData?.features]);
 
   // Visão de município: particiona entre avisos locais diretos e demais avisos do estado
   const { localAlerts, otherStateAlerts } = useMemo(() => {
-    if (territoryLevel !== 'municipality' || !municipalityCode || !stateCode || !activeAlerts?.features) {
+    if (
+      territoryLevel !== 'municipality' ||
+      !municipalityCode ||
+      !stateCode ||
+      !alertsData?.features
+    ) {
       return { localAlerts: [], otherStateAlerts: [] };
     }
-    return partitionMunicipalityAlerts(activeAlerts.features, municipalityCode, stateCode);
-  }, [territoryLevel, municipalityCode, stateCode, activeAlerts?.features]);
+    return partitionMunicipalityAlerts(alertsData.features, municipalityCode, stateCode);
+  }, [territoryLevel, municipalityCode, stateCode, alertsData?.features]);
 
   // Contagem para o badge da camada de alertas no cabeçalho
   const relevantCount = useMemo(() => {
-    if (!activeAlerts?.features) return 0;
+    if (!alertsData?.features) return 0;
     if (territoryLevel === 'national') {
-      return activeAlerts.features.length;
+      return alertsData.features.length;
     }
     if (territoryLevel === 'state') {
-      return activeAlerts.features.filter((a) =>
+      return alertsData.features.filter((a) =>
         a.properties.affectedIbgeCodes?.some(
           (c) => stateCode && (c.startsWith(stateCode) || c === stateCode),
         ),
       ).length;
     }
     return localAlerts.length;
-  }, [territoryLevel, activeAlerts?.features, stateCode, localAlerts.length]);
+  }, [territoryLevel, alertsData?.features, stateCode, localAlerts.length]);
 
   return (
     <section
@@ -146,7 +116,7 @@ export function WeatherOptions({
                 relevantCount > 0 ? 'badge-alert' : 'badge-neutral'
               }`}
             >
-              {isAlertsPending && !activeAlerts
+              {alertsPending && !alertsData
                 ? 'Consultando…'
                 : relevantCount > 0
                   ? `${relevantCount} ${relevantCount === 1 ? 'alerta ativo' : 'alertas ativos'}`
@@ -189,11 +159,11 @@ export function WeatherOptions({
       {/* Alertas Ativos no Território com Divulgação Progressiva */}
       {showAlerts && (
         <div className="weather-alerts-container">
-          {alertsError && <ErrorMessage error={alertsError} />}
+          {alertsError != null && <ErrorMessage error={alertsError} />}
 
           {/* 1. Nível Nacional: Brasil (resumo compacto agregado, sem listar municípios ou boletins individuais) */}
           {territoryLevel === 'national' && (
-            <WeatherAlertsNationalSummary features={activeAlerts?.features ?? []} />
+            <WeatherAlertsNationalSummary features={alertsData?.features ?? []} />
           )}
 
           {/* 2. Nível Estadual: UF (ocorrências semelhantes agrupadas ex.: Risco hidrológico · 8 municípios) */}
@@ -246,7 +216,9 @@ export function WeatherOptions({
                   </div>
                 ) : (
                   <div className="weather-alerts-empty-state">
-                    <p className="source-note">Nenhum aviso ativo diretamente para este município.</p>
+                    <p className="source-note">
+                      Nenhum aviso ativo diretamente para este município.
+                    </p>
                   </div>
                 )}
               </div>
@@ -257,7 +229,9 @@ export function WeatherOptions({
                     title={
                       <span className="weather-alert-secondary-trigger-title">
                         <span>Demais avisos em {stateUf ?? 'outros municípios'}</span>
-                        <span className="weather-alert-section-pill">{otherStateAlerts.length}</span>
+                        <span className="weather-alert-section-pill">
+                          {otherStateAlerts.length}
+                        </span>
                       </span>
                     }
                     defaultOpen={false}
@@ -265,11 +239,7 @@ export function WeatherOptions({
                   >
                     <div className="weather-alert-list">
                       {otherStateAlerts.map((feature) => (
-                        <WeatherAlertCard
-                          key={feature.id}
-                          feature={feature}
-                          showLocation={true}
-                        />
+                        <WeatherAlertCard key={feature.id} feature={feature} showLocation={true} />
                       ))}
                     </div>
                   </Disclosure>
@@ -307,10 +277,6 @@ export function WeatherOptions({
         </button>
       </div>
       {error != null && <LayerErrorNote error={error} />}
-
-      {/* "Fontes e metodologia" está temporariamente fora da interface: o
-          espaço é do painel de municípios seguidos. O conteúdo continua em
-          `WeatherSources.tsx`, pronto para voltar. */}
     </section>
   );
 }

@@ -108,35 +108,6 @@ export interface TerritoryListResponse {
   pagination: Pagination;
 }
 
-/** Painel meteorológico e territorial. */
-export type WeatherStationType = 'automatic_weather' | 'rain_gauge';
-
-export interface WeatherStationProperties {
-  provider: string;
-  externalCode: string;
-  name: string;
-  stationType: WeatherStationType;
-  stateAbbreviation: string | null;
-  /** ISO 8601, UTC — horário da leitura na fonte, não da ingestão. */
-  observedAt: string;
-  temperatureC: number | null;
-  humidityPct: number | null;
-  pressureHpa: number | null;
-  precipitationMm: number | null;
-}
-
-export interface WeatherStationFeature {
-  type: 'Feature';
-  id: string;
-  properties: WeatherStationProperties;
-  geometry: Point;
-}
-
-export interface WeatherStationCollection {
-  type: 'FeatureCollection';
-  features: WeatherStationFeature[];
-}
-
 /** Fonte oficial de um alerta. Nunca decida layout por isto — use `category`/`severityLevel`. */
 export type WeatherAlertProvider = 'inmet' | 'cemaden' | (string & {});
 

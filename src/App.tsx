@@ -1,5 +1,5 @@
 /** Composição e prioridade: mapa → camada atual → detalhes solicitados. */
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { clearSourcePauses, requestForcedWeatherRefresh } from '@/api/client';
 import {
@@ -174,8 +174,7 @@ export default function App() {
     pageVisible,
   });
 
-  // O WMS de focos é a segunda etapa. Só depois de seus metadados chegarem o
-  // clima começa; assim as duas fontes não concorrem pelo primeiro lote.
+  // A camada temática ativa só começa depois de a base territorial estar pronta.
   const fireHotspotQuery: FireHotspotQuery = useMemo(
     () => ({
       level: isDrilledDown && scope.parent ? 'state' : 'country',
@@ -279,8 +278,7 @@ export default function App() {
         nearbyWeather.isError ||
         selectedWeather.isError
       : Boolean(nationalWeather.data) || nationalWeather.isError);
-  // Primeira carga da camada temática ativa: é o que avisos, hidrografia e o
-  // prefetch do hover esperam para não disputar a rede com ela.
+  // Avisos e hidrografia aguardam o primeiro lote da camada temática ativa.
   const layerBaseReady = weatherLayerActive
     ? climateBaseReady
     : showFireHotspots
@@ -296,10 +294,6 @@ export default function App() {
       ),
     [fireSummary.data],
   );
-  // Prevalência temática: apenas uma camada (clima, fogo ou chuva) ativa por vez
-  const climateVisualActive = Boolean(showClimate);
-  const fireVisualActive = Boolean(showFireHotspots);
-  const rainVisualActive = Boolean(showRainfall);
   // As camadas opcionais aguardam o primeiro lote, não todos os municípios.
   const primarySettled =
     layerBaseReady &&
@@ -469,33 +463,16 @@ export default function App() {
   // Estabiliza a alternância entre "Atualizando…" e "Atualizar dados" para evitar piscar:
   // entra imediatamente em Atualizando, mas só sai após 600ms de repouso completo.
   const [isViewUpdating, setIsViewUpdating] = useState(false);
-  const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
-
   useEffect(() => {
     if (isViewActivelyWorking) {
-      if (updateTimerRef.current) {
-        clearTimeout(updateTimerRef.current);
-        updateTimerRef.current = null;
-      }
       setIsViewUpdating(true);
-    } else {
-      updateTimerRef.current = setTimeout(() => {
-        setIsViewUpdating(false);
-        updateTimerRef.current = null;
-      }, 600);
+      return;
     }
-    return () => {
-      if (updateTimerRef.current) {
-        clearTimeout(updateTimerRef.current);
-      }
-    };
+    const timer = setTimeout(() => setIsViewUpdating(false), 600);
+    return () => clearTimeout(timer);
   }, [isViewActivelyWorking]);
 
-  const isMunicipalityActive = Boolean(
-    isDrilledDown &&
-    selectedCode &&
-    (selectedCode.length === 7 || selectedFeature?.properties.level === 'municipality'),
-  );
+  const isMunicipalityActive = Boolean(isDrilledDown && selectedCode?.length === 7);
   const stateScopeName = scope.parentName ?? selectedFeature?.properties.parentName ?? 'Estado';
 
   // O que "Seguir" grava é só o código; nome e UF servem à linha otimista.
@@ -582,7 +559,7 @@ export default function App() {
     <div className="app">
       {((!scopeReady && mapLayer.isFetching) ||
         selectedBoundary.isFetching ||
-        (climateVisualActive && selectedWeather.isFetching)) && <TopProgress />}
+        (showClimate && selectedWeather.isFetching)) && <TopProgress />}
       <MapView
         collection={collection}
         selectedCode={selectedCode}
@@ -592,21 +569,21 @@ export default function App() {
         stateOutline={selectedStateOutline}
         onViewportChange={setViewport}
         locationTarget={locationTarget}
-        climateMode={climateVisualActive}
-        fireMode={fireVisualActive ? activeFireMode : undefined}
+        climateMode={showClimate}
+        fireMode={showFireHotspots ? activeFireMode : undefined}
         fireByCode={fireByCode}
         fireHours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
-        rainMode={rainVisualActive}
+        rainMode={showRainfall}
       >
         <Suspense fallback={null}>
           {showWeatherAlerts && (
             <AlertsLayer
               collection={alerts.data}
-              muted={fireVisualActive}
+              muted={showFireHotspots}
               stateCode={activeAlertsStateCode}
             />
           )}
-          {fireVisualActive && activeFireMode === 'points' && fireHotspotsLayer.data && (
+          {showFireHotspots && activeFireMode === 'points' && fireHotspotsLayer.data && (
             <FireHotspotsLayer
               key={`${fireHotspotQuery.level}:${fireHotspotQuery.parent ?? 'BR'}:${fireHotspotsLayer.data.metadata.windowEnd}`}
               collection={fireHotspotsLayer.data}
@@ -614,12 +591,12 @@ export default function App() {
               onMapError={setFireMapError}
             />
           )}
-          {(climateVisualActive || rainVisualActive) && (
+          {(showClimate || showRainfall) && (
             <WeatherLayer
               cities={knownWeather}
               selectedId={city?.id}
               municipal={isDrilledDown}
-              mode={rainVisualActive ? 'rainfall' : 'temperature'}
+              mode={showRainfall ? 'rainfall' : 'temperature'}
             />
           )}
         </Suspense>
@@ -627,7 +604,7 @@ export default function App() {
           {showHydrography && hydrographyLayer.data && (
             <HydrographyLayer
               collection={hydroCollection}
-              fireActive={fireVisualActive}
+              fireActive={showFireHotspots}
               zoom={hydroDetail}
             />
           )}
@@ -709,16 +686,17 @@ export default function App() {
                   loading={weatherLayerActive && selectedWeather.isPending}
                   onClose={() => setSelectedCode(null)}
                   onDrillDown={drillIntoState}
-                  fireMunicipality={selectedCode ? fireByCode.get(selectedCode) : undefined}
-                  fireActive={fireVisualActive}
+                  fireMunicipality={fireByCode.get(selectedCode)}
+                  climateActive={showClimate}
+                  fireActive={showFireHotspots}
                   fireLoading={fireSummary.isFetching}
                   fireHours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
-                  rainActive={rainVisualActive}
+                  rainActive={showRainfall}
                 />
               ) : null}
             </Suspense>
           </ErrorBoundary>
-          {climateVisualActive && !selectedCode && weatherCities.length === 0 && (
+          {showClimate && !selectedCode && weatherCities.length === 0 && (
             <p className="panel-section navigation-hint" role="status">
               {weatherError ? 'Clima indisponível no momento.' : 'Carregando clima…'}
             </p>
@@ -757,14 +735,13 @@ export default function App() {
                 onToggleHydrography={setShowHydrography}
                 hydrographyPartial={hydroCollection?.metadata.status === 'partial'}
                 code={selectedCode ?? scope.parent}
-                selectedCode={selectedCode}
-                parentCode={scope.parent}
                 current={currentWeather}
                 error={weatherError ?? fireError}
                 hydrographyError={showHydrography && hydrographyLayer.error != null}
                 loading={isViewUpdating}
                 alertsData={alerts.data}
                 alertsPending={alerts.isPending}
+                alertsError={alerts.error}
                 scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
                 onRefresh={() => {
                   // Pedido explícito do usuário: libera também as fontes pausadas,
@@ -798,15 +775,15 @@ export default function App() {
       {!failure && (
         <div className="legend-slot">
           <Suspense fallback={null}>
-            {fireVisualActive ? (
+            {showFireHotspots ? (
               <FireLegend
                 loading={fireSummary.isFetching || fireHotspotsLayer.isFetching}
                 error={fireSummary.error != null}
                 hours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
               />
-            ) : rainVisualActive ? (
+            ) : showRainfall ? (
               <RainLegend loading={isViewUpdating} error={weatherError != null} />
-            ) : climateVisualActive ? (
+            ) : showClimate ? (
               <WeatherLegend notice={weatherNotice} />
             ) : null}
           </Suspense>

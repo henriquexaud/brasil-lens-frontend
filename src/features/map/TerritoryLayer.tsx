@@ -202,7 +202,6 @@ function Territories({
   // `transform: translate3d`, no máximo uma vez por frame (rAF), nunca em
   // `top`/`left` (que force layout a cada pixel). O conteúdo só é reescrito
   // quando o território sob o cursor muda de fato, nunca a cada `mousemove`.
-  const tooltipCleanupRef = useRef<(() => void) | null>(null);
   const tooltipElRef = useRef<HTMLDivElement | null>(null);
   const pointerRef = useRef<Point | null>(null);
   const fixedAnchorRef = useRef<Point | null>(null);
@@ -243,7 +242,7 @@ function Territories({
             : hovered
               ? 0.45
               : 0.35,
-          className: 'territory-shape climate-territory-shape',
+          className: 'territory-shape',
         };
       }
       if (rainMode) {
@@ -259,16 +258,15 @@ function Territories({
           opacity: municipal ? 0.7 : 0.85,
           fillOpacity,
           fillColor,
-          className: 'territory-shape climate-territory-shape',
+          className: 'territory-shape',
         };
       }
-      if (climateMode || (!fireMode && !rainMode)) {
+      if (climateMode) {
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
         const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
-        const hasColor = hasDirectTemp;
         const fillColor = hasDirectTemp ? colorForTemperature(weather.temperatureC) : '#f1f5f9';
 
-        const fillOpacity = hasColor ? (hovered ? 0.85 : 0.68) : hovered ? 0.35 : 0.18;
+        const fillOpacity = hasDirectTemp ? (hovered ? 0.85 : 0.68) : hovered ? 0.35 : 0.18;
         return {
           smoothFactor: 0,
           color: '#ffffff',
@@ -276,7 +274,7 @@ function Territories({
           opacity: municipal ? 0.7 : 0.85,
           fillOpacity,
           fillColor,
-          className: 'territory-shape climate-territory-shape',
+          className: 'territory-shape',
         };
       }
       return {
@@ -286,7 +284,7 @@ function Territories({
         opacity: municipal ? 0.7 : 0.85,
         fillOpacity: hovered ? 0.25 : 0.08,
         fillColor: '#f1f5f9',
-        className: 'territory-shape climate-territory-shape',
+        className: 'territory-shape',
       };
     },
     [
@@ -315,7 +313,6 @@ function Territories({
     fireHours,
     rainMode,
     climateMode,
-    collection,
     style,
   });
   propsRef.current = {
@@ -330,7 +327,6 @@ function Territories({
     fireHours,
     rainMode,
     climateMode,
-    collection,
     style,
   };
 
@@ -452,7 +448,6 @@ function Territories({
       clearHover();
       if (moveFrameRef.current !== null) cancelAnimationFrame(moveFrameRef.current);
       if (hideFrameRef.current !== null) cancelAnimationFrame(hideFrameRef.current);
-      tooltipCleanupRef.current?.();
       el.remove();
       tooltipElRef.current = null;
     };
@@ -496,8 +491,7 @@ function Territories({
         weather?.isInferred,
       ]);
       if (activeTooltipCodeRef.current !== code || activeTooltipContentRef.current !== content) {
-        tooltipCleanupRef.current?.();
-        tooltipCleanupRef.current = fillTooltipContent(
+        fillTooltipContent(
           el,
           properties,
           weather,

@@ -1,4 +1,4 @@
-import type { FireHotspotQuery, HydroQuery, MapQuery, TerritoryLevel } from './types';
+import type { FireHotspotQuery, HydroQuery, MapQuery } from './types';
 
 /** Janela curta reduz o payload e mantém o mapa alinhado com o uso recente. */
 export const FIRE_HOTSPOT_HOURS = 24;
@@ -28,7 +28,6 @@ export const queryKeys = {
       query.parent ?? null,
       query.hours ?? FIRE_HOTSPOT_HOURS,
     ] as const,
-  territories: (level: TerritoryLevel) => ['territories', level] as const,
   followedMunicipalities: () => ['me', 'followed-municipalities'] as const,
   weatherAlerts: () => ['weather', 'alerts'] as const,
 };

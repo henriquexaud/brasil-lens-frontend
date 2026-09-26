@@ -22,6 +22,7 @@ export interface WeatherPanelProps {
   onClose: () => void;
   onDrillDown: (code: string, name: string) => void;
   fireMunicipality?: FireMunicipality;
+  climateActive?: boolean;
   fireActive?: boolean;
   fireLoading?: boolean;
   fireHours?: number;
@@ -38,6 +39,7 @@ export function WeatherPanel({
   onClose,
   onDrillDown,
   fireMunicipality,
+  climateActive = true,
   fireActive = false,
   fireLoading = false,
   fireHours = 24,
@@ -45,7 +47,8 @@ export function WeatherPanel({
 }: WeatherPanelProps) {
   const isState = territory?.level === 'state';
 
-  const weatherDetailsContent = !fireActive && !rainActive && city && (
+  const showClimateDetails = climateActive && !fireActive && !rainActive;
+  const weatherDetailsContent = showClimateDetails && city && (
     <>
       <div className="weather-current">
         <WeatherIcon code={city.weatherCode} size={36} className="weather-current-icon" />
@@ -104,7 +107,9 @@ export function WeatherPanel({
           ? 'Focos de calor do local selecionado'
           : rainActive
             ? 'Quantidade de chuva do local selecionado'
-            : 'Clima do local selecionado'
+            : climateActive
+              ? 'Clima do local selecionado'
+              : 'Local selecionado'
       }
     >
       <header className="detail-header">
@@ -115,7 +120,9 @@ export function WeatherPanel({
             className="detail-title"
             text={territory?.name ?? city?.name ?? fireMunicipality?.name ?? 'Carregando local…'}
           />
-          {isState && city && <p className="detail-capital">{city.name} · capital</p>}
+          {isState && city && (showClimateDetails || rainActive) && (
+            <p className="detail-capital">{city.name} · capital</p>
+          )}
         </div>
         <button className="icon-button" onClick={onClose} aria-label="Fechar detalhe">
           ×
@@ -140,17 +147,17 @@ export function WeatherPanel({
         </>
       )}
 
-      {!city && loading && !fireActive && !rainActive && (
+      {!city && loading && showClimateDetails && (
         <div className="weather-skeleton" role="status" aria-label="Carregando clima">
           <div className="skeleton skeleton-title" />
           <div className="skeleton skeleton-row" />
         </div>
       )}
 
-      {!city && error != null && !fireActive && !rainActive && <ErrorMessage error={error} />}
+      {!city && error != null && showClimateDetails && <ErrorMessage error={error} />}
 
       {/* Quando a camada de temperatura está ativa, o Clima geral é o elemento primário */}
-      {!fireActive && !rainActive && weatherDetailsContent}
+      {weatherDetailsContent}
 
       {/* Botão de drill-down para navegar aos municípios do estado */}
       {isState && territory && (

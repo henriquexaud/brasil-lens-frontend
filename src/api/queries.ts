@@ -16,6 +16,7 @@ import { useRef } from 'react';
 import { useDeferredReady } from '@/lib/useDeferredReady';
 
 import { apiGet } from './client';
+import { queryKeys, FIRE_HOTSPOT_HOURS } from './queryKeys';
 import { useCancelWhenDisabled } from './queryLifecycle';
 import type {
   FireHotspotCollection,
@@ -27,21 +28,10 @@ import type {
   HydroQuery,
   MapFeatureCollection,
   MapQuery,
-  TerritoryLevel,
   TerritoryListResponse,
 } from './types';
 
-/** Dados mudam só quando a ingestão roda: cache longo é correto, não preguiça. */
-const STATIC_DATA_STALE_TIME = 5 * 60 * 1000;
-import { queryKeys, FIRE_HOTSPOT_HOURS } from './queryKeys';
-export { queryKeys, FIRE_HOTSPOT_HOURS } from './queryKeys';
-
-/* ------------------------------------------------------------ auxiliares --
- *
- * Três disciplinas se repetem nas camadas carregadas em segundo plano: cancelar
- * a requisição quando a camada sai de cena, completar páginas só na ociosidade
- * do navegador e reaproveitar a leitura de um lote no cache de cada cidade.
- */
+export { FIRE_HOTSPOT_HOURS } from './queryKeys';
 
 function geometryOptions(
   level: MapQuery['level'],
@@ -58,17 +48,16 @@ function geometryOptions(
 }
 
 /** Malha territorial progressiva: carrega overview e troca por detail em repouso. */
-export function useMapLayer(query: MapQuery, enabled = true) {
+export function useMapLayer(query: Omit<MapQuery, 'lod'>) {
   const { level } = query;
   const parent = query.parent ?? null;
   const overview = useQuery({
     ...geometryOptions(level, parent, 'overview'),
-    enabled,
     placeholderData: (previous) => previous,
   });
   const upgrade = useDeferredReady(
     `map:${level}:${parent}`,
-    enabled && Boolean(overview.data) && !overview.isPlaceholderData,
+    Boolean(overview.data) && !overview.isPlaceholderData,
   );
   const detail = useQuery({ ...geometryOptions(level, parent, 'detail'), enabled: upgrade });
   const data = detail.data ?? (overview.isPlaceholderData ? undefined : overview.data);
@@ -224,17 +213,6 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
   };
 }
 
-/** Lista de territórios para filtros e navegação geográfica. */
-export function useTerritories(level: TerritoryLevel, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.territories(level),
-    queryFn: ({ signal }) =>
-      apiGet<TerritoryListResponse>('/territories', { level, limit: 1000 }, signal),
-    enabled,
-    staleTime: STATIC_DATA_STALE_TIME,
-  });
-}
-
 /**
  * Busca de territórios delegada ao backend, que compara nome e sigla sem
  * acento (colunas normalizadas na ingestão) e ordena por relevância.
@@ -257,11 +235,6 @@ export {
   useUnfollowMunicipality,
   useSetMunicipalityNotifications,
 } from '@/features/follow/useFollowedMunicipalities';
-export type {
-  FollowTarget,
-  SetNotificationsVariables,
-} from '@/features/follow/useFollowedMunicipalities';
-
 export {
   weatherCurrentOptions,
   useWeatherCurrent,
@@ -271,6 +244,5 @@ export {
   useVisibleMunicipalities,
   useSelectedBoundary,
   useNationalWeather,
-  snapBbox,
   useViewportWeather,
 } from '@/features/weather/queries';

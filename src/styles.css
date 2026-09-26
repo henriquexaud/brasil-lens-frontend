@@ -1861,14 +1861,6 @@ body {
 .weather-alerts-empty-state {
   padding: 4px 0;
 }
-.weather-sources-disclosure {
-  margin-top: 10px;
-}
-.weather-sources-disclosure .disclosure-trigger {
-  font-size: 11px;
-  color: var(--text-soft);
-}
-
 /* Seletor Segmentado de Camadas Temáticas */
 .weather-thematic-selector {
   margin-bottom: 8px;
@@ -2103,36 +2095,6 @@ body {
   color: var(--text-faint);
 }
 
-/* Lista sintética de metodologia */
-.weather-methodology-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px 0 2px 0;
-  font-size: 11px;
-  color: var(--text-soft);
-  line-height: 1.4;
-  list-style: none;
-  margin: 0;
-}
-
-.weather-methodology-item {
-  position: relative;
-  padding-left: 10px;
-}
-
-.weather-methodology-item::before {
-  content: '•';
-  position: absolute;
-  left: 0;
-  color: var(--text-soft);
-}
-
-.weather-methodology-item strong {
-  color: var(--text);
-  font-weight: 500;
-}
-
 .source-note a {
   color: var(--accent);
   text-underline-offset: 2px;
@@ -2358,13 +2320,6 @@ body {
 
 .weather-station-popup .leaflet-popup-tip {
   background: var(--surface);
-}
-
-.brazil-national-outline {
-  pointer-events: none;
-  transition:
-    stroke var(--motion-map) var(--ease-in-out),
-    stroke-opacity var(--motion-ui) var(--ease-out);
 }
 
 .state-selected-halo,

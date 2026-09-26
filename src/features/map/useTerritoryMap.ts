@@ -24,7 +24,7 @@ export function useTerritoryMap({
 }: TerritoryMapInput) {
   const mapLayer = useMapLayer({ level: scope.level, parent: scope.parent });
   // Mesma malha da visão nacional: a consulta de geometria é compartilhada.
-  const statesOutlineLayer = useMapLayer({ level: 'state' }, true);
+  const statesOutlineLayer = useMapLayer({ level: 'state' });
   const selectedStateOutline = useMemo(() => {
     if (!isDrilledDown || !scope.parent) return null;
     if (mapLayer.data?.parentFeature) {
@@ -39,7 +39,7 @@ export function useTerritoryMap({
   }, [isDrilledDown, scope.parent, mapLayer.data?.parentFeature, statesOutlineLayer.data]);
   const closeMunicipalView =
     isDrilledDown && viewport.zoom >= 8 && viewport.scopeKey === `municipality:${scope.parent}`;
-  const selectedBoundary = useSelectedBoundary(selectedCode, true);
+  const selectedBoundary = useSelectedBoundary(selectedCode);
   const stateViewportKey = `municipality:${scope.parent}`;
   const viewportIsInState = isDrilledDown && viewport.scopeKey === stateViewportKey;
   const lastStateParentRef = useRef<string | null>(null);
@@ -172,7 +172,6 @@ export function useTerritoryMap({
     closeMunicipalView,
     selectedBoundary,
     visibleMunicipalities,
-    municipalCollection,
     collection,
     scopeReady,
     territoryReady,

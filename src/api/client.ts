@@ -5,7 +5,6 @@
  * backend (`{ error: { code, message } }`) em uma exceção tipada, para que a
  * interface possa reagir ao `code` em vez de comparar strings de mensagem.
  *
- * As quatro funções exportadas cobrem os quatro métodos que a aplicação usa:
  * As funções de leitura e escrita expõem os contratos usados pelas camadas
  * ambientais e pelos municípios acompanhados.
  *
@@ -41,11 +40,6 @@ export class ApiError extends Error {
     this.status = status;
     this.code = code;
     this.details = details;
-  }
-
-  /** Território inexistente: a UI trata como estado, não como falha. */
-  get isNotFound(): boolean {
-    return this.status === 404;
   }
 
   /** Cota da fonte esgotada: insistir não ajuda, só esperar (ou o usuário pedir). */

@@ -25,15 +25,6 @@ import { scopeInsets } from './viewport';
 const BRAZIL_CENTER: [number, number] = [-14.5, -52];
 const BRAZIL_ZOOM = 4;
 
-const BRAZIL_OUTLINE_STYLE: PolylineOptions = {
-  smoothFactor: 0,
-  fill: false,
-  color: 'rgba(80, 105, 115, 0.45)',
-  weight: 1.5,
-  opacity: 0.85,
-  className: 'brazil-national-outline',
-};
-
 const STATE_HALO_STYLE: PolylineOptions = {
   smoothFactor: 0,
   fill: false,
@@ -68,8 +59,6 @@ interface Props {
   rainMode?: boolean;
   climateMode?: boolean;
   onViewportChange?: (viewport: MapViewport) => void;
-  /** Contorno geográfico persistente do território aberto. */
-  brazilOutline?: MapFeatureCollection;
   /** Contorno da fronteira do estado quando o usuário está dentro de um estado exibindo cidades. */
   stateOutline?: MapFeature | null;
   locationTarget?: {
@@ -141,8 +130,8 @@ function FitToScope({
       map.off('resize', onResize);
     };
     // `scopeKey` (e não `bbox`) na dependência, de propósito: o bbox de um
-    // mesmo escopo não muda, e reenquadrar o mapa a cada troca de território
-    // ou de ano tiraria o usuário do lugar onde ele estava olhando.
+    // mesmo escopo não muda, e reenquadrar a cada atualização da camada
+    // tiraria o usuário do lugar onde ele estava olhando.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, scopeKey, selectedFeature?.id, locationTarget?.requestedAt]);
 
@@ -162,7 +151,6 @@ export function MapView({
   rainMode,
   climateMode,
   onViewportChange,
-  brazilOutline,
   stateOutline,
   locationTarget,
 }: Props) {
@@ -229,16 +217,6 @@ export function MapView({
       {onViewportChange && <ViewportObserver onChange={onViewportChange} scopeKey={scopeKey} />}
       <Pane name="territory-hover" style={{ zIndex: 470, pointerEvents: 'none' }} />
       <Pane name="territory-selection" style={{ zIndex: 480, pointerEvents: 'none' }} />
-      {brazilOutline && (
-        <Pane name="brazil-outline" style={{ zIndex: 420, pointerEvents: 'none' }}>
-          <GeoJSON
-            key="brazil-national-boundary"
-            data={brazilOutline}
-            interactive={false}
-            style={BRAZIL_OUTLINE_STYLE as PathOptions}
-          />
-        </Pane>
-      )}
       {collection && (
         <>
           <TerritoryLayer

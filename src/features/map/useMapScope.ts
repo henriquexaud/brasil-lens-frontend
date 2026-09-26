@@ -7,11 +7,10 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 
-import type { TerritoryLevel } from '@/api/types';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 
 export interface MapScopeState {
-  level: TerritoryLevel;
+  level: 'state' | 'municipality';
   /** Código IBGE do território pai quando há drill-down (ex.: UF). */
   parent: string | null;
   parentName: string | null;

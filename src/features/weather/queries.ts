@@ -36,17 +36,7 @@ function seedCityWeather(
   }
 }
 
-/* ------------------------------------------------------------------ clima --
- *
- * Diferente de tudo acima: o dado muda sozinho, sem nenhuma ação do usuário
- * — um alerta pode ser atualizado pelo scheduler do backend a qualquer
- * momento (ver `app/jobs/weather_scheduler.py`) e as condições atuais vêm da
- * Open-Meteo. `staleTime` estático faria a tela nunca perceber isso;
- * `refetchInterval` é o desvio deliberado do padrão "dado só muda na
- * ingestão" que o resto deste arquivo documenta. `enabled` mantém o polling
- * desativado quando as camadas climáticas não estão visíveis — a mesma disciplina
- * de `useMapLayer` para não pagar rede à toa.
- */
+/** Alertas são atualizados pelo scheduler; o polling acompanha a camada visível. */
 const WEATHER_POLL_INTERVAL_MS = 90 * 1000;
 /** Municípios por lote de condições atuais (o backend aceita até 60). */
 const COVERAGE_STAGE_LIMIT = 16;
@@ -255,12 +245,12 @@ export function useVisibleMunicipalities(
 }
 
 /** A busca/seleção não espera a fila de municípios chegar até ela. */
-export function useSelectedBoundary(code: string | null, enabled: boolean) {
+export function useSelectedBoundary(code: string | null) {
   return useQuery({
     queryKey: ['municipal-boundary', code],
     queryFn: ({ signal }) =>
       apiGet<MapFeatureCollection>('/weather/municipal-boundaries', { code, limit: 1 }, signal),
-    enabled: enabled && code?.length === 7,
+    enabled: code?.length === 7,
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
