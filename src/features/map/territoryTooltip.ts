@@ -1,10 +1,4 @@
-import type {
-  MapFeatureCollection,
-  MapFeatureProperties,
-  WeatherCity,
-  FireMunicipality,
-} from '@/api/types';
-import { formatValue } from '@/lib/format';
+import type { MapFeatureProperties, WeatherCity, FireMunicipality } from '@/api/types';
 import { colorForTemperature } from './colors';
 import { formatFireDate } from '@/features/fire/fireStyles';
 import {
@@ -21,7 +15,6 @@ import { isStateAverage } from '@/features/weather/EstimateMark';
 export function fillTooltipContent(
   el: HTMLElement,
   properties: MapFeatureProperties,
-  collection: MapFeatureCollection,
   weather?: WeatherCity,
   fire?: FireMunicipality,
   fireHours = 24,
@@ -109,13 +102,6 @@ export function fillTooltipContent(
     valEl.append(textSpan);
     el.append(valEl);
     add('tooltip-meta', weatherDescription(weather.weatherCode) + estimateSuffix);
-  }
-  if (collection.indicator) {
-    const { unit, decimalPlaces } = collection.indicator;
-    add(
-      properties.value === null ? 'tooltip-value is-missing' : 'tooltip-value',
-      formatValue(properties.value, unit, decimalPlaces),
-    );
   }
   return () => {};
 }

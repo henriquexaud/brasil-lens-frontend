@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { ChoroplethLayer } from './src/features/map/ChoroplethLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { ApiError } from './src/api/client'; export { focusLabelBudget } from './src/features/weather/WeatherLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget } from './src/features/weather/WeatherLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -52,12 +52,13 @@ const {
   FireHotspotsLayer,
   formatFireValue,
   formatFireDate,
-  ChoroplethLayer,
+  TerritoryLayer,
   densityColor,
   colorForTemperature,
   WeatherPanel,
   FireOverview,
   WeatherOptions,
+  WeatherThematicSwitch,
   focusLabelBudget,
   ScopeHeader,
 } = await import(pathToFileURL(path).href);
@@ -237,8 +238,6 @@ test('focos substituem a temperatura no mesmo polígono e desligar restaura o cl
   const territory = {
     type: 'FeatureCollection',
     scope: { level: 'state', parent: null, lod: 'overview' },
-    indicator: null,
-    classification: null,
     features: [
       {
         type: 'Feature',
@@ -257,7 +256,7 @@ test('focos substituem a temperatura no mesmo polígono e desligar restaura o cl
             ],
           ],
         },
-        properties: { ibgeCode: '51', name: 'Mato Grosso', value: null, classIndex: null },
+        properties: { ibgeCode: '51', name: 'Mato Grosso' },
       },
     ],
   };
@@ -283,7 +282,7 @@ test('focos substituem a temperatura no mesmo polígono e desligar restaura o cl
           MapContainer,
           { center: [-11, -54], zoom: 4, zoomControl: false },
           h(CaptureMap),
-          h(ChoroplethLayer, {
+          h(TerritoryLayer, {
             collection: territory,
             weatherByCode,
             fireByCode,
@@ -323,7 +322,7 @@ test('focos substituem a temperatura no mesmo polígono e desligar restaura o cl
 test('lotes municipais preservam SVG e foco; sem dados não inventam temperatura', async () => {
   const municipality = (code, west) => ({
     type: 'Feature', id: code,
-    properties: { ibgeCode: code, name: `Município ${code}`, level: 'municipality', value: null },
+    properties: { ibgeCode: code, name: `Município ${code}`, level: 'municipality' },
     geometry: { type: 'MultiPolygon', coordinates: [[[
       [west, -12], [west + 0.01, -11.9], [west + 0.02, -11.95],
       [west + 1, -11], [west, -12],
@@ -334,9 +333,9 @@ test('lotes municipais preservam SVG e foco; sem dados não inventam temperatura
   const weatherByCode = new Map([['5100001', { id: '5100001', temperatureC: 32, weatherCode: 0 }]]);
   const draw = async (features) => act(async () => root.render(h(MapContainer,
     { center: [-11, -54], zoom: 8, zoomControl: false }, h(CaptureMap),
-    h(ChoroplethLayer, {
+    h(TerritoryLayer, {
       collection: { type: 'FeatureCollection', features,
-        scope: { level: 'municipality', parent: '51', lod: 'canonical' }, indicator: null },
+        scope: { level: 'municipality', parent: '51', lod: 'canonical' } },
       selectedCode: null, onSelect: () => {}, weatherByCode,
     }),
   )));
@@ -378,7 +377,7 @@ test('WeatherPanel destaca métricas de focos quando a camada de fogo está ativ
         { client },
         h(WeatherPanel, {
           code: '5100001',
-          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality', value: null },
+          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality' },
           city: undefined,
           data: undefined,
           error: null,
@@ -419,7 +418,7 @@ test('WeatherPanel exibe estado limpo quando não há detecções recentes de ca
         { client },
         h(WeatherPanel, {
           code: '3550308',
-          territory: { ibgeCode: '3550308', name: 'São Paulo', parentName: 'São Paulo', level: 'municipality', value: null },
+          territory: { ibgeCode: '3550308', name: 'São Paulo', parentName: 'São Paulo', level: 'municipality' },
           city: undefined,
           data: undefined,
           error: null,
@@ -488,7 +487,7 @@ test('WeatherPanel lida com variações de casing do backend (count24H, count_24
         { client },
         h(WeatherPanel, {
           code: '1302603',
-          territory: { ibgeCode: '1302603', name: 'Manaus', parentName: 'Amazonas', level: 'municipality', value: null },
+          territory: { ibgeCode: '1302603', name: 'Manaus', parentName: 'Amazonas', level: 'municipality' },
           city: undefined,
           data: undefined,
           error: null,
@@ -540,7 +539,7 @@ test('WeatherPanel em camada de fogo oculta completamente detalhes e disclosures
         { client },
         h(WeatherPanel, {
           code: '5100001',
-          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality', value: null },
+          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality' },
           city: dummyCity,
           data: undefined,
           error: null,
@@ -602,7 +601,7 @@ test('WeatherPanel em camada de chuva exibe métricas de precipitação e oculta
         { client },
         h(WeatherPanel, {
           code: '5100001',
-          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality', value: null },
+          territory: { ibgeCode: '5100001', name: 'Marcelândia', parentName: 'Mato Grosso', level: 'municipality' },
           city: dummyCity,
           data: undefined,
           error: null,
@@ -663,7 +662,7 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
         { client },
         h(WeatherPanel, {
           code: '3550308',
-          territory: { ibgeCode: '3550308', name: 'São Paulo', parentName: 'São Paulo', level: 'municipality', value: null },
+          territory: { ibgeCode: '3550308', name: 'São Paulo', parentName: 'São Paulo', level: 'municipality' },
           city: dummyCity,
           data: undefined,
           error: null,
@@ -708,31 +707,23 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
   assert.equal(panel.querySelector('.detail-kicker'), null);
 });
 
-test('WeatherOptions exibe Clima, Focos e Chuva com concorrência e estado de atualização', async () => {
+test('seletor temático exibe Clima, Focos e Chuva e alterna a camada ativa', async () => {
   let climateToggled = null;
   let fireToggled = null;
   let rainToggled = null;
-  let refreshed = false;
 
   await act(async () =>
     root.render(
       h(
         QueryClientProvider,
         { client },
-        h(WeatherOptions, {
-          showAlerts: false,
-          onToggleAlerts: () => {},
+        h(WeatherThematicSwitch, {
           showClimate: true,
           onToggleClimate: (val) => { climateToggled = val; },
           showFireHotspots: false,
           onToggleFireHotspots: (val) => { fireToggled = val; },
           showRainfall: false,
           onToggleRainfall: (val) => { rainToggled = val; },
-          code: '35',
-          current: undefined,
-          error: null,
-          loading: true,
-          onRefresh: () => { refreshed = true; },
         }),
       ),
     ),
@@ -750,39 +741,24 @@ test('WeatherOptions exibe Clima, Focos e Chuva com concorrência e estado de at
   assert.ok(climateBadge);
   assert.equal(climateBadge.textContent, 'Ativo');
 
-  // Botão em estado Atualizando... desabilitado
-  const refreshBtn = document.querySelector('.weather-refresh-btn');
-  assert.ok(refreshBtn);
-  assert.equal(refreshBtn.disabled, true);
-  assert.equal(refreshBtn.textContent, 'Atualizando…');
-
-  const syncDot = document.querySelector('.weather-sync-dot');
-  assert.ok(syncDot.classList.contains('syncing'));
-
   // Teste de interação com botão de foco (índice 2)
   await act(async () => segmentButtons[2].click());
   assert.equal(fireToggled, true);
 });
 
-test('WeatherOptions exibe faixa de temperatura mínima e máxima no badge da camada de clima', async () => {
+test('seletor temático exibe faixa de temperatura no badge da camada de clima', async () => {
   await act(async () =>
     root.render(
       h(
         QueryClientProvider,
         { client },
-        h(WeatherOptions, {
-          showAlerts: false,
-          onToggleAlerts: () => {},
+        h(WeatherThematicSwitch, {
           showClimate: true,
           onToggleClimate: () => {},
           minTemperature: 20.2,
           maxTemperature: 34.4,
           scopeName: 'Brasil',
           code: null,
-          current: undefined,
-          error: null,
-          loading: false,
-          onRefresh: () => {},
         }),
       ),
     ),
@@ -798,19 +774,13 @@ test('WeatherOptions exibe faixa de temperatura mínima e máxima no badge da ca
       h(
         QueryClientProvider,
         { client },
-        h(WeatherOptions, {
-          showAlerts: false,
-          onToggleAlerts: () => {},
+        h(WeatherThematicSwitch, {
           showClimate: true,
           onToggleClimate: () => {},
           minTemperature: 24,
           maxTemperature: 24,
           scopeName: 'Campinas',
           code: '3509502',
-          current: undefined,
-          error: null,
-          loading: false,
-          onRefresh: () => {},
         }),
       ),
     ),
@@ -825,7 +795,7 @@ test('WeatherOptions exibe faixa de temperatura mínima e máxima no badge da ca
 test('tooltip do mapa marca de leve a temperatura estimada e não marca a medida', async () => {
   const municipality = (code, west) => ({
     type: 'Feature', id: code,
-    properties: { ibgeCode: code, name: `Município ${code}`, level: 'municipality', value: null },
+    properties: { ibgeCode: code, name: `Município ${code}`, level: 'municipality' },
     geometry: { type: 'MultiPolygon', coordinates: [[[
       [west, -12], [west + 1, -12], [west + 1, -11], [west, -11], [west, -12],
     ]]] },
@@ -836,8 +806,8 @@ test('tooltip do mapa marca de leve a temperatura estimada e não marca a medida
   ]);
   await act(async () => root.render(h(MapContainer,
     { center: [-11.5, -54], zoom: 7, zoomControl: false }, h(CaptureMap),
-    h(ChoroplethLayer, {
-      collection: { type: 'FeatureCollection', indicator: null,
+    h(TerritoryLayer, {
+      collection: { type: 'FeatureCollection',
         features: [municipality('5100001', -55), municipality('5100002', -54)],
         scope: { level: 'municipality', parent: '51', lod: 'canonical' } },
       selectedCode: null, onSelect: () => {}, weatherByCode,
@@ -864,7 +834,7 @@ test('WeatherPanel mostra o valor estimado com uma nota discreta', async () => {
   const draw = (value) => act(async () => root.render(h(QueryClientProvider, { client },
     h(WeatherPanel, {
       code: '3509502',
-      territory: { ibgeCode: '3509502', name: 'Campinas', parentName: 'São Paulo', level: 'municipality', value: null },
+      territory: { ibgeCode: '3509502', name: 'Campinas', parentName: 'São Paulo', level: 'municipality' },
       city: value, data: undefined, error: null, loading: false,
       onClose: () => {}, onDrillDown: () => {},
     }))));
@@ -875,7 +845,7 @@ test('WeatherPanel mostra o valor estimado com uma nota discreta', async () => {
   assert.match(document.querySelector('.weather-current').textContent, /≈ Estimado a partir de cidades próximas/);
 });
 
-test('rodapé das camadas mostra a causa real e só retenta a cota esgotada pelo botão', async () => {
+test('rodapé informa a causa real e permite nova tentativa manual', async () => {
   const rateLimited = new ApiError(
     503,
     'provider_rate_limited',
@@ -887,7 +857,6 @@ test('rodapé das camadas mostra a causa real e só retenta a cota esgotada pelo
   const draw = (error) => act(async () => root.render(h(QueryClientProvider, { client },
     h(WeatherOptions, {
       showAlerts: false, onToggleAlerts: () => {},
-      showClimate: true, onToggleClimate: () => {},
       code: '35', current: undefined, error, loading: false,
       onRefresh: () => { retried += 1; },
     }))));
@@ -896,7 +865,6 @@ test('rodapé das camadas mostra a causa real e só retenta a cota esgotada pelo
   const note = document.querySelector('.weather-error-note');
   assert.match(note.textContent, /limite diário de consultas da fonte de clima \(Open-Meteo\)/);
   assert.match(note.textContent, /pausadas até você tentar novamente/);
-  assert.equal(document.querySelector('.badge-error').textContent, 'Indisponível');
   const button = document.querySelector('.weather-refresh-btn');
   assert.equal(button.textContent, 'Tentar novamente');
   await act(async () => button.click());
@@ -920,14 +888,12 @@ test('malha nova do mesmo território atualiza o polígono sem recriar o SVG', a
   const collection = (geometry, value) => ({
     type: 'FeatureCollection',
     scope: { level: 'state', parent: null, lod: 'overview' },
-    indicator: null,
-    classification: null,
     features: [
       {
         type: 'Feature',
         id: '51',
         geometry,
-        properties: { ibgeCode: '51', name: 'Mato Grosso', value, classIndex: null },
+        properties: { ibgeCode: '51', name: 'Mato Grosso' },
       },
     ],
   });
@@ -938,7 +904,7 @@ test('malha nova do mesmo território atualiza o polígono sem recriar o SVG', a
           MapContainer,
           { center: [-11, -54], zoom: 4, zoomControl: false },
           h(CaptureMap),
-          h(ChoroplethLayer, { collection: data, weatherByCode: new Map(), selectedCode: null }),
+          h(TerritoryLayer, { collection: data, weatherByCode: new Map(), selectedCode: null }),
         ),
       ),
     );
@@ -967,8 +933,6 @@ test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', as
   const data = {
     type: 'FeatureCollection',
     scope: { level: 'municipality', parent: '51', lod: 'overview' },
-    indicator: null,
-    classification: null,
     features: [
       {
         type: 'Feature',
@@ -977,7 +941,7 @@ test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', as
           type: 'MultiPolygon',
           coordinates: [[[[-56, -16], [-55, -16], [-55, -15], [-56, -15], [-56, -16]]]],
         },
-        properties: { ibgeCode: '5103403', name: 'Cuiabá', value: null, classIndex: null },
+        properties: { ibgeCode: '5103403', name: 'Cuiabá' },
       },
     ],
   };
@@ -988,7 +952,7 @@ test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', as
         MapContainer,
         { center: [-15.5, -55.5], zoom: 7, zoomControl: false },
         h(CaptureMap),
-        h(ChoroplethLayer, {
+        h(TerritoryLayer, {
           collection: data,
           weatherByCode: new Map([['5103403', dry]]),
           rainMode: true,
@@ -1018,7 +982,7 @@ test('linha de hover de cidades e estados renderiza em pane superior para ficar 
       {
         type: 'Feature',
         id: '5103403',
-        properties: { ibgeCode: '5103403', name: 'Cuiabá', level: 'municipality', value: null },
+        properties: { ibgeCode: '5103403', name: 'Cuiabá', level: 'municipality' },
         geometry: {
           type: 'Polygon',
           coordinates: [[[-56.1, -15.6], [-56.0, -15.6], [-56.0, -15.5], [-56.1, -15.5], [-56.1, -15.6]]],
@@ -1033,7 +997,7 @@ test('linha de hover de cidades e estados renderiza em pane superior para ficar 
         MapContainer,
         { center: [-15.5, -55.5], zoom: 7, zoomControl: false },
         h(CaptureMap),
-        h(ChoroplethLayer, {
+        h(TerritoryLayer, {
           collection: data,
           weatherByCode: new Map(),
           selectedCode: null,
@@ -1076,7 +1040,7 @@ test('garante apenas um contorno no mapa, sem rastro durante movimentação/zoom
       {
         type: 'Feature',
         id: '5103403',
-        properties: { ibgeCode: '5103403', name: 'Cuiabá', level: 'municipality', value: null },
+        properties: { ibgeCode: '5103403', name: 'Cuiabá', level: 'municipality' },
         geometry: {
           type: 'Polygon',
           coordinates: [[[-56.1, -15.6], [-56.0, -15.6], [-56.0, -15.5], [-56.1, -15.5], [-56.1, -15.6]]],
@@ -1085,7 +1049,7 @@ test('garante apenas um contorno no mapa, sem rastro durante movimentação/zoom
       {
         type: 'Feature',
         id: '5108402',
-        properties: { ibgeCode: '5108402', name: 'Várzea Grande', level: 'municipality', value: null },
+        properties: { ibgeCode: '5108402', name: 'Várzea Grande', level: 'municipality' },
         geometry: {
           type: 'Polygon',
           coordinates: [[[-56.3, -15.6], [-56.2, -15.6], [-56.2, -15.5], [-56.3, -15.5], [-56.3, -15.6]]],
@@ -1100,7 +1064,7 @@ test('garante apenas um contorno no mapa, sem rastro durante movimentação/zoom
         MapContainer,
         { center: [-15.5, -55.5], zoom: 7, zoomControl: false },
         h(CaptureMap),
-        h(ChoroplethLayer, {
+        h(TerritoryLayer, {
           collection: data,
           weatherByCode: new Map(),
           selectedCode: null,
@@ -1231,7 +1195,7 @@ test('WeatherPanel mantém kicker de Estado para UFs e remove repetição do est
         { client },
         h(WeatherPanel, {
           code: '35',
-          territory: { ibgeCode: '35', name: 'São Paulo', level: 'state', value: null },
+          territory: { ibgeCode: '35', name: 'São Paulo', level: 'state' },
           city: dummyStateCity,
           data: undefined,
           error: null,
@@ -1271,7 +1235,7 @@ test('WeatherPanel mantém kicker de Estado para UFs e remove repetição do est
         { client },
         h(WeatherPanel, {
           code: '3549904',
-          territory: { ibgeCode: '3549904', name: 'São José dos Campos', parentName: 'São Paulo', level: 'municipality', value: null },
+          territory: { ibgeCode: '3549904', name: 'São José dos Campos', parentName: 'São Paulo', level: 'municipality' },
           city: dummyMuniCity,
           data: undefined,
           error: null,
@@ -1305,4 +1269,3 @@ test('WeatherPanel mantém kicker de Estado para UFs e remove repetição do est
   assert.equal(allDetails.some((d) => d.textContent?.includes('Próximos dias')), true);
   assert.equal(allDetails.some((d) => d.textContent?.includes('Mais detalhes')), false);
 });
-

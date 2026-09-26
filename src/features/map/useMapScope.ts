@@ -22,16 +22,7 @@ const ROOT_SCOPE: MapScopeState = { level: 'state', parent: null, parentName: nu
 export function useMapScope() {
   const [scope, setScope] = useState<MapScopeState>(() => {
     const saved = loadSessionState();
-    if (
-      saved.scope &&
-      (saved.scope.level === 'state' ||
-        saved.scope.level === 'municipality' ||
-        saved.scope.level === 'country' ||
-        saved.scope.level === 'region')
-    ) {
-      return saved.scope;
-    }
-    return ROOT_SCOPE;
+    return saved.scope ?? ROOT_SCOPE;
   });
   const [selectedCode, setSelectedCode] = useState<string | null>(() => {
     const saved = loadSessionState();
@@ -48,16 +39,6 @@ export function useMapScope() {
     setSelectedCode(null);
   }, []);
 
-  /**
-   * Salta direto para um recorte arbitrário — é como uma visualização salva é
-   * aberta. `drillIntoState` não serve: ele pressupõe que se está descendo a
-   * partir do mapa do país, e uma visualização pode apontar para qualquer nível.
-   */
-  const applyScope = useCallback((next: MapScopeState) => {
-    setScope(next);
-    setSelectedCode(null);
-  }, []);
-
   const resetScope = useCallback(() => {
     setScope(ROOT_SCOPE);
     setSelectedCode(null);
@@ -68,7 +49,6 @@ export function useMapScope() {
     selectedCode,
     setSelectedCode,
     drillIntoState,
-    applyScope,
     resetScope,
     isDrilledDown: scope.parent !== null,
   };

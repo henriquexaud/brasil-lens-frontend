@@ -1,10 +1,6 @@
 /**
- * Seção "Municípios seguidos" do contexto Clima.
- *
- * Irmã de "Visualizações salvas" no socioeconômico: mesma seção recolhível,
- * mesma lista, mesmas ações — o usuário não precisa aprender um segundo
- * vocabulário. A diferença é o gesto principal: aqui é um alternador
- * ("Seguir" ↔ "Seguindo") que só existe com um município aberto no mapa.
+ * Seção "Municípios seguidos" para acesso rápido a recortes ambientais.
+ * O alternador ("Seguir" ↔ "Seguindo") só existe com um município aberto.
  *
  * As escritas são otimistas (ver `useFollowMunicipality`): o botão muda no
  * clique, e uma falha desfaz a mudança e mostra o erro. A lista é carregada
@@ -133,7 +129,7 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
   return (
     <details
       ref={disclosureRef}
-      className="panel-section disclosure saved-views followed-municipalities"
+      className="panel-section disclosure followed-municipalities"
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
       onKeyDown={(event) => {
@@ -148,17 +144,17 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
         <PinIcon />
         <span>Municípios seguidos</span>
         {municipalities.length > 0 && (
-          <span className="views-count-badge">{municipalities.length}</span>
+          <span className="follow-count-badge">{municipalities.length}</span>
         )}
         <span className="disclosure-chevron" aria-hidden="true" />
       </summary>
       <div className="disclosure-content">
         {current && !listQuery.error && (
-          <div className="views-top-bar">
+          <div className="follow-top-bar">
             <button
               type="button"
               className={
-                isFollowing ? 'views-save-btn follow-btn is-following' : 'views-save-btn follow-btn'
+                isFollowing ? 'follow-toggle-btn follow-btn is-following' : 'follow-toggle-btn follow-btn'
               }
               aria-pressed={isFollowing}
               disabled={listQuery.isPending}
@@ -197,7 +193,7 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
         )}
 
         {writeError && (
-          <div className="views-error">
+          <div className="follow-error">
             <ErrorMessage error={writeError} />
           </div>
         )}
@@ -206,54 +202,54 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
 
         {listQuery.isPending && (
           <div
-            className="views-skeleton-list"
+            className="follow-skeleton-list"
             role="status"
             aria-label="Carregando municípios seguidos"
           >
-            <div className="views-skeleton-item" />
-            <div className="views-skeleton-item" />
+            <div className="follow-skeleton-item" />
+            <div className="follow-skeleton-item" />
           </div>
         )}
 
         {showEmptyState && (
-          <div className="views-empty-state">
-            <div className="views-empty-icon" aria-hidden="true">
+          <div className="follow-empty-state">
+            <div className="follow-empty-icon" aria-hidden="true">
               <PinIcon size={22} />
             </div>
-            <p className="views-empty-title">Nenhum município seguido</p>
-            <p className="views-empty-desc">
+            <p className="follow-empty-title">Nenhum município seguido</p>
+            <p className="follow-empty-desc">
               Abra um município no mapa e toque em Seguir para acompanhá-lo por aqui.
             </p>
           </div>
         )}
 
         {municipalities.length > 0 && (
-          <ul className="views-list">
+          <ul className="follow-list">
             {municipalities.map((item) => {
               const code = item.municipalityCode;
               const name = item.name ?? `Município ${code}`;
               const isCurrent = code === currentCode;
               return (
-                <li key={code} className={isCurrent ? 'views-item is-current' : 'views-item'}>
+                <li key={code} className={isCurrent ? 'follow-item is-current' : 'follow-item'}>
                   <button
                     type="button"
-                    className="views-apply"
+                    className="follow-apply"
                     aria-current={isCurrent ? 'location' : undefined}
                     disabled={item.name === null}
                     onClick={() => onOpen(item)}
                     title={isCurrent ? 'Município aberto no mapa' : 'Abrir este município no mapa'}
                   >
-                    <span className="views-name">{name}</span>
-                    <span className="views-meta">
+                    <span className="follow-name">{name}</span>
+                    <span className="follow-meta">
                       {(item.stateName ?? item.stateAbbreviation) && (
                         <>
-                          <span className="views-meta-pill">
+                          <span className="follow-meta-pill">
                             {item.stateName ?? item.stateAbbreviation}
                           </span>
-                          <span className="views-meta-sep">·</span>
+                          <span className="follow-meta-sep">·</span>
                         </>
                       )}
-                      <span className="views-meta-pill">
+                      <span className="follow-meta-pill">
                         Seguindo desde {followedSince(item.followedAt)}
                       </span>
                     </span>
@@ -263,8 +259,8 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
                     type="button"
                     className={
                       item.notificationsEnabled
-                        ? 'icon-button views-notif-toggle is-enabled'
-                        : 'icon-button views-notif-toggle'
+                        ? 'icon-button follow-notif-toggle is-enabled'
+                        : 'icon-button follow-notif-toggle'
                     }
                     aria-pressed={item.notificationsEnabled}
                     aria-label={

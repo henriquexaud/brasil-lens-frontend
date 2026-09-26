@@ -18,14 +18,7 @@ import type {
   FireMunicipality,
 } from '@/api/types';
 
-import {
-  BORDER_COLOR,
-  HOVER_COLOR,
-  SELECTED_COLOR,
-  colorForClass,
-  colorForTemperature,
-  paletteForIndicator,
-} from './colors';
+import { HOVER_COLOR, SELECTED_COLOR, colorForTemperature } from './colors';
 import { scopeInsets } from './viewport';
 import { rainAmount, rainColor } from '@/features/rainfall/rainScale';
 import { fillTooltipContent } from './territoryTooltip';
@@ -52,7 +45,6 @@ const SELECTION_OUTLINE_STYLE: PolylineOptions = {
 interface Props {
   collection: MapFeatureCollection;
   onSelect: (ibgeCode: string) => void;
-  onHover?: (ibgeCode: string) => void;
   /** Duplo clique em uma UF pula direto para os seus municípios. */
   onDrillDown?: (ibgeCode: string, name: string) => void;
   selectedCode: string | null;
@@ -86,7 +78,6 @@ function preserveBoundary(_feature: Feature, layer: Layer) {
 function Territories({
   collection,
   onSelect,
-  onHover,
   onDrillDown,
   selectedCode,
   weatherByCode,
@@ -107,16 +98,15 @@ function Territories({
   const isMapMovingRef = useRef(false);
   const municipal = collection.scope.level === 'municipality';
   const canDrillDown = collection.scope.level === 'state' && Boolean(onDrillDown);
-  const isClimate = !collection.indicator?.key;
   useEffect(() => {
-    if (!fireMode || !isClimate) return;
+    if (!fireMode) return;
     const attribution =
       '<a href="https://data.inpe.br/queimadas/" target="_blank" rel="noopener noreferrer">INPE — Queimadas</a>';
     map.attributionControl?.addAttribution(attribution);
     return () => {
       map.attributionControl?.removeAttribution(attribution);
     };
-  }, [map, fireMode, isClimate]);
+  }, [map, fireMode]);
   const dense = collection.features.length > DENSE_FEATURES;
   useEffect(() => {
     const container = map.getContainer();
@@ -235,7 +225,7 @@ function Territories({
       const hovered =
         properties?.ibgeCode === hoveredCode.current && properties?.ibgeCode !== selectedCode;
 
-      if (isClimate && fireMode) {
+      if (fireMode) {
         const fire = properties ? fireByCode?.get(properties.ibgeCode) : undefined;
         const showDensity = fire?.density != null;
         return {
@@ -256,7 +246,7 @@ function Territories({
           className: 'territory-shape climate-territory-shape',
         };
       }
-      if (isClimate && rainMode) {
+      if (rainMode) {
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
         const rainVal = weather ? rainAmount(weather) : 0;
         const hasRain = rainVal > 0;
@@ -272,7 +262,7 @@ function Territories({
           className: 'territory-shape climate-territory-shape',
         };
       }
-      if (isClimate && (climateMode || (!fireMode && !rainMode))) {
+      if (climateMode || (!fireMode && !rainMode)) {
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
         const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
         const hasColor = hasDirectTemp;
@@ -289,36 +279,18 @@ function Territories({
           className: 'territory-shape climate-territory-shape',
         };
       }
-      if (isClimate) {
-        return {
-          smoothFactor: 0,
-          color: '#ffffff',
-          weight: municipal ? 0.5 : 0.85,
-          opacity: municipal ? 0.7 : 0.85,
-          fillOpacity: hovered ? 0.25 : 0.08,
-          fillColor: '#f1f5f9',
-          className: 'territory-shape climate-territory-shape',
-        };
-      }
-
       return {
-        color: BORDER_COLOR,
-        weight: municipal ? 0.4 : 0.75,
-        opacity: municipal ? 0.55 : 0.8,
-        fillOpacity: properties?.classIndex == null ? 0.35 : 0.68,
-        fillColor: colorForClass(
-          properties?.classIndex ?? null,
-          collection.classification,
-          paletteForIndicator(collection.indicator?.key),
-        ),
-        className: 'territory-shape',
+        smoothFactor: 0,
+        color: '#ffffff',
+        weight: municipal ? 0.5 : 0.85,
+        opacity: municipal ? 0.7 : 0.85,
+        fillOpacity: hovered ? 0.25 : 0.08,
+        fillColor: '#f1f5f9',
+        className: 'territory-shape climate-territory-shape',
       };
     },
     [
-      collection.classification,
-      collection.indicator?.key,
       featuresByCode,
-      isClimate,
       municipal,
       selectedCode,
       weatherByCode,
@@ -333,7 +305,6 @@ function Territories({
   // open tooltips. Geometry/LOD changes still update the displayed boundaries.
   const propsRef = useRef({
     onSelect,
-    onHover,
     onDrillDown,
     canDrillDown,
     selectedCode,
@@ -349,7 +320,6 @@ function Territories({
   });
   propsRef.current = {
     onSelect,
-    onHover,
     onDrillDown,
     canDrillDown,
     selectedCode,
@@ -401,7 +371,7 @@ function Territories({
   }, [scheduleHideTooltip, updateHoverOutline]);
 
   // Cria o elemento e liga o rastreio do cursor uma única vez: isso não pode
-  // ser recriado a cada troca de indicador/ano, só quando o mapa muda.
+  // ser recriado quando o mapa muda.
   useEffect(() => {
     const el = document.createElement('div');
     el.id = TOOLTIP_ID;
@@ -501,7 +471,6 @@ function Territories({
         fireHours: fh,
         rainMode: rm,
         climateMode: cm = true,
-        collection: col,
       } = propsRef.current;
       const currentFeature = featuresByCodeRef.current.get(code);
       const properties = currentFeature?.properties;
@@ -511,10 +480,6 @@ function Territories({
       const content = JSON.stringify([
         properties.name,
         properties.parentName,
-        properties.value,
-        col.indicator?.key,
-        col.indicator?.year,
-        col.indicator?.unit,
         fb?.get(code),
         fm,
         rm,
@@ -535,7 +500,6 @@ function Territories({
         tooltipCleanupRef.current = fillTooltipContent(
           el,
           properties,
-          col,
           weather,
           fb?.get(code),
           fh,
@@ -601,7 +565,6 @@ function Territories({
 
         restyle();
         updateHoverOutline(code);
-        propsRef.current.onHover?.(code);
         element?.setAttribute('aria-describedby', TOOLTIP_ID);
       };
 
@@ -834,7 +797,7 @@ function Territories({
   );
 }
 
-export function ChoroplethLayer(props: Props) {
+export function TerritoryLayer(props: Props) {
   const { collection } = props;
   const layerKey = [collection.scope.level, collection.scope.parent ?? 'root'].join(':');
 

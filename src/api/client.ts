@@ -6,8 +6,8 @@
  * interface possa reagir ao `code` em vez de comparar strings de mensagem.
  *
  * As quatro funções exportadas cobrem os quatro métodos que a aplicação usa:
- * `apiGet` para as projeções de leitura e `apiPost`/`apiPut`/`apiDelete` para
- * as visualizações salvas, a única entidade escrita pelo usuário.
+ * As funções de leitura e escrita expõem os contratos usados pelas camadas
+ * ambientais e pelos municípios acompanhados.
  *
  * Também é aqui que mora a pausa por fonte externa (ver "Fontes externas"
  * abaixo): várias camadas consultam a mesma fonte em paralelo, e só o cliente
@@ -43,7 +43,7 @@ export class ApiError extends Error {
     this.details = details;
   }
 
-  /** Território ou indicador inexistente: a UI trata como estado, não como falha. */
+  /** Território inexistente: a UI trata como estado, não como falha. */
   get isNotFound(): boolean {
     return this.status === 404;
   }

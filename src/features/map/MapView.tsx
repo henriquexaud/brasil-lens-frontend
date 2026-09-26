@@ -1,4 +1,4 @@
-/** Base cartográfica e navegação compartilhadas por todos os contextos.
+/** Base cartográfica para clima, meio ambiente e navegação territorial.
  * A coleção traz as divisas e os recortes; children acrescenta clima e avisos.
  */
 import 'leaflet/dist/leaflet.css';
@@ -16,7 +16,7 @@ import type {
   FireMunicipality,
 } from '@/api/types';
 
-import { ChoroplethLayer } from './ChoroplethLayer';
+import { TerritoryLayer } from './TerritoryLayer';
 import { ViewportObserver, type MapViewport } from './ViewportObserver';
 import type { FireMode } from '@/features/fire/fireDensity';
 import { scopeInsets } from './viewport';
@@ -53,11 +53,10 @@ const STATE_OUTLINE_STYLE: PolylineOptions = {
 };
 
 interface Props {
-  /** Ausente para contextos sem coroplética (ex.: Clima) — ver `children`. */
+  /** Camadas ambientais entram como children do mapa. */
   collection?: MapFeatureCollection;
   selectedCode?: string | null;
   onSelect?: (ibgeCode: string) => void;
-  onHover?: (ibgeCode: string) => void;
   /** Duplo clique em uma UF pula direto para os seus municípios. */
   onDrillDown?: (ibgeCode: string, name: string) => void;
   /** Camadas de dado que não são a coroplética territorial (ex.: estações e alertas). */
@@ -69,7 +68,7 @@ interface Props {
   rainMode?: boolean;
   climateMode?: boolean;
   onViewportChange?: (viewport: MapViewport) => void;
-  /** Contorno persistente do Brasil (ex.: sempre visível no contexto de Clima). */
+  /** Contorno geográfico persistente do território aberto. */
   brazilOutline?: MapFeatureCollection;
   /** Contorno da fronteira do estado quando o usuário está dentro de um estado exibindo cidades. */
   stateOutline?: MapFeature | null;
@@ -142,7 +141,7 @@ function FitToScope({
       map.off('resize', onResize);
     };
     // `scopeKey` (e não `bbox`) na dependência, de propósito: o bbox de um
-    // mesmo escopo não muda, e reenquadrar o mapa a cada troca de indicador
+    // mesmo escopo não muda, e reenquadrar o mapa a cada troca de território
     // ou de ano tiraria o usuário do lugar onde ele estava olhando.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, scopeKey, selectedFeature?.id, locationTarget?.requestedAt]);
@@ -154,7 +153,6 @@ export function MapView({
   collection,
   selectedCode = null,
   onSelect = () => {},
-  onHover,
   onDrillDown,
   children,
   weatherByCode,
@@ -195,7 +193,7 @@ export function MapView({
       // Leaflet independe deste botão.
       zoomControl={false}
       attributionControl
-      // Duplo clique numa UF já faz drill-down (ver ChoroplethLayer); deixar o
+      // Duplo clique numa UF já faz drill-down (ver TerritoryLayer); deixar o
       // zoom nativo do Leaflet também respondendo a duplo clique fazia o
       // mesmo gesto significar duas coisas diferentes dependendo de onde caía
       // — e some sem afetar o drill-down, que é um bind próprio na camada,
@@ -243,10 +241,9 @@ export function MapView({
       )}
       {collection && (
         <>
-          <ChoroplethLayer
+          <TerritoryLayer
             collection={collection}
             onSelect={onSelect}
-            onHover={onHover}
             onDrillDown={onDrillDown}
             selectedCode={selectedCode}
             weatherByCode={weatherByCode}

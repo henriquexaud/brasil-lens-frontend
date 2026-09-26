@@ -28,7 +28,6 @@ export interface SearchResult {
 
 interface Props {
   onSelect: (result: SearchResult) => void;
-  onPreview?: (code: string) => void;
   onLocated: (location: LocatedMunicipality) => void;
 }
 
@@ -60,7 +59,7 @@ function highlightMatch(text: string, query: string) {
   );
 }
 
-export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
+export function SearchBox({ onSelect, onLocated }: Props) {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [focused, setFocused] = useState(false);
@@ -229,9 +228,7 @@ export function SearchBox({ onSelect, onPreview, onLocated }: Props) {
                 className={i === activeIndex ? 'search-result is-active' : 'search-result'}
                 onMouseEnter={() => {
                   setActiveIndex(i);
-                  onPreview?.(result.ibgeCode);
                 }}
-                onFocus={() => onPreview?.(result.ibgeCode)}
                 // mousedown (não click) dispara antes do input perder o foco.
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectResult(result)}

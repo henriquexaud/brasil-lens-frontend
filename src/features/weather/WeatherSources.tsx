@@ -1,5 +1,5 @@
 /**
- * Fontes e metodologia do contexto Clima.
+ * Fontes e metodologia das camadas ambientais.
  *
  * Temporariamente fora da interface — o espaço que ocupava no fim do painel de
  * clima passou para "Municípios seguidos". Mantido aqui, intacto, para voltar

@@ -159,11 +159,11 @@ async function render(props) {
 
 const $ = (selector) => dom.window.document.querySelector(selector);
 const followButton = () => $('.follow-btn');
-const bellButton = () => $('.views-notif-toggle');
+const bellButton = () => $('.follow-notif-toggle');
 
 test('fora de um município não há botão de seguir, só o estado vazio', async () => {
   await render({ current: null });
-  await until(() => $('.views-empty-state'));
+  await until(() => $('.follow-empty-state'));
   assert.equal(followButton(), null);
   assert.equal($('details').open, false, 'a seção começa recolhida como as visualizações');
 });
@@ -183,8 +183,8 @@ test('seguir é otimista e a lista é confirmada pelo servidor', async () => {
   await until(() => requests.filter((r) => r.startsWith('GET')).length >= 2);
   assert.ok(requests.includes('PUT /api/v1/me/followed-municipalities/3550308'));
   assert.ok(server.followed.has('3550308'));
-  assert.equal($('.views-count-badge').textContent, '1');
-  assert.ok($('.views-item.is-current'), 'o município aberto é destacado na lista');
+  assert.equal($('.follow-count-badge').textContent, '1');
+  assert.ok($('.follow-item.is-current'), 'o município aberto é destacado na lista');
 
   // Com a releitura do primeiro clique ainda em voo, o otimista espera o
   // `cancelQueries` — alguns microtasks, não a resposta do DELETE.
@@ -203,7 +203,7 @@ test('falha ao seguir desfaz a mudança e mostra o erro', async () => {
   await until(() => $('.notice-error'));
   assert.equal(followButton().getAttribute('aria-pressed'), 'false');
   assert.match($('.notice-error').textContent, /Falha ao gravar/);
-  assert.equal($('.views-count-badge'), null);
+  assert.equal($('.follow-count-badge'), null);
 });
 
 test('reabrir um município já seguido mostra "Seguindo" a partir do backend', async () => {
@@ -252,6 +252,7 @@ test('o sino alterna as notificações de um município seguido via POST otimist
 
   await act(async () => bellButton().click());
   // Muda no clique, antes de o POST responder.
+  await until(() => bellButton().getAttribute('aria-pressed') === 'false');
   assert.equal(bellButton().getAttribute('aria-pressed'), 'false');
   assert.equal(bellButton().classList.contains('is-enabled'), false);
 

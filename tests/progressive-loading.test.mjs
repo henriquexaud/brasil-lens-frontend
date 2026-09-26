@@ -555,54 +555,35 @@ test('malha oficial chega em páginas, preserva contornos e cancela o viewport a
   assert.equal(result.data, undefined, 'não apresenta uma UF como se fosse outra');
 });
 
-test('mapa pinta a malha leve, troca pela detalhada na ociosidade e busca valores à parte', async () => {
+test('mapa territorial troca a malha leve pela detalhada quando fica ocioso', async () => {
   const feature = (code, lod) => ({
     type: 'Feature', id: code,
-    properties: { ibgeCode: code, name: code, level: 'state', abbreviation: code, parentCode: null, parentName: null, value: null, normalizedValue: null, classIndex: null },
+    properties: { ibgeCode: code, name: code, level: 'state', abbreviation: code, parentCode: null, parentName: null },
     geometry: { type: 'MultiPolygon', coordinates: [[[[0, 0], [1, lod === 'detail' ? 0.5 : 0], [1, 1], [0, 0]]]] },
   });
   respond = async (url) => {
-    if (url.pathname.endsWith('/map/values')) {
-      const year = url.searchParams.get('year');
-      return new Response(JSON.stringify({
-        level: 'state', parent: null,
-        indicator: { key: 'population', name: 'População', unit: 'people', decimalPlaces: 0, year: year === 'latest' ? 2022 : Number(year), requestedYear: year, availableYears: [2010, 2022] },
-        statistics: null, classification: null,
-        values: [{ ibgeCode: '35', value: year === 'latest' ? 46 : 41, normalizedValue: 1, classIndex: 4 }],
-      }));
-    }
     const lod = url.searchParams.get('lod');
     return new Response(JSON.stringify({
       type: 'FeatureCollection', scope: { level: 'state', parent: null, lod, count: 1 },
-      indicator: null, statistics: null, classification: null, features: [feature('35', lod)],
+      features: [feature('35', lod)],
     }));
   };
   let layer, outline;
-  function Map({ year }) {
-    layer = useMapLayer({ level: 'state', indicator: 'population', year });
-    outline = useMapLayer({ level: 'state', year: 'latest' });
+  function Map() {
+    layer = useMapLayer({ level: 'state' });
+    outline = useMapLayer({ level: 'state' });
     return null;
   }
-  await render(h(Map, { year: 'latest' }));
-  await until(() => layer.data?.features[0].properties.value === 46);
-  const paths = () => requests.map((r) => `${r.url.pathname}?${r.url.searchParams.get('lod') ?? r.url.searchParams.get('year')}`);
-  assert.deepEqual(paths().sort(), ['/api/v1/map/values?latest', '/api/v1/map?overview']);
+  await render(h(Map));
+  await until(() => layer.data?.features.length === 1);
   assert.equal(layer.data.scope.lod, 'overview');
-  assert.equal(outline.data.features[0].geometry, layer.data.features[0].geometry, 'contorno e coropleta dividem a malha');
+  assert.equal(outline.data.features[0].geometry, layer.data.features[0].geometry);
   assert.equal(layer.isPlaceholderData, false);
 
   await tick(220); await runIdle();
   await until(() => layer.data?.scope.lod === 'detail');
   assert.equal(requests.filter((r) => r.url.pathname.endsWith('/map')).length, 2);
-  assert.equal(layer.data.features[0].properties.value, 46);
-
-  // Trocar o ano só busca os valores; a malha e o desenho anterior ficam.
-  await render(h(Map, { year: '2010' }));
-  assert.equal(layer.data.features[0].properties.value, 46);
-  assert.equal(layer.isPlaceholderData, true);
-  await until(() => layer.data?.features[0].properties.value === 41);
-  assert.equal(layer.isPlaceholderData, false);
-  assert.deepEqual(paths().slice(3), ['/api/v1/map/values?2010']);
+  assert.equal(layer.data.features[0].properties.ibgeCode, '35');
 });
 
 test('Brasil com a primeira etapa fora do ar ainda tenta a média dos estados', async () => {

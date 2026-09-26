@@ -471,39 +471,6 @@ body {
   border: 0;
 }
 
-.field-control {
-  width: 100%;
-  min-height: 38px;
-  padding: 8px 28px 8px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235d6875' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M4 6.5l4 3.5 4-3.5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  background-size: 14px;
-  text-overflow: ellipsis;
-  transition:
-    border-color var(--motion-fast) var(--ease-out),
-    background-color var(--motion-fast) var(--ease-out),
-    box-shadow var(--motion-fast) var(--ease-out);
-}
-
-.field-control:hover:enabled {
-  border-color: #9badb2;
-  background-color: #fcfdfd;
-}
-
-.field-control:disabled {
-  color: var(--text-faint);
-  cursor: default;
-}
-
 .source-note {
   margin: 12px 0 0;
   color: var(--text-faint);
@@ -517,56 +484,6 @@ body {
   color: var(--text-soft);
   font-size: 10.5px;
   line-height: 1.45;
-}
-
-.control-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 2px 8px;
-  margin-top: 7px;
-}
-
-.text-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 4px 0;
-  border: 0;
-  border-radius: 3px;
-  background: none;
-  color: var(--text-soft);
-  font: inherit;
-  font-size: 11.5px;
-  cursor: pointer;
-  transition: color var(--motion-fast) var(--ease-out);
-}
-
-.text-button:hover:enabled,
-.text-button[aria-expanded='true'] {
-  color: var(--accent);
-}
-
-.text-button:disabled {
-  color: var(--text-faint);
-  cursor: default;
-}
-
-/* Sem caixa própria: é uma continuação do controle acima, não um segundo
-   objeto — o recuo e o espaço já bastam para separar. */
-.control-extra {
-  margin-top: 10px;
-}
-
-.control-extra:not([hidden]) {
-  animation: content-reveal var(--motion-ui) var(--ease-out);
-}
-
-.control-extra .source-note {
-  margin: 0;
-  color: var(--text-soft);
 }
 
 /* O summary nativo permite abrir os detalhes com teclado e toque. */
@@ -630,7 +547,6 @@ body {
 /* O HTML nativo mantém teclado e semântica de conteúdo oculto. Navegadores
    compatíveis interpolam a altura; os demais recebem uma entrada breve. */
 @supports (interpolate-size: allow-keywords) {
-  .control-extra,
   .territory-detail {
     interpolate-size: allow-keywords;
     block-size: auto;
@@ -643,21 +559,7 @@ body {
       display var(--motion-ui) allow-discrete;
   }
 
-  .control-extra:not([hidden]) {
-    animation: none;
-  }
-
-  .control-extra[hidden] {
-    display: none;
-    block-size: 0;
-    padding-block: 0;
-    margin-top: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-
   @starting-style {
-    .control-extra,
     .territory-detail {
       block-size: 0;
       padding-block: 0;
@@ -807,8 +709,6 @@ body {
   cursor: default;
 }
 
-.field-control:focus-visible,
-.text-button:focus-visible,
 .disclosure-trigger:focus-visible,
 .ghost-button:focus-visible,
 .icon-button:focus-visible,
@@ -844,117 +744,22 @@ body {
   overflow-wrap: anywhere;
 }
 
-.detail-capital {
-  margin: 2px 0 0;
-  color: var(--text-soft);
-  font-size: 11.5px;
-}
-
-/* Fatos secundários em uma linha corrida, separados por ponto: eram três
-   blocos de rótulo e valor disputando espaço com os indicadores. */
-.detail-facts {
-  margin: 0 0 12px;
-  color: var(--text-faint);
-  font-size: 11.5px;
-  display: flex;
-  flex-wrap: wrap;
-  /* O espaçamento já separa os fatos; um separador desenhado se perdia nas
-     quebras de linha e só somava ruído. */
-  gap: 3px 14px;
-}
-
-.featured-indicator {
-  margin: 18px 0 0;
-  animation: content-reveal var(--motion-ui) var(--ease-out);
-}
-
-.featured-value {
-  margin: 3px 0 0;
-  font-family: var(--font-numeric);
-  font-size: 24px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.035em;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.featured-value.is-missing {
-  color: var(--text-faint);
-  font-size: 18px;
-  font-weight: 400;
-}
-
-.territory-details {
-  margin-top: 12px;
-}
-
-.detail-source {
-  margin: 0 0 12px;
-}
-
-.indicator-list {
-  margin: 0;
-}
-
-.indicator-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 5px 0;
-}
-
-.indicator-label {
-  min-width: 0;
-  color: var(--text-soft);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.indicator-year {
-  margin-left: 5px;
-  color: var(--text-faint);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
-.indicator-value {
-  margin: 0;
-  font-family: var(--font-numeric);
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  max-width: 65%;
-  text-align: right;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.indicator-value.is-missing {
-  color: var(--text-faint);
-  font-weight: 400;
-}
-
-/* ------------------------------------------------- visualizações salvas -- */
+/* ------------------------------------------------ municípios seguidos -- */
 
 /*
- * Lista de marcadores do usuário. Usa os mesmos objetos das outras seções
- * (`ghost-button`, `icon-button`, `field-control`) de propósito: é mais uma
- * seção do painel, não uma superfície nova com vocabulário próprio.
+ * Lista de municípios que o usuário acompanha para consulta rápida.
  */
 
-.saved-views {
+.followed-municipalities {
   padding-top: 8px;
   padding-bottom: 8px;
 }
 
-.saved-views > .disclosure-content {
+.followed-municipalities > .disclosure-content {
   padding-bottom: 8px;
 }
 
-.views-count-badge {
+.follow-count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -969,11 +774,11 @@ body {
   margin-left: 4px;
 }
 
-.views-top-bar {
+.follow-top-bar {
   margin-bottom: 8px;
 }
 
-.views-save-btn {
+.follow-toggle-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -994,91 +799,13 @@ body {
     color var(--motion-fast) var(--ease-out);
 }
 
-.views-save-btn:hover {
+.follow-toggle-btn:hover {
   background: var(--surface-muted);
   border-color: var(--accent);
   border-style: solid;
 }
 
-.views-save-btn.is-active {
-  border-style: solid;
-  border-color: var(--border-strong);
-  color: var(--text-soft);
-}
-
-.views-create-card {
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  margin-bottom: 10px;
-  animation: content-reveal var(--motion-ui) var(--ease-out);
-}
-
-.views-card-header {
-  margin-bottom: 6px;
-}
-
-.views-card-title {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
-}
-
-.views-context-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.views-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 10.5px;
-  color: var(--text-soft);
-}
-
-.views-chip-label {
-  color: var(--text-faint);
-  font-size: 10px;
-}
-
-.views-chip-val {
-  font-weight: 500;
-  color: var(--text);
-}
-
-.views-cancel-btn {
-  flex: none;
-  width: auto;
-  padding: 0 8px;
-  font-size: 11.5px;
-}
-
-.views-success-banner {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  margin-bottom: 8px;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
-  border-radius: var(--radius-sm);
-  font-size: 11.5px;
-  font-weight: 500;
-  animation: content-reveal var(--motion-ui) var(--ease-out);
-}
-
-.views-empty-state {
+.follow-empty-state {
   padding: 14px 10px;
   text-align: center;
   border: 1px dashed var(--border);
@@ -1087,33 +814,33 @@ body {
   background: var(--surface);
 }
 
-.views-empty-icon {
+.follow-empty-icon {
   color: var(--text-faint);
   opacity: 0.7;
   margin-bottom: 4px;
 }
 
-.views-empty-title {
+.follow-empty-title {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-soft);
   margin: 0 0 2px 0;
 }
 
-.views-empty-desc {
+.follow-empty-desc {
   font-size: 11px;
   color: var(--text-faint);
   margin: 0;
   line-height: 1.4;
 }
 
-.views-skeleton-list {
+.follow-skeleton-list {
   display: grid;
   gap: 6px;
   padding: 4px 0;
 }
 
-.views-skeleton-item {
+.follow-skeleton-item {
   height: 32px;
   border-radius: var(--radius-sm);
   background: linear-gradient(
@@ -1126,46 +853,11 @@ body {
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }
 
-.views-form {
-  margin-bottom: 4px;
-  animation: content-reveal var(--motion-ui) var(--ease-out);
-}
-
-.views-form-row {
-  display: flex;
-  gap: 6px;
-  align-items: stretch;
-  width: 100%;
-}
-
-.views-edit-row {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 0;
-}
-
-/* min-width: 0 impede que o input estique o flex e empurre o botão para fora. */
-.views-input {
-  flex: 1;
-  min-width: 0;
-  padding-right: 9px;
-  background-image: none;
-  cursor: text;
-  font-weight: 400;
-}
-
-.views-submit {
-  flex: none;
-  width: auto;
-  margin-top: 0;
-  padding: 0 12px;
-}
-
-.views-error {
+.follow-error {
   margin-bottom: 8px;
 }
 
-.views-list {
+.follow-list {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1173,7 +865,7 @@ body {
   gap: 3px;
 }
 
-.views-item {
+.follow-item {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1182,18 +874,11 @@ body {
   transition: background-color var(--motion-fast) var(--ease-out);
 }
 
-.views-item:hover {
+.follow-item:hover {
   background: var(--surface-muted);
 }
 
-/* O formulário de renomear substitui a linha inteira. */
-.views-item > form {
-  flex: 1;
-  min-width: 0;
-  animation: content-reveal var(--motion-ui) var(--ease-out);
-}
-
-.views-apply {
+.follow-apply {
   flex: 1;
   min-width: 0;
   display: grid;
@@ -1208,7 +893,7 @@ body {
   border-radius: var(--radius-sm);
 }
 
-.views-name {
+.follow-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1216,7 +901,7 @@ body {
   font-weight: 500;
 }
 
-.views-meta {
+.follow-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1227,107 +912,39 @@ body {
   gap: 3px;
 }
 
-.views-meta-pill {
+.follow-meta-pill {
   display: inline;
 }
 
-.views-meta-sep {
+.follow-meta-sep {
   color: var(--border-strong);
 }
 
-.views-actions-group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.views-actions-group .views-action {
-  opacity: 0.6;
-  transition:
-    opacity var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out);
-}
-
-.views-item:hover .views-action,
-.views-action:hover,
-.views-action:focus-visible {
-  opacity: 1;
-}
-
-/* Confirmação de exclusão */
-.views-confirm {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.views-confirm-yes {
-  padding: 2px 8px;
-  border: 1px solid var(--danger);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--danger);
-  font: inherit;
-  font-size: 11px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background-color var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out);
-}
-
-.views-confirm-yes:hover {
-  background: var(--danger);
-  color: var(--surface);
-}
-
-.views-confirm-yes:focus-visible {
-  outline: 2px solid var(--danger);
-  outline-offset: 1px;
-}
-
-.views-action {
-  width: 24px;
-  height: 24px;
-  margin: 0;
-}
-
-.views-apply:focus-visible,
-.views-input:focus-visible,
-.views-submit:focus-visible {
+.follow-apply:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-@media (hover: none) {
-  .views-action {
-    opacity: 1;
-  }
-}
-
 /* Sino de notificações: ao contrário do "x", fica sempre visível (não só no
  * hover da linha) — discreto pela cor e pelo tamanho, não por estar oculto. */
-.views-notif-toggle {
+.follow-notif-toggle {
   opacity: 0.55;
   color: var(--text-faint);
 }
 
-.views-notif-toggle.is-enabled {
+.follow-notif-toggle.is-enabled {
   opacity: 0.85;
   color: var(--accent);
 }
 
-.views-notif-toggle:hover,
-.views-notif-toggle:focus-visible {
+.follow-notif-toggle:hover,
+.follow-notif-toggle:focus-visible {
   opacity: 1;
 }
 
 /* ----------------------------------------------------- municípios seguidos -- */
 
-/*
- * Reaproveita a seção de visualizações salvas (`.saved-views`, `.views-*`).
- * Só o alternador "Seguir ↔ Seguindo" e a linha do município aberto são novos.
- */
+/* A lista oferece ações de acompanhamento e notificação por município. */
 
 .follow-btn {
   min-width: 0;
@@ -1380,15 +997,15 @@ body {
   outline-offset: 1px;
 }
 
-.views-item.is-current {
+.follow-item.is-current {
   background: var(--surface-muted);
 }
 
-.views-item.is-current .views-name {
+.follow-item.is-current .follow-name {
   color: var(--accent);
 }
 
-.views-apply:disabled {
+.follow-apply:disabled {
   cursor: default;
 }
 
@@ -1410,38 +1027,6 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-}
-
-.legend-title {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  animation: ink-reveal var(--motion-ui) var(--ease-out);
-}
-
-.legend-meta {
-  display: block;
-  margin-top: 1px;
-  color: var(--text-faint);
-  font-size: 10.5px;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Faixa contínua: as cinco classes cabem em uma linha, e o intervalo exato de
-   cada uma aparece no hover. */
-.legend-ramp {
-  display: flex;
-  gap: 2px;
-  margin: 7px 0 4px;
-}
-
-.legend-step {
-  flex: 1;
-  height: 9px;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgb(18 26 36 / 8%);
-  transition: background-color var(--motion-map) var(--ease-in-out);
 }
 
 .legend.weather-legend {
@@ -1593,33 +1178,10 @@ body {
   line-height: 1.2;
 }
 
-.legend-bounds {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-faint);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  animation: ink-reveal var(--motion-ui) var(--ease-out);
-}
-
-.legend-missing {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  color: var(--text-faint);
-  font-size: 10.5px;
-}
-
-.legend-missing .legend-step {
-  flex: none;
-  width: 14px;
-}
-
 /* ------------------------------------------------------------- tooltip -- */
 
 /*
- * Elemento único, sempre no DOM (ver ChoroplethLayer): posição e opacidade
+ * Elemento único, sempre no DOM (ver TerritoryLayer): posição e opacidade
  * são escritas via JS (transform/opacity inline), não por classe. Só a
  * transição de opacidade mora aqui — ela cobre abrir/fechar a sessão de
  * hover, não a troca de conteúdo entre territórios vizinhos (essa troca não
@@ -1839,230 +1401,22 @@ body {
   }
 }
 
-/* Mesmo painel, mesma tipografia: detalhes só ganham espaço quando são abertos. */
-.context-section {
+/* O painel territorial deixa espaço para as informações quando são abertas. */
+.scope-section {
   padding-bottom: 4px;
 }
-.context-section .scope {
+.scope-section .scope {
   margin: 0;
   align-items: center;
 }
-.context-section div:has(#context) + .scope {
-  margin: 14px 0 0;
-}
-
 /* Switch temático de clima logo após o cabeçalho territorial */
 .thematic-switch-wrapper {
   margin-top: 10px;
   margin-bottom: 2px;
 }
-
-/* --- Novo Menu Socioeconômico com Categorias e Pílulas --- */
-.indicator-controls {
-  padding-top: 6px;
-  padding-bottom: 10px;
-}
-
-.indicator-segmented-control {
-  display: flex;
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 3px;
-  gap: 3px;
-  margin-bottom: 8px;
-}
-
-.indicator-segment-btn {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text-soft);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 500;
-  padding: 5px 6px;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: center;
-  white-space: nowrap;
-  transition:
-    background-color var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out),
-    box-shadow var(--motion-fast) var(--ease-out);
-}
-
-.indicator-segment-btn:hover {
-  color: var(--text);
-  background: rgb(255 255 255 / 60%);
-}
-
-.indicator-segment-btn.is-active {
-  background: var(--surface);
-  color: var(--text);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgb(38 55 61 / 8%);
-}
-
-/* Pílulas de Sub-indicadores */
-.indicator-pills-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 8px;
-}
-
-.indicator-pill-btn {
-  border: 1px solid var(--border);
-  background: var(--surface-muted);
-  color: var(--text-soft);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 3px 9px;
-  border-radius: 12px;
-  cursor: pointer;
-  line-height: 1.3;
-  transition:
-    background-color var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out);
-}
-
-.indicator-pill-btn:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
-  color: var(--text);
-}
-
-.indicator-pill-btn.is-active {
-  background: var(--text);
-  color: #fff;
-  border-color: var(--text);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
-}
-
-/* Linha de Metadados e Ajustes */
-.indicator-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 2px 2px 0;
-  font-size: 11.5px;
-}
-
-.indicator-meta-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.indicator-source-tag {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--text-soft);
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  padding: 1px 5px;
-  border-radius: 4px;
-}
-
-.indicator-unit-badge {
-  font-size: 11px;
-  color: var(--text-soft);
-  font-weight: 500;
-}
-
-.indicator-adjust-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--text-soft);
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: var(--radius-sm);
-  transition: color var(--motion-fast) var(--ease-out);
-}
-
-.indicator-adjust-toggle:hover {
-  color: var(--text);
-}
-
-.indicator-year-label {
-  font-weight: 500;
-}
-
-.indicator-adjust-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--accent);
-  font-weight: 500;
-}
-
-.indicator-extra-panel {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.control-toggle {
-  width: 100%;
-  justify-content: space-between;
-  margin-top: 3px;
-}
-.control-toggle > span:last-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.control-toggle .disclosure-chevron {
-  margin-left: 1px;
-}
-.control-extra .field-control + .source-note {
-  margin-top: 10px;
-}
 .panel-disclosure {
   padding-top: 4px;
   padding-bottom: 4px;
-}
-.panel-section.panel-legend {
-  padding-top: 12px;
-}
-.panel-legend .legend {
-  width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: none;
-}
-.panel-legend .legend-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.panel-legend .legend-meta {
-  margin: 0;
-}
-.panel-legend .legend-ramp {
-  margin-top: 6px;
-}
-.panel-legend .weather-legend-gradient {
-  margin-top: 6px;
-  height: 6px;
-}
-.panel-legend .legend-step {
-  height: 7px;
-}
-.panel-legend .legend-bounds {
-  font-size: 10px;
 }
 .territory-detail .detail-title {
   font-size: 16px;
@@ -3026,23 +2380,6 @@ body {
     stroke var(--motion-map) var(--ease-in-out),
     stroke-opacity var(--motion-ui) var(--ease-out);
 }
-
-.brazil-detail .detail-capital {
-  margin-top: 2px;
-  color: var(--text-faint);
-  font-size: 11.5px;
-}
-
-@media (hover: hover) {
-  .views-item .views-action {
-    opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-out);
-  }
-  .views-item:hover .views-action,
-  .views-item:focus-within .views-action {
-    opacity: 1;
-  }
-}
 @media (max-width: 900px) {
   .mobile-sheet-handle {
     display: flex;
@@ -3085,13 +2422,9 @@ body {
   .search-slot {
     width: min(340px, calc(100vw - 2 * var(--gutter)));
   }
-  .panel-legend .legend {
-    width: 100%;
-  }
 }
 @media (hover: none) {
   .disclosure-trigger,
-  .text-button,
   .weather-toggle {
     min-height: 40px;
   }

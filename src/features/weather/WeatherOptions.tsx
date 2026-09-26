@@ -1,17 +1,12 @@
 import { useMemo } from 'react';
 import { useWeatherAlerts } from '@/api/queries';
-import type {
-  FireHotspotCollection,
-  WeatherAlertCollection,
-  WeatherCurrentResponse,
-} from '@/api/types';
+import type { WeatherAlertCollection, WeatherCurrentResponse } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
 import { describeError, ErrorMessage } from '@/components/Feedback';
 import { formatRelativeTime } from '@/lib/format';
 import { WeatherAlertCard } from './WeatherAlertCard';
 import { WeatherAlertGroupCard } from './WeatherAlertGroupCard';
 import { WeatherAlertsNationalSummary } from './WeatherAlertsNationalSummary';
-import { WeatherThematicSwitch } from './WeatherThematicSwitch';
 import {
   IBGE_UF_MAP,
   UF_NAMES,
@@ -22,23 +17,10 @@ import {
 export interface WeatherOptionsProps {
   showAlerts: boolean;
   onToggleAlerts: (show: boolean) => void;
-  showThematicSelector?: boolean;
-  showClimate?: boolean;
-  onToggleClimate?: (show: boolean) => void;
-  minTemperature?: number;
-  maxTemperature?: number;
   showHydrography?: boolean;
   onToggleHydrography?: (show: boolean) => void;
   hydrographyPartial?: boolean;
   hydrographyError?: boolean;
-  showFireHotspots?: boolean;
-  onToggleFireHotspots?: (show: boolean) => void;
-  fireHotspotsLoading?: boolean;
-  fireHotspots?: FireHotspotCollection;
-  fireHotspotsError?: boolean;
-  showRainfall?: boolean;
-  onToggleRainfall?: (show: boolean) => void;
-  maxRainfall?: number;
   code: string | null;
   current: WeatherCurrentResponse | undefined;
   /** Falha da camada temática ativa (clima, chuva ou focos), exibida no rodapé. */
@@ -55,23 +37,10 @@ export interface WeatherOptionsProps {
 export function WeatherOptions({
   showAlerts,
   onToggleAlerts,
-  showThematicSelector = true,
-  showClimate,
-  onToggleClimate,
-  minTemperature,
-  maxTemperature,
   showHydrography,
   onToggleHydrography,
   hydrographyPartial,
   hydrographyError = false,
-  showFireHotspots,
-  onToggleFireHotspots,
-  fireHotspotsLoading,
-  fireHotspots,
-  fireHotspotsError,
-  showRainfall,
-  onToggleRainfall,
-  maxRainfall,
   code,
   current,
   error,
@@ -156,27 +125,6 @@ export function WeatherOptions({
     >
       {/* Grupo Unificado de Camadas Interativas */}
       <div className="weather-layers-panel">
-        {/* Seletor Segmentado de Camada Temática (quando habilitado no próprio painel) */}
-        {showThematicSelector && (
-          <WeatherThematicSwitch
-            showClimate={showClimate}
-            onToggleClimate={onToggleClimate}
-            minTemperature={minTemperature}
-            maxTemperature={maxTemperature}
-            showRainfall={showRainfall}
-            onToggleRainfall={onToggleRainfall}
-            maxRainfall={maxRainfall}
-            showFireHotspots={showFireHotspots}
-            onToggleFireHotspots={onToggleFireHotspots}
-            fireHotspotsLoading={fireHotspotsLoading}
-            fireHotspots={fireHotspots}
-            fireHotspotsError={fireHotspotsError}
-            current={current}
-            error={error}
-            scopeName={scopeName}
-          />
-        )}
-
         {/* Camada: Alertas — uma só camada para as duas fontes; a origem
             aparece dentro de cada alerta (ver Disclosure abaixo), nunca como
             controle separado. */}

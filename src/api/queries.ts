@@ -3,23 +3,21 @@
  *
  * Por que uma biblioteca de fetching aqui e não estado global: o produto tem
  * exatamente um tipo de estado difícil — respostas de servidor cacheadas por
- * (indicador, ano, escopo). React Query resolve deduplicação, cache, estados de
+ * escopo geográfico. React Query resolve deduplicação, cache, estados de
  * carregamento e prefetch. Redux resolveria um problema que não existe: não há
  * estado compartilhado complexo no cliente.
  *
- * O estado da *interface* (indicador escolhido, território selecionado) fica em
+ * O estado da *interface* (camadas ativas, território selecionado) fica em
  * `useState`/hook local, como deve.
  */
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useRef } from 'react';
 
 import { useDeferredReady } from '@/lib/useDeferredReady';
 
 import { apiGet } from './client';
 import { useCancelWhenDisabled } from './queryLifecycle';
 import type {
-  ContextListResponse,
-  DataContext,
   FireHotspotCollection,
   FireHotspotDetails,
   FireHotspotLocation,
@@ -27,13 +25,10 @@ import type {
   FireSummary,
   HydroFeatureCollection,
   HydroQuery,
-  IndicatorListResponse,
   MapFeatureCollection,
   MapQuery,
-  MapValuesResponse,
   TerritoryLevel,
   TerritoryListResponse,
-  TerritoryOverview,
 } from './types';
 
 /** Dados mudam só quando a ingestão roda: cache longo é correto, não preguiça. */
@@ -48,34 +43,6 @@ export { queryKeys, FIRE_HOTSPOT_HOURS } from './queryKeys';
  * do navegador e reaproveitar a leitura de um lote no cache de cada cidade.
  */
 
-/**
- * Contextos de dados disponíveis (sociopolítico, clima/ambiente)
- * e os providers registrados em cada um. Metadado do backend,
- * não muda entre ingestões — mesmo `staleTime` longo do catálogo.
- */
-export function useContexts() {
-  return useQuery({
-    queryKey: queryKeys.contexts(),
-    queryFn: ({ signal }) => apiGet<ContextListResponse>('/contexts', undefined, signal),
-    staleTime: STATIC_DATA_STALE_TIME,
-  });
-}
-
-export function useIndicators(level?: TerritoryLevel, context?: DataContext, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.indicators(level, context),
-    queryFn: ({ signal }) =>
-      apiGet<IndicatorListResponse>('/indicators', { level, context }, signal),
-    enabled,
-    staleTime: STATIC_DATA_STALE_TIME,
-    // O catálogo do nível/contexto anterior serve de ponte enquanto o novo
-    // carrega: sem isso o painel de controles desaparecia e voltava a cada
-    // drill-down ou troca de contexto. `isPlaceholderData` permite ao
-    // chamador saber que a cobertura temporal ainda é a do nível antigo.
-    placeholderData: (previous) => previous,
-  });
-}
-
 function geometryOptions(
   level: MapQuery['level'],
   parent: string | null,
@@ -84,55 +51,16 @@ function geometryOptions(
   return {
     queryKey: queryKeys.map({ level, parent, lod }),
     queryFn: ({ signal }: { signal: AbortSignal }) =>
-      apiGet<MapFeatureCollection>('/map', { level, parent, year: 'latest', lod }, signal),
+      apiGet<MapFeatureCollection>('/map', { level, parent, lod }, signal),
     staleTime: 30 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
   };
 }
 
-function withValues(
-  geometry: MapFeatureCollection,
-  values: MapValuesResponse,
-): MapFeatureCollection {
-  const items = Array.isArray(values?.values) ? values.values : [];
-  const byCode = new Map(items.map((item) => [item.ibgeCode, item]));
-  return {
-    ...geometry,
-    indicator: values?.indicator ?? null,
-    statistics: values?.statistics ?? null,
-    classification: values?.classification ?? null,
-    features: (geometry?.features ?? []).map((feature) => {
-      const item = byCode.get(feature.properties.ibgeCode);
-      return {
-        ...feature,
-        properties: {
-          ...feature.properties,
-          value: item?.value ?? null,
-          normalizedValue: item?.normalizedValue ?? null,
-          classIndex: item?.classIndex ?? null,
-        },
-      };
-    }),
-  };
-}
-
-/**
- * Camada do mapa: malha e valores em consultas separadas.
- *
- * A malha chega primeiro no LOD `overview` — ~6× menor e com diferença abaixo
- * de um pixel nos zooms do Brasil e da UF — e é trocada pela `detail` quando
- * o navegador fica ocioso. Os valores vêm de `/map/values`: trocar indicador
- * ou ano não retransmite a malha, e contornos, clima e coropleta compartilham
- * a mesma consulta de geometria.
- *
- * Enquanto um novo recorte ou indicador carrega, a camada anterior continua
- * visível (`isPlaceholderData`), em vez de o mapa piscar em branco.
- */
+/** Malha territorial progressiva: carrega overview e troca por detail em repouso. */
 export function useMapLayer(query: MapQuery, enabled = true) {
   const { level } = query;
   const parent = query.parent ?? null;
-  const indicator = query.indicator ?? null;
-  const year = query.year ?? 'latest';
   const overview = useQuery({
     ...geometryOptions(level, parent, 'overview'),
     enabled,
@@ -143,88 +71,12 @@ export function useMapLayer(query: MapQuery, enabled = true) {
     enabled && Boolean(overview.data) && !overview.isPlaceholderData,
   );
   const detail = useQuery({ ...geometryOptions(level, parent, 'detail'), enabled: upgrade });
-  const values = useQuery({
-    queryKey: ['map-values', level, parent, indicator, year],
-    queryFn: ({ signal }) =>
-      apiGet<MapValuesResponse>('/map/values', { level, parent, indicator, year }, signal),
-    enabled: enabled && Boolean(indicator),
-    staleTime: 30 * 60 * 1000,
-    gcTime: 2 * 60 * 60 * 1000,
-    placeholderData: (previousData, previousQuery) => {
-      if (!previousData || !previousQuery) return undefined;
-      const key = previousQuery.queryKey as unknown[];
-      // Só mantém dados anteriores se for exatamente o mesmo escopo e indicador (ex.: trocando ano)
-      if (
-        key[0] === 'map-values' &&
-        key[1] === level &&
-        key[2] === parent &&
-        key[3] === indicator
-      ) {
-        return previousData;
-      }
-      return undefined;
-    },
-  });
-
-  const geometry = detail.data ?? (overview.isPlaceholderData ? undefined : overview.data);
-  const scopeValues =
-    values.data &&
-    Array.isArray(values.data.values) &&
-    values.data.level === level &&
-    (values.data.parent ?? null) === parent &&
-    (!indicator || values.data.indicator?.key === indicator)
-      ? values.data
-      : undefined;
-
-  const merged = useMemo(() => {
-    if (!geometry) return undefined;
-    if (!indicator) return geometry;
-    if (scopeValues) return withValues(geometry, scopeValues);
-    // Transição de indicador: mantém os polígonos no mapa em tom neutro enquanto busca os novos valores,
-    // garantindo que nunca exiba dados ou classificação do indicador antigo.
-    return {
-      ...geometry,
-      indicator: null,
-      statistics: null,
-      classification: null,
-      features: geometry.features.map((feature) => ({
-        ...feature,
-        properties: {
-          ...feature.properties,
-          value: null,
-          normalizedValue: null,
-          classIndex: null,
-        },
-      })),
-    };
-  }, [geometry, indicator, scopeValues]);
-
-  const last = useRef<MapFeatureCollection | undefined>(undefined);
-  if (
-    merged &&
-    merged.scope.level === level &&
-    (merged.scope.parent ?? null) === parent &&
-    (!indicator || merged.indicator?.key === indicator)
-  ) {
-    last.current = merged;
-  }
-
-  const validLast =
-    last.current &&
-    last.current.scope.level === level &&
-    (last.current.scope.parent ?? null) === parent &&
-    (!indicator || last.current.indicator?.key === indicator)
-      ? last.current
-      : undefined;
-
-  const isPendingValues = Boolean(indicator) && !scopeValues;
-
+  const data = detail.data ?? (overview.isPlaceholderData ? undefined : overview.data);
   return {
-    data: merged ?? validLast,
-    error: overview.error ?? values.error,
-    isFetching: overview.isFetching || values.isFetching,
-    isPlaceholderData:
-      !merged || (Boolean(indicator) && values.isPlaceholderData) || isPendingValues,
+    data,
+    error: overview.error ?? detail.error,
+    isFetching: overview.isFetching || detail.isFetching,
+    isPlaceholderData: !data || overview.isPlaceholderData,
   };
 }
 
@@ -372,70 +224,7 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
   };
 }
 
-/** Definição única da consulta de overview, usada pelo hook e pelo prefetch. */
-function overviewQuery(ibgeCode: string, year?: string | number) {
-  const effectiveYear = year && year !== 'latest' ? Number(year) : undefined;
-  return {
-    queryKey: queryKeys.overview(ibgeCode, effectiveYear),
-    queryFn: ({ signal }: { signal: AbortSignal }) =>
-      apiGet<TerritoryOverview>(
-        `/territories/${ibgeCode}/overview`,
-        effectiveYear ? { year: effectiveYear } : undefined,
-        signal,
-      ),
-    staleTime: STATIC_DATA_STALE_TIME,
-  };
-}
-
-export function useTerritoryOverview(ibgeCode: string | null, year?: string | number) {
-  return useQuery({
-    ...overviewQuery(ibgeCode ?? '', year),
-    enabled: Boolean(ibgeCode),
-  });
-}
-
-/**
- * Prefetch do overview quando o cursor **repousa** sobre um território.
- *
- * O debounce não é refinamento: sem ele, uma varredura do mouse dispara uma
- * requisição por polígono cruzado. Medido sobre um estado com 417 municípios,
- * 40 polígonos atravessados geraram 40 requisições HTTP — um usuário
- * movimentando o cursor casualmente produzia centenas. Esperar o cursor parar
- * reduz a varredura a uma requisição, preservando o clique instantâneo.
- */
-export function usePrefetchOverview(delayMs = 180) {
-  const queryClient = useQueryClient();
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-
-  return useCallback(
-    (ibgeCode: string) => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => {
-        void queryClient.prefetchQuery(overviewQuery(ibgeCode));
-      }, delayMs);
-    },
-    [queryClient, delayMs],
-  );
-}
-
-/**
- * Lista de territórios de um nível.
- *
- * Usada para traduzir o `parentCode` de uma visualização salva ("35") no nome
- * que aparece na interface ("São Paulo"). São 27 linhas e ~2 KB, buscados uma
- * vez e reaproveitados: barato o bastante para não valer denormalizar o nome
- * dentro da visualização salva, onde ele poderia envelhecer.
- *
- * `enabled` segue o mesmo padrão de `useMapLayer`: quem não tem nenhuma
- * visualização municipal salva não paga a requisição.
- */
+/** Lista de territórios para filtros e navegação geográfica. */
 export function useTerritories(level: TerritoryLevel, enabled = true) {
   return useQuery({
     queryKey: queryKeys.territories(level),
@@ -462,12 +251,6 @@ export function useTerritorySearch(query: string, enabled = true, limit = 8) {
   });
 }
 
-export {
-  useSavedViews,
-  useCreateSavedView,
-  useUpdateSavedView,
-  useDeleteSavedView,
-} from '@/features/views/useSavedViews';
 export {
   useFollowedMunicipalities,
   useFollowMunicipality,

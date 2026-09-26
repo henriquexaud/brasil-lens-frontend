@@ -39,58 +39,40 @@ test('loadSessionState retorna objeto vazio quando storage está vazio', () => {
   assert.deepEqual(state, {});
 });
 
-test('saveSessionState salva e loadSessionState recupera contexto e outros estados', () => {
-  saveSessionState({
-    context: 'climate_environmental',
-    indicatorKey: 'gdp',
-    year: '2022',
-    showWeatherAlerts: true,
-  });
-
+test('salva e recupera preferências climáticas', () => {
+  saveSessionState({ showWeatherAlerts: true, activeThematicLayer: 'climate' });
   const state = loadSessionState();
-  assert.equal(state.context, 'climate_environmental');
-  assert.equal(state.indicatorKey, 'gdp');
-  assert.equal(state.year, '2022');
   assert.equal(state.showWeatherAlerts, true);
+  assert.equal(state.activeThematicLayer, 'climate');
 });
 
-test('saveSessionState salva e loadSessionState recupera showRainfall e activeThematicLayer', () => {
+test('saveSessionState salva e recupera a camada de chuva ativa', () => {
   saveSessionState({
-    showRainfall: true,
     activeThematicLayer: 'rainfall',
   });
 
   const state = loadSessionState();
-  assert.equal(state.showRainfall, true);
   assert.equal(state.activeThematicLayer, 'rainfall');
 });
 
-test('saveSessionState salva e loadSessionState recupera showClimate e activeThematicLayer: climate', () => {
+test('saveSessionState salva e recupera a camada de clima ativa', () => {
   saveSessionState({
-    showClimate: true,
     activeThematicLayer: 'climate',
   });
 
   const state = loadSessionState();
-  assert.equal(state.showClimate, true);
   assert.equal(state.activeThematicLayer, 'climate');
 });
 
-test('saveSessionState mescla patches parciais preservando campos anteriores', () => {
-  saveSessionState({ context: 'sociopolitical', indicatorKey: 'population' });
+test('mescla patches parciais preservando território selecionado', () => {
+  saveSessionState({ showWeatherAlerts: false });
   saveSessionState({
     scope: { level: 'municipality', parent: '35', parentName: 'São Paulo' },
     selectedCode: '3550308',
   });
-
   const state = loadSessionState();
-  assert.equal(state.context, 'sociopolitical');
-  assert.equal(state.indicatorKey, 'population');
-  assert.deepEqual(state.scope, {
-    level: 'municipality',
-    parent: '35',
-    parentName: 'São Paulo',
-  });
+  assert.equal(state.showWeatherAlerts, false);
+  assert.deepEqual(state.scope, { level: 'municipality', parent: '35', parentName: 'São Paulo' });
   assert.equal(state.selectedCode, '3550308');
 });
 
@@ -101,18 +83,74 @@ test('loadSessionState trata JSON corrompido sem quebrar', () => {
 });
 
 test('clearSessionState remove a chave da sessão', () => {
-  saveSessionState({ context: 'climate_environmental' });
-  assert.equal(loadSessionState().context, 'climate_environmental');
+  saveSessionState({ activeThematicLayer: 'fire' });
+  assert.equal(loadSessionState().activeThematicLayer, 'fire');
   clearSessionState();
   assert.deepEqual(loadSessionState(), {});
 });
 
-test('loadSessionState migra dados legados v1 garantindo avisos do INMET ativos por default', () => {
-  mockStorage.setItem('brasil_lens_session_v1', JSON.stringify({ context: 'climate_environmental', showWeatherAlerts: false }));
+test('loadSessionState migra a sessão v1 e descarta preferências antigas sem uso', () => {
+  mockStorage.setItem('brasil_lens_session_v1', JSON.stringify({ obsoletePreference: true }));
   const state = loadSessionState();
-  assert.equal(state.context, 'climate_environmental');
   assert.equal(state.showWeatherAlerts, true, 'migra avisos para true por default');
-  assert.equal(mockStorage.getItem('brasil_lens_session_v1'), null, 'chave antiga v1 deve ser removida');
-  assert.notEqual(mockStorage.getItem(SESSION_STORAGE_KEY), null, 'chave nova v2 deve ser gravada');
+  assert.equal('obsoletePreference' in state, false);
+  assert.equal(
+    mockStorage.getItem('brasil_lens_session_v1'),
+    null,
+    'chave antiga v1 deve ser removida',
+  );
+  assert.notEqual(mockStorage.getItem(SESSION_STORAGE_KEY), null, 'chave nova deve ser gravada');
 });
 
+test('migração mantém apenas preferências ambientais e elimina todas as versões antigas', () => {
+  const scope = { level: 'municipality', parent: '35', parentName: 'São Paulo' };
+  mockStorage.setItem('brasil_lens_session_v1', JSON.stringify({ context: 'sociopolitical' }));
+  mockStorage.setItem(
+    'brasil_lens_session_v2',
+    JSON.stringify({
+      scope: { ...scope, indicatorKey: 'population' },
+      indicatorKey: 'population',
+      context: 'sociopolitical',
+      activeThematicLayer: 'rainfall',
+      selectedCode: '3550308',
+    }),
+  );
+  assert.deepEqual(loadSessionState(), {
+    scope,
+    activeThematicLayer: 'rainfall',
+    selectedCode: '3550308',
+  });
+  assert.equal(mockStorage.getItem('brasil_lens_session_v1'), null);
+  assert.equal(mockStorage.getItem('brasil_lens_session_v2'), null);
+  assert.doesNotMatch(mockStorage.getItem(SESSION_STORAGE_KEY), /population|sociopolitical/);
+});
+
+test('limpar a sessão não ressuscita uma versão antiga', () => {
+  mockStorage.setItem('brasil_lens_session_v1', JSON.stringify({ activeThematicLayer: 'fire' }));
+  mockStorage.setItem(
+    'brasil_lens_session_v2',
+    JSON.stringify({ activeThematicLayer: 'rainfall' }),
+  );
+  mockStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ activeThematicLayer: 'climate' }));
+  clearSessionState();
+  assert.deepEqual(loadSessionState(), {});
+  assert.equal(mockStorage.store.size, 0);
+});
+
+test('sessão antiga corrompida permite recuperar a próxima versão válida', () => {
+  mockStorage.setItem('brasil_lens_session_v2', '{invalid');
+  mockStorage.setItem('brasil_lens_session_v1', JSON.stringify({ showHydrography: false }));
+  assert.deepEqual(loadSessionState(), { showHydrography: false, showWeatherAlerts: true });
+  assert.equal(mockStorage.getItem('brasil_lens_session_v2'), null);
+});
+
+test('recortes antigos ou municipais sem UF não são restaurados', () => {
+  for (const scope of [
+    { level: 'region' },
+    { level: 'municipality' },
+    { level: 'state', parent: '3' },
+  ]) {
+    mockStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ scope }));
+    assert.deepEqual(loadSessionState(), {});
+  }
+});

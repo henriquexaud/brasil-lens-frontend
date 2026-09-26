@@ -44,7 +44,7 @@ function seedCityWeather(
  * Open-Meteo. `staleTime` estático faria a tela nunca perceber isso;
  * `refetchInterval` é o desvio deliberado do padrão "dado só muda na
  * ingestão" que o resto deste arquivo documenta. `enabled` mantém o polling
- * fora do ar enquanto o contexto Clima não está em tela — a mesma disciplina
+ * desativado quando as camadas climáticas não estão visíveis — a mesma disciplina
  * de `useMapLayer` para não pagar rede à toa.
  */
 const WEATHER_POLL_INTERVAL_MS = 90 * 1000;

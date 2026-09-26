@@ -64,11 +64,11 @@ test('renderiza texto de forma imediata, mantendo acentos, espaços e pontuaçã
 });
 
 for (const target of [
-  '1.234.567 hab.',
-  'R$ 12,34 mi',
-  '-12,50%',
-  '0,00 km²',
-  '32,45 /100 mil hab.',
+  '32°C',
+  '8,5 mm',
+  '1.234 focos',
+  '62% umidade',
+  '14 km/h',
 ]) {
   test(`renderiza valores numéricos imediatamente sem alterar separadores ou unidades: ${target}`, () => {
     const el = new Element();
@@ -91,8 +91,8 @@ test('trocas de texto atualizam imediatamente sem frames pendentes', () => {
 
 test('redução de movimento e renderização padrão são ambas instantâneas e sem custo de CPU', () => {
   const el = new Element();
-  revealText(el, '1.234,56 hab.', 'number');
-  assert.equal(el.textContent, '1.234,56 hab.');
+  revealText(el, '32,5°C', 'number');
+  assert.equal(el.textContent, '32,5°C');
   assert.equal(frames.size, 0);
 });
 
