@@ -74,7 +74,7 @@ const collection = {
   metadata: {
     level: 'country',
     parentCode: null,
-    hours: 24,
+    hours: 48,
     hotspotCount: 10000,
     status: 'ok',
     windowEnd: '2026-09-20T08:00:00Z',
@@ -268,7 +268,7 @@ test('focos substituem a temperatura no mesmo polígono e desligar restaura o cl
         ibgeCode: '51',
         density: 8,
         count: 200,
-        count24h: 80,
+        count48h: 80,
         areaKm2: 25000,
         latestDetectionAt: '2026-09-20T07:50:00Z',
       },
@@ -306,7 +306,7 @@ test('focos substituem a temperatura no mesmo polígono e desligar restaura o cl
   await act(async () => polygon.dispatchEvent(new dom.window.FocusEvent('focus')));
   const tooltip = document.getElementById('map-hover-tooltip');
   assert.match(tooltip.textContent, /8 focos \/ 1.000 km²/);
-  assert.match(tooltip.textContent, /80 em 24h/);
+  assert.match(tooltip.textContent, /80 em 48h/);
   assert.match(tooltip.textContent, /25.000 km²/);
   assert.doesNotMatch(tooltip.textContent, /°C/);
   await act(async () =>
@@ -365,7 +365,7 @@ test('WeatherPanel destaca métricas de focos quando a camada de fogo está ativ
     name: 'Marcelândia',
     state: 'Mato Grosso',
     count: 120,
-    count24h: 45,
+    count48h: 45,
     density: 14.2,
     areaKm2: 12500,
     latestDetectionAt: '2026-09-20T07:50:00Z',
@@ -386,7 +386,7 @@ test('WeatherPanel destaca métricas de focos quando a camada de fogo está ativ
           onDrillDown: () => {},
           fireMunicipality,
           fireActive: true,
-          fireHours: 24,
+          fireHours: 48,
         }),
       ),
     ),
@@ -394,7 +394,7 @@ test('WeatherPanel destaca métricas de focos quando a camada de fogo está ativ
   const card = document.querySelector('.fire-detail-card.is-highlight');
   assert.ok(card, 'Card de fogo destacado deve estar presente');
   assert.match(card.textContent, /14,2 focos \/ 1.000 km²/);
-  assert.match(card.textContent, /45 em 24h/);
+  assert.match(card.textContent, /45 em 48h/);
   assert.match(card.textContent, /12\.500\s*km² de área/);
   assert.match(card.textContent, /Última detecção:/);
   assert.match(card.textContent, /07:50 UTC/);
@@ -406,7 +406,7 @@ test('WeatherPanel exibe estado limpo quando não há detecções recentes de ca
     name: 'São Paulo',
     state: 'São Paulo',
     count: 0,
-    count24h: 0,
+    count48h: 0,
     density: 0,
     areaKm2: 1521,
     latestDetectionAt: null,
@@ -427,7 +427,7 @@ test('WeatherPanel exibe estado limpo quando não há detecções recentes de ca
           onDrillDown: () => {},
           fireMunicipality: cleanMunicipality,
           fireActive: true,
-          fireHours: 24,
+          fireHours: 48,
         }),
       ),
     ),
@@ -435,7 +435,7 @@ test('WeatherPanel exibe estado limpo quando não há detecções recentes de ca
   const card = document.querySelector('.fire-detail-card');
   assert.ok(card);
   assert.match(card.textContent, /Sem focos ativos/);
-  assert.match(card.textContent, /0 em 24h/);
+  assert.match(card.textContent, /0 em 48h/);
   assert.match(card.textContent, /Nenhuma detecção de calor registrada/);
 });
 
@@ -443,7 +443,7 @@ test('FireOverview contextualiza o ranking pelo recorte do estado', async () => 
   const summary = {
     windowStart: '2026-09-19T08:00:00Z',
     windowEnd: '2026-09-20T08:00:00Z',
-    hours: 24,
+    hours: 48,
     total: 300,
     municipalities: [
       {
@@ -452,7 +452,7 @@ test('FireOverview contextualiza o ranking pelo recorte do estado', async () => 
         state: 'MT',
         areaKm2: 12500,
         count: 120,
-        count24h: 45,
+        count48h: 45,
         density: 14.2,
         latestDetectionAt: '2026-09-20T07:50:00Z',
       },
@@ -469,13 +469,13 @@ test('FireOverview contextualiza o ranking pelo recorte do estado', async () => 
   assert.match(summaryEl.textContent, /Maior densidade de focos · Mato Grosso/);
 });
 
-test('WeatherPanel lida com variações de casing do backend (count24H, count_24h) sem estourar TypeError', async () => {
+test('WeatherPanel lida com variações de casing do backend (count48H, count_48h) sem estourar TypeError', async () => {
   const fireMunicipalityWithCapsH = {
     ibgeCode: '1302603',
     name: 'Manaus',
     state: 'AM',
     count: 32,
-    count24H: 18,
+    count48H: 18,
     density: 2.1,
     areaKm2: 11401,
     latestDetectionAt: null,
@@ -496,14 +496,14 @@ test('WeatherPanel lida com variações de casing do backend (count24H, count_24
           onDrillDown: () => {},
           fireMunicipality: fireMunicipalityWithCapsH,
           fireActive: true,
-          fireHours: 24,
+          fireHours: 48,
         }),
       ),
     ),
   );
   const card = document.querySelector('.fire-detail-card');
   assert.ok(card);
-  assert.match(card.textContent, /18 em 24h/);
+  assert.match(card.textContent, /18 em 48h/);
   assert.match(card.textContent, /2,1 focos \/ 1.000 km²/);
 });
 
@@ -513,7 +513,7 @@ test('WeatherPanel em camada de fogo oculta completamente detalhes e disclosures
     name: 'Marcelândia',
     state: 'Mato Grosso',
     count: 120,
-    count24h: 45,
+    count48h: 45,
     density: 14.2,
     areaKm2: 12500,
     latestDetectionAt: '2026-09-20T07:50:00Z',
@@ -548,7 +548,7 @@ test('WeatherPanel em camada de fogo oculta completamente detalhes e disclosures
           onDrillDown: () => {},
           fireMunicipality,
           fireActive: true,
-          fireHours: 24,
+          fireHours: 48,
           rainActive: false,
         }),
       ),
@@ -588,7 +588,7 @@ test('WeatherPanel em camada de chuva exibe métricas de precipitação e oculta
     name: 'Marcelândia',
     state: 'Mato Grosso',
     count: 10,
-    count24h: 5,
+    count48h: 5,
     density: 1.2,
     areaKm2: 12500,
     latestDetectionAt: '2026-09-20T07:50:00Z',
@@ -610,7 +610,7 @@ test('WeatherPanel em camada de chuva exibe métricas de precipitação e oculta
           onDrillDown: () => {},
           fireMunicipality,
           fireActive: false,
-          fireHours: 24,
+          fireHours: 48,
           rainActive: true,
         }),
       ),
@@ -625,11 +625,12 @@ test('WeatherPanel em camada de chuva exibe métricas de precipitação e oculta
   assert.match(rainCard.textContent, /45,2\s*mm/);
   assert.match(rainCard.textContent, /90%/);
   const forecastCard = document.querySelector('.rain-forecast-card');
-  assert.ok(forecastCard);
-  assert.match(forecastCard.textContent, /Previsão diária de chuva/);
-  assert.match(forecastCard.textContent, /45,2\s*mm/);
+  assert.equal(forecastCard, null, 'previsão só monta quando solicitada');
+  const disclosure = document.querySelector('.weather-disclosure');
+  assert.equal(disclosure.open, false);
+  assert.match(disclosure.textContent, /Previsão diária de chuva/);
   // Não deve conter clima geral (°C, Sensação, Umidade) nem disclosure de focos de calor
-  assert.equal(document.querySelector('.weather-disclosure'), null);
+  assert.equal(document.querySelectorAll('.weather-disclosure').length, 1);
   assert.doesNotMatch(panel.textContent, /Condições meteorológicas/);
   assert.doesNotMatch(panel.textContent, /°C/);
   assert.doesNotMatch(panel.textContent, /Focos de calor/);
@@ -669,7 +670,7 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
           loading: false,
           onClose: () => {},
           onDrillDown: () => {},
-          fireMunicipality: { ibgeCode: '3550308', count: 12, count24h: 12, density: 4.5 },
+          fireMunicipality: { ibgeCode: '3550308', count: 12, count48h: 12, density: 4.5 },
           fireLoading: false,
           fireActive: false,
           rainActive: false,
@@ -945,7 +946,7 @@ test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', as
       },
     ],
   };
-  const dry = { id: '5103403', temperatureC: 30, weatherCode: 0, precipitation24hMm: 0 };
+  const dry = { id: '5103403', temperatureC: 30, weatherCode: 0, precipitation48hMm: 0 };
   await act(async () =>
     root.render(
       h(

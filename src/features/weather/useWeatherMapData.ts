@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import type { InfiniteData } from '@tanstack/react-query';
 import type { MapFeatureCollection, WeatherCity, WeatherCurrentResponse } from '@/api/types';
 import { rainAmount } from '@/features/rainfall/rainScale';
@@ -31,64 +31,40 @@ export function useWeatherMapData({
   currentWeather,
   collection,
 }: WeatherMapDataInput) {
-  const [userSelectedCities, setUserSelectedCities] = useState<Map<string, WeatherCity>>(
-    () => new Map(),
-  );
-
-  // Limpa as cidades manuais ao trocar de estado ou voltar ao mapa nacional
-  useEffect(() => {
-    setUserSelectedCities(new Map());
-  }, [scope.parent]);
-
-  // Mantém no mapa qualquer município que for consultado/selecionado pelo usuário
-  useEffect(() => {
-    if (isDrilledDown && selectedCode?.length === 7 && selectedWeather.data?.cities?.length) {
-      setUserSelectedCities((prev) => {
-        const incoming = selectedWeather.data?.cities ?? [];
-        let hasChanges = false;
-        for (const c of incoming) {
-          if (prev.get(c.id) !== c) {
-            hasChanges = true;
-            break;
-          }
-        }
-        if (!hasChanges) return prev;
-        const next = new Map(prev);
-        for (const c of incoming) {
-          next.set(c.id, c);
-        }
-        return next;
-      });
-    }
-  }, [isDrilledDown, selectedCode, selectedWeather.data]);
-
+  // Um único histórico por recorte mantém cidades já vistas durante o pan.
+  // A leitura mais nova vence; no mesmo horário, a medição vence a estimativa.
+  const knownWeatherRef = useRef({ scope: scope.parent, byId: new Map<string, WeatherCity>() });
   const weatherCities = useMemo(() => {
+    if (knownWeatherRef.current.scope !== scope.parent) {
+      knownWeatherRef.current = { scope: scope.parent, byId: new Map() };
+    }
+    const { byId } = knownWeatherRef.current;
     const cities = isDrilledDown
       ? (stateWeather.data?.cities ??
         municipalities.data?.pages.flatMap((page) => page.cities) ??
         [])
       : (nationalWeather.data?.cities ?? []);
-    const byId = new Map(cities.map((city) => [city.id, city]));
-    if (closeMunicipalView) {
-      for (const city of nearbyWeather.data?.cities ?? []) byId.set(city.id, city);
-    }
-    if (isDrilledDown) {
-      for (const c of userSelectedCities.values()) {
-        byId.set(c.id, c);
+    const incoming = [
+      ...cities,
+      ...(closeMunicipalView ? (nearbyWeather.data?.cities ?? []) : []),
+      // A capital selecionada não substitui a média estadual no mapa nacional.
+      ...(selectedCode?.length === 7 ? (selectedWeather.data?.cities ?? []) : []),
+    ];
+    for (const city of incoming) {
+      if (isDrilledDown && scope.parent && !city.id.startsWith(scope.parent)) continue;
+      const known = byId.get(city.id);
+      if (known) {
+        const knownAt = Date.parse(known.observedAt);
+        const incomingAt = Date.parse(city.observedAt);
+        if (
+          knownAt > incomingAt ||
+          (knownAt === incomingAt && !known.isInferred && city.isInferred)
+        )
+          continue;
       }
+      byId.set(city.id, city);
     }
-    // Um município selecionado traz a sua própria leitura. Uma UF traz a da
-    // capital, que não substitui a média do estado no mapa.
-    if (selectedCode?.length === 7) {
-      for (const c of selectedWeather.data?.cities ?? []) {
-        byId.set(c.id, c);
-      }
-    }
-    const all = [...byId.values()];
-    if (isDrilledDown && scope.parent) {
-      return all.filter((c) => c.id.startsWith(scope.parent!));
-    }
-    return all;
+    return [...byId.values()];
   }, [
     isDrilledDown,
     scope.parent,
@@ -97,7 +73,6 @@ export function useWeatherMapData({
     closeMunicipalView,
     nearbyWeather.data,
     nationalWeather.data,
-    userSelectedCities,
     selectedCode,
     selectedWeather.data,
   ]);
@@ -148,30 +123,8 @@ export function useWeatherMapData({
     weatherCities,
   ]);
 
-  // Leituras ficam guardadas por cidade dentro do recorte: a janela de
-  // viewport muda durante o pan/zoom e sua resposta pode chegar vazia por um
-  // instante, e uma cidade não deve perder a cor só porque saiu da janela.
-  // Uma estimativa (interpolada no servidor) nunca substitui uma medição já
-  // recebida para o mesmo horário ou mais recente.
-  const knownWeatherRef = useRef({ scope: scope.parent, byId: new Map<string, WeatherCity>() });
-  const knownWeather = useMemo(() => {
-    if (knownWeatherRef.current.scope !== scope.parent) {
-      knownWeatherRef.current = { scope: scope.parent, byId: new Map() };
-    }
-    const { byId } = knownWeatherRef.current;
-    for (const city of weatherCities) {
-      const known = byId.get(city.id);
-      const keepMeasured =
-        city.isInferred &&
-        known &&
-        !known.isInferred &&
-        Date.parse(known.observedAt) >= Date.parse(city.observedAt);
-      if (!keepMeasured) byId.set(city.id, city);
-    }
-    return [...byId.values()];
-  }, [scope.parent, weatherCities]);
   const weatherByCode = useMemo(() => {
-    const result = new Map(knownWeather.map((city) => [city.id, city]));
+    const result = new Map(weatherCities.map((city) => [city.id, city]));
     // No mapa do Brasil a leitura é da capital, identificada pela sigla da UF.
     for (const feature of collection?.features ?? []) {
       const abbreviation = feature.properties.abbreviation;
@@ -179,10 +132,10 @@ export function useWeatherMapData({
       if (city) result.set(feature.properties.ibgeCode, city);
     }
     return result;
-  }, [knownWeather, collection]);
+  }, [weatherCities, collection]);
   return {
     weatherCities,
-    knownWeather,
+    knownWeather: weatherCities,
     weatherByCode,
     maxRainfall,
     minTemperature,

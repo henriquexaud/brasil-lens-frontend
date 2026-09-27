@@ -1,4 +1,3 @@
-import type { WeatherCity } from '@/api/types';
 import { useWeatherCurrent } from './queries';
 import { ErrorMessage } from '@/components/Feedback';
 import { measurement, weatherDescription, WeatherIcon } from './conditions';
@@ -66,13 +65,26 @@ function formatWeekday(dateStr: string): string {
   }
 }
 
-export function RainForecastSection({ city }: { city: WeatherCity }) {
-  const forecastDays = city.forecast?.slice(0, 7) ?? [];
-  if (forecastDays.length === 0) return null;
+export function RainForecastSection({ code }: { code: string }) {
+  const query = useWeatherCurrent(code, true, true);
+  const city = query.data?.cities[0];
+  if (query.error && !city) return <ErrorMessage error={query.error} />;
+  if (!city)
+    return (
+      <p className="source-note" role="status">
+        Carregando previsão…
+      </p>
+    );
+  const forecastDays = city.forecast.slice(0, 7);
+  if (forecastDays.length === 0) return <p className="source-note">Previsão indisponível.</p>;
 
   return (
     <div className="rain-forecast-card">
-      <h3 className="rain-forecast-title">Previsão diária de chuva</h3>
+      {(query.error || query.data?.status === 'stale') && (
+        <p className="source-note" role="status">
+          Exibindo a última previsão disponível.
+        </p>
+      )}
       <div className="rain-forecast-list" role="list">
         {forecastDays.map((day, idx) => {
           const rainMm = day.precipitationSumMm ?? 0;

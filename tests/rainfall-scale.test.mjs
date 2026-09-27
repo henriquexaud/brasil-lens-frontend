@@ -56,9 +56,9 @@ test('rainDescription e rainBadgeText retornam classificações amigáveis', () 
 });
 
 
-test('chuva do mapa é o acumulado de 24 h e "chovendo agora" mostra a proporção do estado', () => {
-  assert.equal(rainAmount({ precipitation24hMm: 12.4, precipitationSumMm: 3, precipitationMm: 0 }), 12.4);
-  assert.equal(rainAmount({ precipitationSumMm: 3, precipitationMm: 0 }), 3, 'cache antigo sem 24 h');
+test('chuva do mapa é o acumulado de 48 h e "chovendo agora" mostra a proporção do estado', () => {
+  assert.equal(rainAmount({ precipitation48hMm: 12.4, precipitationSumMm: 3, precipitationMm: 0 }), 12.4);
+  assert.equal(rainAmount({ precipitationSumMm: 3, precipitationMm: 0 }), 3, 'cache antigo sem 48 h');
   assert.equal(rainAmount({}), 0);
   assert.equal(rainingNowText({ rainingNow: false }), null);
   assert.equal(rainingNowText({ rainingNow: true }), 'Chovendo agora');

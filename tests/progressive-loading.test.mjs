@@ -25,7 +25,8 @@ const compiled = await build({
     contents: `export { useMunicipalityWeather, useUserStateWeather, useWeatherCurrent, weatherCurrentOptions, useFireHotspots, useFireHotspotDetails, useFireSummary, useHydrography, useViewportWeather, useNationalWeather, useVisibleMunicipalities, useSelectedBoundary, useMapLayer } from './src/api/queries';
     export { useDeferredReady } from './src/lib/useDeferredReady';
     export { Disclosure } from './src/components/Disclosure';
-    export { LocationButton } from './src/features/search/LocationButton';`,
+    export { LocationButton } from './src/features/search/LocationButton';
+    export { WeatherPanel } from './src/features/weather/WeatherPanel';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -56,6 +57,7 @@ const {
   useSelectedBoundary,
   useMapLayer,
   LocationButton,
+  WeatherPanel,
 } = await import(pathToFileURL(modulePath).href);
 let root, client, requests, respond, idle;
 const city = (id) => ({
@@ -151,6 +153,43 @@ test('previsão fechada não monta conteúdo nem consulta a API; Escape fecha e 
   await tick();
   assert.equal(details.open, false);
   assert.equal(document.activeElement, details.querySelector('summary'));
+});
+
+test('previsão de chuva consulta forecast apenas ao abrir e reutiliza a previsão do clima', async () => {
+  respond = async () => {
+    const response = page(['3550308']);
+    response.cities[0].forecast = [{
+      date: '2026-09-27', weatherCode: 61, temperatureMaxC: 25, temperatureMinC: 17,
+      precipitationSumMm: 12, precipitationProbabilityPct: 80,
+    }];
+    return Response.json(response);
+  };
+  const props = {
+    code: '3550308', territory: { name: 'São Paulo', level: 'municipality' },
+    city: city('3550308'), loading: false, rainActive: true,
+    onClose: () => {}, onDrillDown: () => {},
+  };
+  await render(h(WeatherPanel, props));
+  assert.equal(requests.length, 0);
+  const details = document.querySelector('details');
+  assert.match(details.querySelector('summary').textContent, /Previsão diária de chuva/);
+  await act(async () => {
+    details.open = true;
+    details.dispatchEvent(new window.Event('toggle'));
+  });
+  await until(() => document.querySelector('.rain-forecast-mm') !== null);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url.searchParams.get('forecast'), 'true');
+  assert.match(document.querySelector('.rain-forecast-mm').textContent, /12,0 mm/);
+  assert.match(document.querySelector('.rain-forecast-prob').textContent, /80%/);
+  await render(h(WeatherPanel, { ...props, rainActive: false }));
+  const climateDetails = document.querySelector('details');
+  await act(async () => {
+    climateDetails.open = true;
+    climateDetails.dispatchEvent(new window.Event('toggle'));
+  });
+  await until(() => document.querySelector('.forecast-list') !== null);
+  assert.equal(requests.length, 1, 'chuva e clima compartilham a mesma consulta de previsão');
 });
 
 test('lotes esperam o mapa, pausam durante a seleção e aquecem somente condições atuais', async () => {
@@ -249,7 +288,7 @@ test('focos só consultam metadados quando ativos; detalhes esperam o clique', a
   await until(() => requests.length === 1);
   assert.equal(requests[0].url.pathname, '/api/v1/fire-hotspots');
   assert.equal(requests[0].url.searchParams.get('parent'), '15');
-  assert.equal(requests[0].url.searchParams.get('hours'), '24');
+  assert.equal(requests[0].url.searchParams.get('hours'), '48');
   await render(
     h(Fire, {
       enabled: true,
@@ -338,7 +377,7 @@ test('resumo de fogo não apaga o mapa: nova janela e UF aberta reaproveitam o a
       await new Promise((resolve) => { release = resolve; });
     }
     return new Response(JSON.stringify({
-      windowStart: '2026-09-19T10:00:00Z', windowEnd: url.searchParams.get('at'), hours: 24, total: 3,
+      windowStart: '2026-09-19T10:00:00Z', windowEnd: url.searchParams.get('at'), hours: 48, total: 3,
       municipalities: [fire('3550308', 2), fire('3304557', 1)],
       states: [fire('35', 2), fire('33', 1)],
       rankedMunicipalities: [fire('3550308', 2), fire('3304557', 1)],

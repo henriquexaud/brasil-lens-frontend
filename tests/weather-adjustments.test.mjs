@@ -64,22 +64,22 @@ test('temperaturas devem sempre arredondar e não mostrar casas depois da vírgu
 });
 
 test('lugares com 0mm de chuva são identificados com acumulado zero', () => {
-  assert.equal(rainAmount({ precipitation24hMm: 0 }), 0);
-  assert.equal(rainAmount({ precipitation24hMm: 0.0 }), 0);
+  assert.equal(rainAmount({ precipitation48hMm: 0 }), 0);
+  assert.equal(rainAmount({ precipitation48hMm: 0.0 }), 0);
   assert.equal(rainAmount({ precipitationSumMm: 0, precipitationMm: 0 }), 0);
   assert.equal(rainAmount({}), 0);
 
   // Lugares com chuva têm acumulado positivo
-  assert.equal(rainAmount({ precipitation24hMm: 5.2 }), 5.2);
-  assert.equal(rainAmount({ precipitation24hMm: 0.1 }), 0.1);
+  assert.equal(rainAmount({ precipitation48hMm: 5.2 }), 5.2);
+  assert.equal(rainAmount({ precipitation48hMm: 0.1 }), 0.1);
 });
 
 test('lugares com 0mm de chuva são excluídos dos marcadores do mapa', () => {
   const cities = [
-    { id: '1', name: 'Cidade Seca 1', precipitation24hMm: 0, temperatureC: 25 },
+    { id: '1', name: 'Cidade Seca 1', precipitation48hMm: 0, temperatureC: 25 },
     { id: '2', name: 'Cidade Seca 2', precipitationSumMm: 0, precipitationMm: 0, temperatureC: 22 },
-    { id: '3', name: 'Cidade Seca 3', precipitation24hMm: 0.04, temperatureC: 30 },
-    { id: '4', name: 'Cidade Chuvosa 1', precipitation24hMm: 12.5, temperatureC: 21 },
+    { id: '3', name: 'Cidade Seca 3', precipitation48hMm: 0.04, temperatureC: 30 },
+    { id: '4', name: 'Cidade Chuvosa 1', precipitation48hMm: 12.5, temperatureC: 21 },
     { id: '5', name: 'Cidade Chuvosa 2', precipitationSumMm: 2.0, temperatureC: 19 },
   ];
 

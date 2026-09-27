@@ -1,5 +1,3 @@
-import type { RevealMode } from '@/lib/revealText';
-
 type Tag = 'span' | 'div' | 'p' | 'h1' | 'h2' | 'h3' | 'dd' | 'dt' | 'strong';
 
 interface Props {
@@ -7,7 +5,7 @@ interface Props {
   as?: Tag;
   className?: string;
   title?: string;
-  mode?: RevealMode;
+  mode?: 'text' | 'number';
 }
 
 /**

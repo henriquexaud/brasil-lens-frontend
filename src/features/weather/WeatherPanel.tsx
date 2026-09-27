@@ -143,7 +143,9 @@ export function WeatherPanel({
       {!fireActive && rainActive && (
         <>
           <RainStatusSection city={city} loading={loading} highlight />
-          {city && <RainForecastSection city={city} />}
+          <Disclosure title="Previsão diária de chuva" className="weather-disclosure">
+            <RainForecastSection code={code} />
+          </Disclosure>
         </>
       )}
 

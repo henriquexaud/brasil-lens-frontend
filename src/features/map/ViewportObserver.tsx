@@ -8,7 +8,7 @@ export interface MapViewport {
   moving?: boolean;
 }
 
-/** Só publica movimentos concluídos. A margem arredondada reaproveita o cache ao arrastar. */
+/** Pausa o trabalho de fundo ao mover; só atualiza a área quando o mapa assenta. */
 export function ViewportObserver({
   onChange,
   scopeKey,
@@ -38,13 +38,21 @@ export function ViewportObserver({
       onChange(last);
     };
     update();
+    const start = () => {
+      clearTimeout(timer);
+      if (last.moving) return;
+      last = { ...last, moving: true };
+      onChange(last);
+    };
     const settle = () => {
       clearTimeout(timer);
       timer = setTimeout(update, 120);
     };
+    map.on('movestart zoomstart', start);
     map.on('moveend resize', settle);
     return () => {
       clearTimeout(timer);
+      map.off('movestart zoomstart', start);
       map.off('moveend resize', settle);
     };
   }, [map, onChange, scopeKey]);
