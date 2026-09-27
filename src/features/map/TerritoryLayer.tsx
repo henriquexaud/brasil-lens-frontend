@@ -83,7 +83,7 @@ function Territories({
   weatherByCode,
   fireByCode,
   fireMode,
-  fireHours = 24,
+  fireHours = 48,
   rainMode,
   climateMode = true,
 }: Props) {
@@ -483,7 +483,7 @@ function Territories({
         weather?.weatherCode,
         weather?.precipitationSumMm,
         weather?.precipitationMm,
-        weather?.precipitation24hMm,
+        weather?.precipitation48hMm,
         weather?.rainingNow,
         weather?.rainingPoints,
         weather?.samplePoints,

@@ -86,7 +86,7 @@ export function RainOverview({
         })}
       </ol>
       <p className="source-note">
-        Acumulado estimado em 24h · Modelagem numérica e dados de superfície.
+        Acumulado estimado em 48h · Modelagem numérica e dados de superfície.
         {cities.some(isStateAverage) && ` ${STATE_AVERAGE_DESCRIPTION}.`}
         {ranked.some((city) => city.isInferred) && ` ≈ ${ESTIMATE_DESCRIPTION.toLowerCase()}.`}
       </p>

@@ -42,7 +42,7 @@ export function WeatherPanel({
   climateActive = true,
   fireActive = false,
   fireLoading = false,
-  fireHours = 24,
+  fireHours = 48,
   rainActive = false,
 }: WeatherPanelProps) {
   const isState = territory?.level === 'state';

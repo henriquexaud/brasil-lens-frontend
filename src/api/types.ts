@@ -175,8 +175,8 @@ export interface WeatherCity {
   precipitationSumMm?: number | null;
   precipitationProbabilityPct?: number | null;
   precipitationIntervalMinutes: number;
-  /** Acumulado das últimas 24 h — o valor que o mapa de chuva pinta. */
-  precipitation24hMm?: number | null;
+  /** Acumulado das últimas 48 h — o valor que o mapa de chuva pinta. */
+  precipitation48hMm?: number | null;
   /** Chovendo no intervalo mais recente (precipitação ou código de chuva). */
   rainingNow?: boolean;
   /** Mapa do Brasil: pontos medidos na média do estado e quantos têm chuva agora. */
@@ -322,8 +322,8 @@ export interface FireMunicipality {
   state: string;
   areaKm2: number | null;
   count: number;
-  count24h: number;
-  count24H?: number;
+  count48h: number;
+  count48H?: number;
   density: number | null;
   latestDetectionAt: string | null;
 }

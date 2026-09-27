@@ -114,7 +114,7 @@ export function WeatherThematicSwitch({
 
       {showRainfall && (
         <div className="weather-segment-info">
-          <span className="weather-layer-source">Open-Meteo / 24h</span>
+          <span className="weather-layer-source">Open-Meteo / 48h</span>
           {error != null && !current ? (
             <span className="weather-layer-badge badge-error">Indisponível</span>
           ) : (
@@ -148,4 +148,3 @@ export function WeatherThematicSwitch({
     </div>
   );
 }
-

@@ -12,11 +12,11 @@ export function RainLegend({
   return (
     <figure
       className="legend weather-legend rain-legend"
-      aria-label="Acumulado de chuva em 24 horas"
+      aria-label="Acumulado de chuva em 48 horas"
     >
       <figcaption className="weather-legend-header">
         <span className="weather-legend-title">Chuva acumulada</span>
-        <span className="weather-legend-unit">mm / 24h</span>
+        <span className="weather-legend-unit">mm / 48h</span>
       </figcaption>
       <div className="rain-legend-ramp" role="list" aria-label="Escala de volume de chuva">
         {RAIN_SCALE_STOPS.map((stop) => (

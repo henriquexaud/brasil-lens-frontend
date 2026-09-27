@@ -16,7 +16,7 @@ export function fillTooltipContent(
   properties: MapFeatureProperties,
   weather?: WeatherCity,
   fire?: FireMunicipality,
-  fireHours = 24,
+  fireHours = 48,
   fireActive = false,
   rainActive = false,
   climateActive = true,
@@ -40,10 +40,10 @@ export function fillTooltipContent(
       : '';
   if (fireActive) {
     if (fire) {
-      const count24h = Number(
-        fire.count24h ??
-          fire.count24H ??
-          (fire as unknown as Record<string, unknown>).count_24h ??
+      const count48h = Number(
+        fire.count48h ??
+          fire.count48H ??
+          (fire as unknown as Record<string, unknown>).count_48h ??
           0,
       );
       const count = Number(fire.count ?? 0);
@@ -55,9 +55,9 @@ export function fillTooltipContent(
       );
       add(
         'tooltip-meta',
-        fireHours === 24
-          ? `${count24h.toLocaleString('pt-BR')} em 24h`
-          : `${count24h.toLocaleString('pt-BR')} em 24h · ${count.toLocaleString('pt-BR')} em ${fireHours}h`,
+        fireHours === 48
+          ? `${count48h.toLocaleString('pt-BR')} em 48h`
+          : `${count48h.toLocaleString('pt-BR')} em 48h · ${count.toLocaleString('pt-BR')} em ${fireHours}h`,
       );
       if (fire.areaKm2 != null)
         add(
@@ -80,7 +80,7 @@ export function fillTooltipContent(
       textSpan.textContent = `${estimatePrefix}${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
       valEl.append(textSpan);
       el.append(valEl);
-      add('tooltip-meta', `${rainDescription(rainVal)} em 24 h${estimateSuffix}`);
+      add('tooltip-meta', `${rainDescription(rainVal)} em 48 h${estimateSuffix}`);
       const live = rainingNowText(weather);
       if (live) add('tooltip-meta tooltip-live-rain', live);
       if (weather.precipitationProbabilityPct != null) {

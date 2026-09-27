@@ -12,7 +12,7 @@ import { ESTIMATE_DESCRIPTION } from './EstimateMark';
 export function FireStatusSection({
   fire,
   loading,
-  hours = 24,
+  hours = 48,
   highlight = false,
 }: {
   fire: FireMunicipality | undefined;
@@ -36,11 +36,11 @@ export function FireStatusSection({
     );
   }
 
-  const count24h = Number(
-    fire.count24h ?? fire.count24H ?? (fire as unknown as Record<string, unknown>).count_24h ?? 0,
+  const count48h = Number(
+    fire.count48h ?? fire.count48H ?? (fire as unknown as Record<string, unknown>).count_48h ?? 0,
   );
   const count = Number(fire.count ?? 0);
-  const hasFocos = count > 0 || count24h > 0;
+  const hasFocos = count > 0 || count48h > 0;
   const color = densityColor(fire.density);
 
   return (
@@ -55,17 +55,17 @@ export function FireStatusSection({
           </strong>
         </div>
         <span className={`weather-layer-badge ${hasFocos ? 'badge-fire' : 'badge-neutral'}`}>
-          {hasFocos ? `${count24h.toLocaleString('pt-BR')} em 24h` : '0 em 24h'}
+          {hasFocos ? `${count48h.toLocaleString('pt-BR')} em 48h` : '0 em 48h'}
         </span>
       </div>
 
       <div className="fire-metrics-grid">
         <div className="fire-metric">
-          <span className="fire-metric-val">{count24h.toLocaleString('pt-BR')}</span>
+          <span className="fire-metric-val">{count48h.toLocaleString('pt-BR')}</span>
           <span className="fire-metric-lbl">
-            {hours === 24
-              ? 'em 24 horas'
-              : `em 24h (${count.toLocaleString('pt-BR')} em ${hours}h)`}
+            {hours === 48
+              ? 'em 48 horas'
+              : `em 48h (${count.toLocaleString('pt-BR')} em ${hours}h)`}
           </span>
         </div>
         {fire.areaKm2 != null && (
@@ -86,7 +86,7 @@ export function FireStatusSection({
 
       {!hasFocos && (
         <p className="source-note" style={{ margin: '4px 0 0' }}>
-          Nenhuma detecção de calor registrada pelo satélite de referência nas últimas 24h.
+          Nenhuma detecção de calor registrada pelo satélite de referência nas últimas 48h.
         </p>
       )}
     </div>
@@ -146,7 +146,7 @@ export function RainStatusSection({
             })}{' '}
             mm
           </span>
-          <span className="rain-metric-lbl">acumulado em 24h</span>
+          <span className="rain-metric-lbl">acumulado em 48h</span>
         </div>
         {prob != null && (
           <div className="rain-metric">
@@ -176,7 +176,7 @@ export function RainStatusSection({
 
       {!hasRain && (
         <p className="source-note" style={{ margin: '4px 0 0' }}>
-          Sem volume significativo de chuva acumulado nas últimas 24h.
+          Sem volume significativo de chuva acumulado nas últimas 48h.
         </p>
       )}
       {city.isInferred && (

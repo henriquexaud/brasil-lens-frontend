@@ -20,15 +20,15 @@ export const RAIN_SCALE_STOPS: RainScaleStop[] = [
 ];
 
 /**
- * Chuva de uma leitura: o acumulado de 24 h; na falta dele, o total de hoje ou o
+ * Chuva de uma leitura: o acumulado de 48 h; na falta dele, o total de hoje ou o
  * intervalo mais recente (respostas antigas em cache).
  */
 export function rainAmount(city: {
-  precipitation24hMm?: number | null;
+  precipitation48hMm?: number | null;
   precipitationSumMm?: number | null;
   precipitationMm?: number | null;
 }): number {
-  return city.precipitation24hMm ?? city.precipitationSumMm ?? city.precipitationMm ?? 0;
+  return city.precipitation48hMm ?? city.precipitationSumMm ?? city.precipitationMm ?? 0;
 }
 
 /** "Chovendo agora", com a proporção de pontos na visão do Brasil. */
