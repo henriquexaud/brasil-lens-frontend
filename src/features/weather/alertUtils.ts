@@ -1,7 +1,6 @@
 import type { WeatherAlertFeature } from '@/api/types';
 import { getAlertStyle, SEVERITY_RANK, type AlertSeverityTier } from './alertStyles';
 
-/** Mapeamento canônico dos códigos IBGE de 2 dígitos para siglas de UF. */
 export const IBGE_UF_MAP: Record<string, string> = {
   '11': 'RO',
   '12': 'AC',
@@ -62,10 +61,6 @@ export const UF_NAMES: Record<string, string> = {
   DF: 'Distrito Federal',
 };
 
-/**
- * Remove URLs cruas do texto para evitar poluição visual e extrai
- * os links válidos para ações dedicadas ("Ver boletim oficial").
- */
 export function extractAlertUrls(text: string): { cleanedText: string; urls: string[] } {
   if (!text) return { cleanedText: '', urls: [] };
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -73,7 +68,6 @@ export function extractAlertUrls(text: string): { cleanedText: string; urls: str
   const matches = text.match(urlRegex);
   if (matches) {
     for (const match of matches) {
-      // Remove pontuação final como ponto, vírgula, parênteses
       const cleanUrl = match.replace(/[.,;)]+$/, '');
       if (!urls.includes(cleanUrl)) {
         urls.push(cleanUrl);
@@ -81,21 +75,19 @@ export function extractAlertUrls(text: string): { cleanedText: string; urls: str
     }
   }
 
-  // Remove URLs do texto
   let cleanedText = text.replace(urlRegex, '').trim();
 
-  // Limpa frases residuais de introdução a boletim (CEMADEN / INMET)
   cleanedText = cleanedText
-    .replace(/^(?:para mais informações,?\s*)?(?:consulte o\s+)?boletim(?:\s+oficial)?(?:\s+do\s+\w+)?:?\s*$/i, '')
+    .replace(
+      /^(?:para mais informações,?\s*)?(?:consulte o\s+)?boletim(?:\s+oficial)?(?:\s+do\s+\w+)?:?\s*$/i,
+      '',
+    )
     .replace(/:\s*$/, '')
     .trim();
 
   return { cleanedText, urls };
 }
 
-/**
- * Verifica se um alerta afeta ou pertence a um determinado estado (código IBGE de 2 dígitos).
- */
 export function isAlertInState(alert: WeatherAlertFeature, stateCode?: string | null): boolean {
   if (!stateCode) return true;
   const codes = alert.properties.affectedIbgeCodes ?? [];
@@ -112,7 +104,6 @@ export function isAlertInState(alert: WeatherAlertFeature, stateCode?: string | 
   return false;
 }
 
-/** Formata data de expiração/vigência de forma concisa. */
 export function formatAlertDate(dateStr?: string | null): string {
   if (!dateStr) return '—';
   const parsed = Date.parse(dateStr);
@@ -126,7 +117,6 @@ export function formatAlertDate(dateStr?: string | null): string {
   });
 }
 
-/** Extrai a lista de siglas de UFs afetadas por um alerta. */
 export function getAlertStates(alert: WeatherAlertFeature): string[] {
   const ufs = new Set<string>();
   const codes = alert.properties.affectedIbgeCodes ?? [];
@@ -152,7 +142,6 @@ export interface NationalAlertsSummaryData {
   topStates: Array<{ uf: string; count: number }>;
 }
 
-/** Agrega os alertas de todo o país para o resumo compacto da visualização nacional. */
 export function getNationalAlertsSummary(
   features: WeatherAlertFeature[] = [],
 ): NationalAlertsSummaryData {
@@ -171,7 +160,10 @@ export function getNationalAlertsSummary(
 
   for (const feature of features) {
     const style = getAlertStyle(feature.properties);
-    const tier = style.tier in severityDistribution ? (style.tier as keyof typeof severityDistribution) : 'moderate';
+    const tier =
+      style.tier in severityDistribution
+        ? (style.tier as keyof typeof severityDistribution)
+        : 'moderate';
     severityDistribution[tier] = (severityDistribution[tier] ?? 0) + 1;
 
     const provider = (feature.properties.provider ?? '').toLowerCase();
@@ -219,25 +211,20 @@ export interface GroupedStateAlert {
   primaryFeature: WeatherAlertFeature;
 }
 
-/**
- * Agrupa ocorrências semelhantes de um estado (ex.: "Risco hidrológico · 8 municípios")
- * para reduzir fortemente a poluição visual na visão de estado.
- */
 export function groupStateAlerts(
   features: WeatherAlertFeature[],
   stateCode: string,
 ): GroupedStateAlert[] {
-  // Filtra apenas os que pertencem ou intersectam o estado
   const stateFeatures = features.filter((alert) => isAlertInState(alert, stateCode));
 
-  // Chave de agrupamento: evento normalizado + severidade normalizada + provider
   const groupsMap = new Map<string, WeatherAlertFeature[]>();
 
   for (const alert of stateFeatures) {
     const tier = getAlertStyle(alert.properties).tier;
     const provider = alert.properties.provider;
-    // Remove sufixos como "- Moderado", "- Alto" para agrupar pelo tipo de evento real
-    const event = alert.properties.event.replace(/\s*-\s*(Moderado|Alto|Muito Alto|Extremo|Perigo.*)$/i, '').trim();
+    const event = alert.properties.event
+      .replace(/\s*-\s*(Moderado|Alto|Muito Alto|Extremo|Perigo.*)$/i, '')
+      .trim();
     const groupKey = `${provider}:${event.toLowerCase()}:${tier}`;
 
     const existing = groupsMap.get(groupKey);
@@ -254,17 +241,17 @@ export function groupStateAlerts(
     const primary = groupFeatures[0];
     if (!primary) continue;
     const style = getAlertStyle(primary.properties);
-    const event = primary.properties.event.replace(/\s*-\s*(Moderado|Alto|Muito Alto|Extremo|Perigo.*)$/i, '').trim();
+    const event = primary.properties.event
+      .replace(/\s*-\s*(Moderado|Alto|Muito Alto|Extremo|Perigo.*)$/i, '')
+      .trim();
     const provider = primary.properties.provider;
 
-    // Coleta municípios com seu boletim específico e URLs consolidadas de boletim
     const municipalitiesMap = new Map<string, string | undefined>();
     const bulletinUrlsSet = new Set<string>();
 
     for (const feat of groupFeatures) {
       let featureBulletinUrl: string | undefined;
 
-      // Instruções e riscos podem ter links de boletim
       for (const inst of feat.properties.instructions ?? []) {
         const { urls } = extractAlertUrls(inst);
         for (const u of urls) {
@@ -280,11 +267,13 @@ export function groupStateAlerts(
         }
       }
 
-      // Descrição livre frequentemente contém o nome do município no CEMADEN
       if (feat.properties.description) {
         const cityName = feat.properties.description.replace(/\/[A-Z]{2}$/i, '').trim();
         if (cityName) {
-          if (!municipalitiesMap.has(cityName) || (!municipalitiesMap.get(cityName) && featureBulletinUrl)) {
+          if (
+            !municipalitiesMap.has(cityName) ||
+            (!municipalitiesMap.get(cityName) && featureBulletinUrl)
+          ) {
             municipalitiesMap.set(cityName, featureBulletinUrl);
           }
         }
@@ -299,7 +288,6 @@ export function groupStateAlerts(
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
-    // Se há múltiplos alertas ou múltiplos municípios
     const totalCount = Math.max(groupFeatures.length, municipalities.length);
     const isGroup = totalCount > 1;
 
@@ -317,7 +305,6 @@ export function groupStateAlerts(
     });
   }
 
-  // Ordena pela maior severidade primeiro
   result.sort((a, b) => {
     const rankDiff = SEVERITY_RANK[a.tier] - SEVERITY_RANK[b.tier];
     if (rankDiff !== 0) return rankDiff;
@@ -327,11 +314,6 @@ export function groupStateAlerts(
   return result;
 }
 
-/**
- * Na visualização municipal:
- * - localAlerts: afetam diretamente o município selecionado
- * - otherStateAlerts: demais avisos da mesma UF
- */
 export function partitionMunicipalityAlerts(
   features: WeatherAlertFeature[],
   municipalityCode: string,
@@ -346,8 +328,7 @@ export function partitionMunicipalityAlerts(
   for (const alert of features) {
     const affected = alert.properties.affectedIbgeCodes ?? [];
     const isDirectlyAffected =
-      affected.includes(municipalityCode) ||
-      (affected.length === 1 && affected[0] === stateCode);
+      affected.includes(municipalityCode) || (affected.length === 1 && affected[0] === stateCode);
 
     if (isDirectlyAffected) {
       localAlerts.push(alert);
@@ -356,7 +337,6 @@ export function partitionMunicipalityAlerts(
     }
   }
 
-  // Ordena por severidade
   localAlerts.sort(
     (a, b) =>
       SEVERITY_RANK[getAlertStyle(a.properties).tier] -

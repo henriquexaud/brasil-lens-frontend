@@ -9,24 +9,14 @@ import { EstimateMark } from '@/features/weather/EstimateMark';
 const ATTRIBUTION =
   'Clima: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>';
 
-/**
- * Com uma cidade aberta, o foco é ela: poucos vizinhos medidos e bem espaçados
- * (px na horizontal; metade na vertical), menos ainda quanto mais municípios
- * houver na tela. O estado inteiro, sem seleção, mostra os rótulos que couberem.
- */
 export function focusLabelBudget(density: number) {
   if (density > 150) return { maxLabels: 4, spacing: 180 };
   if (density > 60) return { maxLabels: 6, spacing: 160 };
   return { maxLabels: 8, spacing: 140 };
 }
 
-/** Estado inteiro: todos os rótulos que couberem, como sempre. */
 const STATE_LABELS = { maxLabels: Infinity, spacing: 96 };
 
-/**
- * Memo: o App renderiza a cada mudança de estado das consultas; as pílulas só
- * precisam mudar com as cidades, a seleção, o modo ou o enquadramento.
- */
 export const WeatherLayer = memo(function WeatherLayer({
   cities,
   selectedId,
@@ -55,13 +45,8 @@ export const WeatherLayer = memo(function WeatherLayer({
 
   const isRain = mode === 'rainfall';
 
-  // Pílulas já na tela têm preferência na disputa por espaço: sem isso, cada
-  // lote de dados mudava os vencedores e as pílulas sumiam e reapareciam
-  // (com a animação de entrada) em áreas com muitos municípios.
   const shownRef = useRef(new Set<string>());
 
-  // Ordena para que o território selecionado fique sempre no topo da pilha visual.
-  // Recalculado só quando dados, seleção, modo ou enquadramento mudam.
   const sortedCities = useMemo(() => {
     const candidates = cities.filter((city) =>
       isRain
@@ -69,8 +54,6 @@ export const WeatherLayer = memo(function WeatherLayer({
         : city.temperatureC != null && Number.isFinite(city.temperatureC),
     );
     if (municipal) {
-      // Estado inteiro: rótulos pela UF toda, disputando espaço. Cidade aberta:
-      // ela e poucos vizinhos medidos; o resto segue pintado pela escala.
       const focused = Boolean(selectedId && selectedId.length === 7);
       const size = map.getSize();
       const onScreen = (city: WeatherCity) => {
@@ -84,7 +67,6 @@ export const WeatherLayer = memo(function WeatherLayer({
             cities.reduce((count, city) => count + Number(Boolean(onScreen(city))), 0),
           )
         : STATE_LABELS;
-      // Com a cidade aberta, só leituras medidas acompanham a dela.
       const measured = candidates.filter((city) => !city.isInferred || city.id === selectedId);
       const pool = focused && measured.length > 0 ? measured : candidates;
       const shown = shownRef.current;
@@ -120,13 +102,9 @@ export const WeatherLayer = memo(function WeatherLayer({
       if (b.id === selectedId) return -1;
       return 0;
     });
-    // `viewport` muda a cada movimento do mapa: as posições em tela (via `map`)
-    // precisam ser recalculadas, mesmo sem ser lido aqui dentro.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cities, selectedId, municipal, isRain, map, viewport]);
 
-  // No mapa do Brasil, modo compacto apenas em zoom muito afastado (< 4.8) para evitar sobreposição na costa.
-  // No mapa estadual, exibe os pills a partir do zoom 6.0; abaixo disso foca na capital e selecionado.
   const isCompact = !municipal && zoom < 4.8;
   const showAllPills = municipal ? zoom >= 6.0 : true;
 

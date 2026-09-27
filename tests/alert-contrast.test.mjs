@@ -61,34 +61,28 @@ function contrastRatio(hex1, hex2) {
 }
 
 test('classificação de severidades normalizada em 4 níveis (Moderado, Alto, Muito alto, Extremo)', () => {
-  // Extremo (#7F1D1D)
   assert.equal(resolveAlertTier('Grande Perigo', '#dc2626'), 'extreme');
   assert.equal(resolveAlertTier('GRANDE PERIGO', null), 'extreme');
   assert.equal(resolveAlertTier('Tempestade - Extremo', '#7f1d1d'), 'extreme');
 
-  // Muito alto (#C62828)
   assert.equal(resolveAlertTier('Muito Alto', '#ff0000'), 'very_high');
   assert.equal(resolveAlertTier('Movimentos de Massa - Muito Alto', null), 'very_high');
   assert.equal(resolveAlertTier(null, '#c62828'), 'very_high');
 
-  // Alto (#E25822)
   assert.equal(resolveAlertTier('Perigo', '#ff9e00'), 'high');
   assert.equal(resolveAlertTier('Alto', '#ffa500'), 'high');
   assert.equal(resolveAlertTier('Ventos Costeiros - Perigo', null), 'high');
   assert.equal(resolveAlertTier(null, '#e25822'), 'high');
 
-  // Moderado (#C58A00)
   assert.equal(resolveAlertTier('Perigo Potencial', '#FFFE00'), 'moderate');
   assert.equal(resolveAlertTier('Moderado', '#ffff00'), 'moderate');
   assert.equal(resolveAlertTier('Chuva Intensa (Perigo Potencial)', '#c58a00'), 'moderate');
   assert.equal(resolveAlertTier(null, '#c58a00'), 'moderate');
 
-  // Fallback
   assert.equal(resolveAlertTier(null, null), 'moderate');
 });
 
 test('estilos de avisos contêm as cores oficiais exatas solicitadas e bordas correspondentes', () => {
-  // Moderado: #C58A00
   const moderate = getAlertStyle({ severity: 'Moderado', color: '#c58a00' });
   assert.equal(moderate.tier, 'moderate');
   assert.equal(moderate.label, 'Moderado');
@@ -97,7 +91,6 @@ test('estilos de avisos contêm as cores oficiais exatas solicitadas e bordas co
   assert.equal(moderate.fillColor, '#C58A00');
   assert(moderate.fillOpacity >= 0.08 && moderate.fillOpacity <= 0.2);
 
-  // Alto: #E25822
   const high = getAlertStyle({ severity: 'Alto', color: '#e25822' });
   assert.equal(high.tier, 'high');
   assert.equal(high.label, 'Alto');
@@ -105,7 +98,6 @@ test('estilos de avisos contêm as cores oficiais exatas solicitadas e bordas co
   assert.equal(high.strokeColor, '#E25822');
   assert.equal(high.fillColor, '#E25822');
 
-  // Muito alto: #C62828
   const veryHigh = getAlertStyle({ severity: 'Muito Alto', color: '#c62828' });
   assert.equal(veryHigh.tier, 'very_high');
   assert.equal(veryHigh.label, 'Muito alto');
@@ -113,7 +105,6 @@ test('estilos de avisos contêm as cores oficiais exatas solicitadas e bordas co
   assert.equal(veryHigh.strokeColor, '#C62828');
   assert.equal(veryHigh.fillColor, '#C62828');
 
-  // Extremo: #7F1D1D
   const extreme = getAlertStyle({ severity: 'Grande Perigo', color: '#7f1d1d' });
   assert.equal(extreme.tier, 'extreme');
   assert.equal(extreme.label, 'Extremo');
@@ -158,7 +149,7 @@ test('getNationalAlertsSummary agrega visão nacional sem listar municípios ou 
         event: 'Movimentos de Massa',
         severity: 'Alto',
         severityLevel: 'high',
-        affectedIbgeCodes: ['4202404'], // SC
+        affectedIbgeCodes: ['4202404'],
       },
     },
     {
@@ -168,7 +159,7 @@ test('getNationalAlertsSummary agrega visão nacional sem listar municípios ou 
         event: 'Movimentos de Massa',
         severity: 'Alto',
         severityLevel: 'high',
-        affectedIbgeCodes: ['4205407'], // SC
+        affectedIbgeCodes: ['4205407'],
       },
     },
     {
@@ -178,14 +169,14 @@ test('getNationalAlertsSummary agrega visão nacional sem listar municípios ou 
         event: 'Tempestade',
         severity: 'Grande Perigo',
         severityLevel: 'extreme',
-        affectedIbgeCodes: ['3550308', '3106200'], // SP, MG
+        affectedIbgeCodes: ['3550308', '3106200'],
       },
     },
   ];
 
   const summary = getNationalAlertsSummary(mockFeatures);
   assert.equal(summary.totalAlerts, 3);
-  assert.equal(summary.affectedStatesCount, 3); // SC, SP, MG
+  assert.equal(summary.affectedStatesCount, 3);
   assert.equal(summary.severityDistribution.extreme, 1);
   assert.equal(summary.severityDistribution.high, 2);
   assert.equal(summary.sources.cemaden, 2);
@@ -301,7 +292,7 @@ test('partitionMunicipalityAlerts prioriza avisos diretos no município e secund
         provider: 'cemaden',
         event: 'Deslizamento',
         severity: 'Alto',
-        affectedIbgeCodes: ['4202404'], // Blumenau
+        affectedIbgeCodes: ['4202404'],
       },
     },
     {
@@ -310,12 +301,11 @@ test('partitionMunicipalityAlerts prioriza avisos diretos no município e secund
         provider: 'cemaden',
         event: 'Enxurrada',
         severity: 'Moderado',
-        affectedIbgeCodes: ['4205407'], // Gaspar
+        affectedIbgeCodes: ['4205407'],
       },
     },
   ];
 
-  // Blumenau selecionado
   const { localAlerts, otherStateAlerts } = partitionMunicipalityAlerts(
     features,
     '4202404',

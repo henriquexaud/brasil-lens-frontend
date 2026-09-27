@@ -1,13 +1,3 @@
-/**
- * Busca de estados e municípios.
- *
- * Ocupa o canto superior esquerdo do mapa, onde antes ficava o controle de
- * zoom (ver MapView) — zoom continua disponível por scroll, pinça e +/- do
- * teclado, só perdeu o botão dedicado. A busca em si (sem acento, ordenada por
- * relevância) é do backend (ver `useTerritorySearch`); este componente só é a
- * caixa de texto e a lista de resultados, com um debounce curto para não
- * consultar a cada tecla.
- */
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { useTerritorySearch } from '@/api/queries';
@@ -32,19 +22,67 @@ interface Props {
 }
 
 const QUICK_SUGGESTIONS: SearchResult[] = [
-  { ibgeCode: '3550308', name: 'São Paulo', level: 'municipality', abbreviation: 'SP', parentCode: '35', parentName: 'São Paulo' },
-  { ibgeCode: '5300108', name: 'Brasília', level: 'municipality', abbreviation: 'DF', parentCode: '53', parentName: 'Distrito Federal' },
-  { ibgeCode: '3304557', name: 'Rio de Janeiro', level: 'municipality', abbreviation: 'RJ', parentCode: '33', parentName: 'Rio de Janeiro' },
-  { ibgeCode: '2927408', name: 'Salvador', level: 'municipality', abbreviation: 'BA', parentCode: '29', parentName: 'Bahia' },
-  { ibgeCode: '3106200', name: 'Belo Horizonte', level: 'municipality', abbreviation: 'MG', parentCode: '31', parentName: 'Minas Gerais' },
-  { ibgeCode: '4106902', name: 'Curitiba', level: 'municipality', abbreviation: 'PR', parentCode: '41', parentName: 'Paraná' },
+  {
+    ibgeCode: '3550308',
+    name: 'São Paulo',
+    level: 'municipality',
+    abbreviation: 'SP',
+    parentCode: '35',
+    parentName: 'São Paulo',
+  },
+  {
+    ibgeCode: '5300108',
+    name: 'Brasília',
+    level: 'municipality',
+    abbreviation: 'DF',
+    parentCode: '53',
+    parentName: 'Distrito Federal',
+  },
+  {
+    ibgeCode: '3304557',
+    name: 'Rio de Janeiro',
+    level: 'municipality',
+    abbreviation: 'RJ',
+    parentCode: '33',
+    parentName: 'Rio de Janeiro',
+  },
+  {
+    ibgeCode: '2927408',
+    name: 'Salvador',
+    level: 'municipality',
+    abbreviation: 'BA',
+    parentCode: '29',
+    parentName: 'Bahia',
+  },
+  {
+    ibgeCode: '3106200',
+    name: 'Belo Horizonte',
+    level: 'municipality',
+    abbreviation: 'MG',
+    parentCode: '31',
+    parentName: 'Minas Gerais',
+  },
+  {
+    ibgeCode: '4106902',
+    name: 'Curitiba',
+    level: 'municipality',
+    abbreviation: 'PR',
+    parentCode: '41',
+    parentName: 'Paraná',
+  },
 ];
 
 function highlightMatch(text: string, query: string) {
   const q = query.trim();
   if (!q) return text;
-  const normalizedText = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const normalizedQuery = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const normalizedText = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const normalizedQuery = q
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
   const index = normalizedText.indexOf(normalizedQuery);
   if (index === -1) return text;
   const before = text.slice(0, index);
@@ -93,8 +131,6 @@ export function SearchBox({ onSelect, onLocated }: Props) {
   const displayList = isShowingSuggestions ? QUICK_SUGGESTIONS : results;
   const showDropdown = focused && (query.trim().length >= MIN_QUERY_LENGTH || isShowingSuggestions);
 
-  // Fecha ao clicar fora — o dropdown não é um elemento do Leaflet, então
-  // nada além disso o fecharia ao interagir com o mapa por trás dele.
   useEffect(() => {
     if (!showDropdown) return;
     function onPointerDown(event: PointerEvent) {
@@ -128,8 +164,6 @@ export function SearchBox({ onSelect, onLocated }: Props) {
       }
       return;
     }
-    // Não deixa o Esc do teclado global (fecha detalhe / volta ao Brasil)
-    // competir com o Esc que só deveria fechar este dropdown.
     if (event.key === 'Escape') {
       event.stopPropagation();
       setFocused(false);
@@ -229,7 +263,6 @@ export function SearchBox({ onSelect, onLocated }: Props) {
                 onMouseEnter={() => {
                   setActiveIndex(i);
                 }}
-                // mousedown (não click) dispara antes do input perder o foco.
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectResult(result)}
               >

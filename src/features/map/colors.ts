@@ -1,4 +1,3 @@
-/** Paleta térmica e contornos do mapa. */
 export const TEMPERATURE_SCALE = [
   { max: 0, color: '#2454C6', label: '≤0°', min: -Infinity, name: 'Até 0°C' },
   { max: 5, color: '#2F7DE1', label: '0–5°', min: 0, name: '0°C a 5°C' },
@@ -21,9 +20,7 @@ export function colorForTemperature(temp: number | null | undefined): string {
   return TEMPERATURE_SCALE.find((band) => temp <= band.max)?.color ?? NO_DATA_COLOR;
 }
 
-export function bandForTemperature(
-  temp: number | null | undefined,
-): TemperatureBand | undefined {
+export function bandForTemperature(temp: number | null | undefined): TemperatureBand | undefined {
   if (temp === null || temp === undefined || Number.isNaN(temp)) return undefined;
   return TEMPERATURE_SCALE.find((band) => temp <= band.max);
 }

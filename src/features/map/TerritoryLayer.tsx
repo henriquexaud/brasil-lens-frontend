@@ -45,7 +45,6 @@ const SELECTION_OUTLINE_STYLE: PolylineOptions = {
 interface Props {
   collection: MapFeatureCollection;
   onSelect: (ibgeCode: string) => void;
-  /** Duplo clique em uma UF pula direto para os seus municípios. */
   onDrillDown?: (ibgeCode: string, name: string) => void;
   selectedCode: string | null;
   weatherByCode?: Map<string, WeatherCity>;
@@ -60,15 +59,12 @@ type TerritoryFeature = Feature<Geometry, MapFeatureProperties>;
 type Point = { x: number; y: number };
 
 const TOOLTIP_ID = 'map-hover-tooltip';
-/** Não deixa o card colado no cursor nem sair da faixa visível do mapa. */
 const TOOLTIP_EDGE = 8;
 
-/** Só estes campos mudam entre estilos; comparar evita `setStyle` sem efeito. */
 function styleKey(style: PathOptions): string {
   return [style.color, style.fillColor, style.weight, style.opacity, style.fillOpacity].join('|');
 }
 
-/** A partir daqui o hover é instantâneo: um fade por polígono vira rastro. */
 const DENSE_FEATURES = 150;
 
 function preserveBoundary(_feature: Feature, layer: Layer) {
@@ -169,10 +165,6 @@ function Territories({
     [collection, selectedCode],
   );
 
-  // Acrescenta/remove apenas as features que entraram ou saíram: um lote não
-  // recria os SVGs já desenhados, nem perde o foco de teclado ou o tooltip.
-  // Uma malha nova do mesmo território (o LOD leve trocado pelo detalhado) é
-  // aplicada no próprio path, no efeito de estilo abaixo — sem piscar.
   useEffect(() => {
     const group = layerRef.current;
     if (!group) return;
@@ -188,27 +180,11 @@ function Territories({
     }
   }, [featuresByCode]);
 
-  // --- tooltip único e compartilhado -------------------------------------
-  //
-  // Antes cada polígono tinha o seu próprio tooltip do Leaflet (bindTooltip
-  // por layer). Numa varredura rápida do cursor sobre um mapa de município —
-  // que chega a ter centenas de polígonos vizinhos —, o tooltip que estava
-  // saindo (fade-out) e o que estava entrando (fade-in) ficavam visíveis ao
-  // mesmo tempo por uma fração de segundo: um rastro de cópias sobrepostas
-  // em posições diferentes, em vez de um único card seguindo o mouse.
-  //
-  // A correção é ter só um elemento, sempre vivo, que muda de conteúdo e de
-  // posição — nunca um novo elemento por território. A posição é escrita em
-  // `transform: translate3d`, no máximo uma vez por frame (rAF), nunca em
-  // `top`/`left` (que force layout a cada pixel). O conteúdo só é reescrito
-  // quando o território sob o cursor muda de fato, nunca a cada `mousemove`.
   const tooltipElRef = useRef<HTMLDivElement | null>(null);
   const pointerRef = useRef<Point | null>(null);
   const fixedAnchorRef = useRef<Point | null>(null);
   const offsetRef = useRef({ dx: 16, dy: -14 });
   const tooltipSizeRef = useRef({ width: 0, height: 0 });
-  // Medir o card força layout; com centenas de polígonos, o cursor cruza vários
-  // por frame. A medida fica para o frame seguinte, uma vez só.
   const needsMeasureRef = useRef(false);
   const activeTooltipCodeRef = useRef<string | null>(null);
   const activeTooltipContentRef = useRef('');
@@ -218,8 +194,6 @@ function Territories({
 
   const style = useCallback(
     (feature?: TerritoryFeature): PolylineOptions => {
-      // React Leaflet retains the original GeoJSON data. Read the latest
-      // values while keeping the same SVG paths for a continuous color change.
       const properties = feature && featuresByCode.get(feature.properties.ibgeCode)?.properties;
       const hovered =
         properties?.ibgeCode === hoveredCode.current && properties?.ibgeCode !== selectedCode;
@@ -299,8 +273,6 @@ function Territories({
     ],
   );
 
-  // Rebind interactions to current data without replacing focused paths or
-  // open tooltips. Geometry/LOD changes still update the displayed boundaries.
   const propsRef = useRef({
     onSelect,
     onDrillDown,
@@ -332,7 +304,6 @@ function Territories({
 
   const boundLayersRef = useRef(new WeakSet<Path>());
 
-  // Tooltip compartilhado e helpers de interação
   const cancelHide = useCallback(() => {
     if (hideFrameRef.current !== null) {
       cancelAnimationFrame(hideFrameRef.current);
@@ -366,8 +337,6 @@ function Territories({
     scheduleHideTooltip();
   }, [scheduleHideTooltip, updateHoverOutline]);
 
-  // Cria o elemento e liga o rastreio do cursor uma única vez: isso não pode
-  // ser recriado quando o mapa muda.
   useEffect(() => {
     const el = document.createElement('div');
     el.id = TOOLTIP_ID;
@@ -399,7 +368,6 @@ function Territories({
         };
       }
       const { dx, dy } = offsetRef.current;
-      // translate3d (não top/left) para não disparar layout a cada frame.
       const { width, height } = tooltipSizeRef.current;
       const x = Math.max(TOOLTIP_EDGE, Math.min(point.x + dx, size.x - width - TOOLTIP_EDGE));
       const y = Math.max(TOOLTIP_EDGE, Math.min(point.y + dy, size.y - height - TOOLTIP_EDGE));
@@ -413,8 +381,6 @@ function Territories({
 
     const onMouseMove = (event: LeafletMouseEvent) => {
       pointerRef.current = { x: event.containerPoint.x, y: event.containerPoint.y };
-      // Em modo teclado o tooltip fica ancorado no território focado — o
-      // cursor pode estar em qualquer lugar, inclusive fora do mapa.
       if (!fixedAnchorRef.current) scheduleMove();
     };
     const onMapMouseOut = (event: LeafletMouseEvent) => {
@@ -512,7 +478,6 @@ function Territories({
     [cancelHide],
   );
 
-  // Amarração de eventos aos nós SVG — executada UMA VEZ por layer para evitar recriação de listeners
   useEffect(() => {
     layerRef.current?.eachLayer((layer) => {
       if (!(layer instanceof Path)) return;
@@ -529,8 +494,6 @@ function Territories({
         (layer as Path & { feature?: TerritoryFeature }).feature?.properties.ibgeCode ??
         initialProperties.ibgeCode;
 
-      // O hover usa o mesmo `style()` do resto da camada: um estilo à parte
-      // divergia dele (na chuva, um município sem chuva ficava quase branco).
       const restyle = () => {
         const currentFeature = (layer as Path & { feature?: TerritoryFeature }).feature;
         if (!currentFeature) return;
@@ -675,12 +638,10 @@ function Territories({
     updateHoverOutline,
   ]);
 
-  // Limpa o hover e esconde o tooltip ao trocar de escopo territorial
   useEffect(() => {
     clearHover();
   }, [collection.scope.level, collection.scope.parent, clearHover]);
 
-  // Atualização cirúrgica de estilo: aplica layer.setStyle apenas quando o estilo do polígono mudou
   useEffect(() => {
     layerRef.current?.eachLayer((layer) => {
       if (!(layer instanceof Path)) return;
@@ -696,9 +657,7 @@ function Territories({
           if (coords) {
             layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(coords, isMulti ? 2 : 1));
           }
-        } catch {
-          // Garante que eventual erro de coordenadas em um polígono não interrompa os demais
-        }
+        } catch {} // eslint-disable-line no-empty
       }
       territory.feature = feature;
 
@@ -752,9 +711,7 @@ function Territories({
               layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(coords, isMulti ? 2 : 1));
             }
             layer.feature = selectedFeature;
-          } catch {
-            // Garante que erro de coordenadas não quebre a seleção
-          }
+          } catch {} // eslint-disable-line no-empty
         }
       });
     }

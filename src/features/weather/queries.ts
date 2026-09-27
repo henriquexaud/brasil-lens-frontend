@@ -19,10 +19,6 @@ import type {
 } from '@/api/types';
 import { useDeferredReady } from '@/lib/useDeferredReady';
 
-/**
- * Aquece o cache individual de cada cidade com a leitura do lote: a seleção
- * aparece sem nova ida à rede. Nunca sobrescreve uma leitura mais recente.
- */
 function seedCityWeather(
   client: QueryClient,
   response: WeatherCurrentResponse,
@@ -36,25 +32,15 @@ function seedCityWeather(
   }
 }
 
-/** Alertas são atualizados pelo scheduler; o polling acompanha a camada visível. */
 const WEATHER_POLL_INTERVAL_MS = 90 * 1000;
-/** Municípios por lote de condições atuais (o backend aceita até 60). */
 const COVERAGE_STAGE_LIMIT = 16;
 
-/*
- * As condições atuais da Open-Meteo mudam a cada 15 minutos, e o backend
- * guarda cada leitura por esse tempo (a cidade selecionada) ou 30 minutos (as
- * camadas do mapa). Consultar antes disso só traria a mesma resposta: a
- * validade e a próxima atualização saem do horário da própria leitura.
- */
 const SELECTED_FRESHNESS_MS = 15 * 60 * 1000;
 const MAP_FRESHNESS_MS = 30 * 60 * 1000;
-/** Espera mínima entre consultas, igual à do backend depois de cada leitura. */
 const MIN_REFRESH_MS = 2 * 60 * 1000;
 
 type WeatherData = WeatherCurrentResponse | InfiniteData<WeatherCurrentResponse>;
 
-/** Quando a leitura mais antiga da resposta deixa de valer (epoch ms). */
 function readingExpiry(data: WeatherData | undefined, freshness: number): number {
   const responses = data && 'pages' in data ? data.pages : data ? [data] : [];
   let expiry = Infinity;
@@ -70,13 +56,11 @@ function readingExpiry(data: WeatherData | undefined, freshness: number): number
   return Number.isFinite(expiry) ? expiry : Date.now() + freshness;
 }
 
-/** `staleTime` conta a partir de quando o dado chegou, não de agora. */
 function staleUntilExpiry(freshness: number) {
   return (query: Query<WeatherCurrentResponse, Error, WeatherCurrentResponse, QueryKey>) =>
     Math.max(0, readingExpiry(query.state.data, freshness) - query.state.dataUpdatedAt);
 }
 
-/** Próxima atualização: quando a leitura vence, nunca antes de dois minutos. */
 function refreshAtExpiry<T extends WeatherData>(freshness: number) {
   return (query: { state: { data: T | undefined } }) =>
     Math.max(MIN_REFRESH_MS, readingExpiry(query.state.data, freshness) - Date.now());
@@ -101,7 +85,6 @@ export function useWeatherCurrent(territory: string | null, enabled = true, fore
   });
 }
 
-/** Capital e cobertura regional primeiro; depois completa o estado durante a ociosidade. */
 export function useMunicipalityWeather(parent: string | null, enabled: boolean, pause: boolean) {
   const client = useQueryClient();
   const queryKey = ['weather', 'municipalities', parent, COVERAGE_STAGE_LIMIT];
@@ -134,12 +117,6 @@ export function useMunicipalityWeather(parent: string | null, enabled: boolean, 
   };
 }
 
-/**
- * O estado inteiro em uma requisição: uma amostra medida e os demais
- * municípios interpolados no servidor. Só as leituras medidas aquecem o cache
- * de cada cidade — uma estimativa não pode se passar pela condição atual do
- * município quando ele for selecionado.
- */
 export function useUserStateWeather(parent: string | null, enabled: boolean) {
   const client = useQueryClient();
   const queryKey = ['weather', 'state', parent];
@@ -171,15 +148,12 @@ export function useWeatherAlerts(enabled = true) {
     queryKey: queryKeys.weatherAlerts(),
     queryFn: ({ signal }) => apiGet<WeatherAlertCollection>('/weather/alerts', undefined, signal),
     enabled,
-    // Religar a camada ou trocar de recorte não refaz a consulta antes do
-    // próximo ciclo de atualização.
     staleTime: WEATHER_POLL_INTERVAL_MS,
     refetchInterval: WEATHER_POLL_INTERVAL_MS,
     placeholderData: (previous) => previous,
   });
 }
 
-/** Páginas oficiais adicionadas sem esperar a malha inteira do estado. */
 export function useVisibleMunicipalities(
   bbox: string | undefined,
   enabled: boolean,
@@ -194,8 +168,6 @@ export function useVisibleMunicipalities(
     queryFn: ({ signal, pageParam }) =>
       apiGet<MapFeatureCollection>(
         '/weather/municipal-boundaries',
-        // O bbox reduz a área, mas o pai continua obrigatório: sem ele, uma
-        // janela que atravessa a divisa traz municípios de outras UFs.
         { bbox, parent, offset: pageParam, limit: 24 },
         signal,
       ),
@@ -205,7 +177,6 @@ export function useVisibleMunicipalities(
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
-    // Mantém apenas contornos oficiais do mesmo estado durante um deslocamento.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === parent ? previous : undefined,
   });
@@ -244,7 +215,6 @@ export function useVisibleMunicipalities(
   return { ...query, data };
 }
 
-/** A busca/seleção não espera a fila de municípios chegar até ela. */
 export function useSelectedBoundary(code: string | null) {
   return useQuery({
     queryKey: ['municipal-boundary', code],
@@ -260,20 +230,10 @@ export function useSelectedBoundary(code: string | null) {
 const CAPITALS_KEY = ['weather', 'capitals'];
 const STATES_KEY = ['weather', 'states'];
 
-/**
- * Visão nacional em duas etapas, as duas servindo temperatura e chuva — trocar
- * de camada não consulta nada. Primeiro as 27 capitais numa consulta: o mapa já
- * pinta cada estado pela sua capital. Depois, na ociosidade, `/weather/states`:
- * cada UF como a média de pontos espalhados pelo território, ponderada pela
- * área de cada um. A média reaproveita no servidor as capitais já lidas e, em
- * cache, dispensa a primeira etapa. As capitais seguem expostas à parte: a
- * seleção de uma UF mostra a sua capital, não a média.
- */
 export function useNationalWeather(enabled: boolean, pause: boolean) {
   const client = useQueryClient();
   useCancelWhenDisabled(CAPITALS_KEY, enabled);
   useCancelWhenDisabled(STATES_KEY, enabled);
-  // Lido no render: a consulta da média, logo abaixo, redesenha quando ela chega.
   const averaged = client.getQueryData<WeatherCurrentResponse>(STATES_KEY) !== undefined;
   const capitals = useQuery({
     queryKey: CAPITALS_KEY,
@@ -302,25 +262,18 @@ export function useNationalWeather(enabled: boolean, pause: boolean) {
   return {
     data,
     capitals: capitals.data,
-    /** Os estados já são médias, não mais as capitais. */
     averaged: states.data !== undefined,
     error: states.data ? states.error : (states.error ?? capitals.error),
     isError: !data && (states.isError || capitals.isError),
     isFetching: capitals.isFetching || states.isFetching,
-    /** A segunda etapa ainda vai chegar. */
     isRefining: enabled && !pause && !states.data && !states.isError,
   };
 }
 
-/**
- * Grade da medição no zoom próximo, a mesma do backend: uma leitura por célula
- * de 0,5° no zoom 8, de 0,25° no 9 e por município a partir do 10.
- */
 function weatherGridStep(zoom: number): number {
   return zoom <= 8 ? 0.5 : zoom === 9 ? 0.25 : 0.1;
 }
 
-/** Arredonda a área para fora, na grade: arrastar dentro dela reaproveita a consulta. */
 export function snapBbox(bbox: string, step: number): string {
   const [west = 0, south = 0, east = 0, north = 0] = bbox.split(',').map(Number);
   const floor = (value: number) => Math.floor(value / step) * step;
@@ -330,11 +283,6 @@ export function snapBbox(bbox: string, step: number): string {
     .join(',');
 }
 
-/**
- * Condições da área visível, restritas ao estado se informado: o backend mede
- * uma cidade por célula (todas, de perto) e estima as vizinhas. Só as leituras
- * medidas aquecem o cache de cada cidade.
- */
 export function useViewportWeather(
   bbox: string | undefined,
   parent: string | null | undefined,
@@ -343,7 +291,6 @@ export function useViewportWeather(
   pause: boolean,
 ) {
   const client = useQueryClient();
-  // Acima do 10 a medição já é por município: a mesma consulta serve.
   const scale = Math.min(Math.floor(zoom), 10);
   const area = bbox ? snapBbox(bbox, weatherGridStep(scale)) : undefined;
   const queryKey = ['weather', 'viewport', parent ?? 'all', scale, area];

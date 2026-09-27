@@ -1,6 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
 
-/** Conteúdo secundário montado ao abrir, com as interações nativas do navegador. */
 export function Disclosure({
   title,
   children,

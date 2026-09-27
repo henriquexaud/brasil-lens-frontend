@@ -1,4 +1,3 @@
-/** Formatação compacta de horários da interface. */
 export function formatRelativeTime(value: string | Date, now = new Date()): string {
   const date = value instanceof Date ? value : new Date(value);
   const minutes = Math.max(0, Math.round((now.getTime() - date.getTime()) / 60_000));

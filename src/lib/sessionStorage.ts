@@ -94,9 +94,7 @@ export function saveSessionState(patch: Partial<AppSessionState>): void {
   try {
     const next = climateState({ ...loadSessionState(), ...patch });
     storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // Falhas de cota ou navegação anônima são ignoradas silenciosamente.
-  }
+  } catch {} // eslint-disable-line no-empty
 }
 
 export function clearSessionState(): void {
@@ -105,7 +103,5 @@ export function clearSessionState(): void {
   try {
     storage.removeItem(SESSION_STORAGE_KEY);
     for (const legacyKey of LEGACY_STORAGE_KEYS) storage.removeItem(legacyKey);
-  } catch {
-    // Ignorado silenciosamente.
-  }
+  } catch {} // eslint-disable-line no-empty
 }

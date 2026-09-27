@@ -3,26 +3,9 @@ import { apiDelete, apiGet, apiPost, apiPut } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import type { FollowedMunicipality, FollowedMunicipalityListResponse } from '@/api/types';
 
-/* ------------------------------------------------------ municípios seguidos --
- *
- * Ao contrário das visualizações, estas escritas **são otimistas**: seguir é
- * um alternador de um toque, e esperar o servidor para acender o botão faria
- * o clique parecer perdido. O backend continua sendo a fonte de verdade — a
- * falha desfaz a mudança local e, ao final, a lista é relida do servidor.
- *
- * PUT/DELETE são idempotentes no backend, então repetir o pedido (duplo clique,
- * alternar rápido) nunca vira erro. E todas as escritas dividem um `scope`: o
- * cache muda no clique, mas as requisições saem em fila, na ordem dos cliques —
- * um "seguir" seguido de "deixar" nunca chega invertido ao servidor.
- */
-
 const FOLLOW_MUTATION_KEY = ['me', 'followed-municipalities', 'write'] as const;
 const FOLLOWED_PATH = '/me/followed-municipalities';
 
-/**
- * Lista do usuário. Pequena e pessoal: carregada uma vez ao entrar no clima e
- * mantida em cache, para que abrir um município já saiba se ele é seguido.
- */
 export function useFollowedMunicipalities(enabled = true) {
   return useQuery({
     queryKey: queryKeys.followedMunicipalities(),
@@ -35,12 +18,6 @@ export function useFollowedMunicipalities(enabled = true) {
 
 type FollowListSnapshot = { previous: FollowedMunicipalityListResponse | undefined };
 
-/**
- * Ciclo otimista comum a seguir e deixar de seguir: aplica `update` no cache,
- * desfaz em caso de erro e relê a lista quando a *última* escrita em curso
- * termina — reler no meio de uma sequência rápida traria de volta um estado
- * intermediário e faria o botão piscar.
- */
 function useOptimisticFollowMutation<TVariables>(
   mutationFn: (variables: TVariables) => Promise<unknown>,
   update: (list: FollowedMunicipality[], variables: TVariables) => FollowedMunicipality[],
@@ -70,7 +47,6 @@ function useOptimisticFollowMutation<TVariables>(
   });
 }
 
-/** O que a interface já sabe do município — só para a linha otimista. */
 export type FollowTarget = Omit<FollowedMunicipality, 'followedAt' | 'notificationsEnabled'>;
 
 export function useFollowMunicipality() {
@@ -99,11 +75,6 @@ export interface SetNotificationsVariables {
   enabled: boolean;
 }
 
-/**
- * Liga/desliga o alerta de um município já seguido. Mesmo ciclo otimista das
- * demais escritas — e a mesma fila, então alternar o sino no meio de um
- * seguir/deixar em voo nunca chega invertido ao servidor.
- */
 export function useSetMunicipalityNotifications() {
   return useOptimisticFollowMutation(
     ({ code, enabled }: SetNotificationsVariables) =>

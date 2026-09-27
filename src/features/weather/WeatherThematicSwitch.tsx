@@ -93,7 +93,7 @@ export function WeatherThematicSwitch({
         )}
       </div>
 
-      {/* Informações contextuais do modo ativo */}
+      {}
       {showClimate && (
         <div className="weather-segment-info">
           <span className="weather-layer-source">Open-Meteo</span>
@@ -102,8 +102,7 @@ export function WeatherThematicSwitch({
           ) : (
             <span className="weather-layer-badge badge-climate">
               {calculatedRange
-                ? (Math.round(calculatedRange.min) || 0) ===
-                  (Math.round(calculatedRange.max) || 0)
+                ? (Math.round(calculatedRange.min) || 0) === (Math.round(calculatedRange.max) || 0)
                   ? `${Math.round(calculatedRange.min) || 0}°C · ${scopeName ?? 'Brasil'}`
                   : `${Math.round(calculatedRange.min) || 0} - ${Math.round(calculatedRange.max) || 0}°C · ${scopeName ?? 'Brasil'}`
                 : 'Ativo'}
@@ -131,9 +130,7 @@ export function WeatherThematicSwitch({
         <div className="weather-segment-info">
           <span className="weather-layer-source">INPE / Queimadas</span>
           <span
-            className={`weather-layer-badge ${
-              fireHotspotsError ? 'badge-error' : 'badge-fire'
-            }`}
+            className={`weather-layer-badge ${fireHotspotsError ? 'badge-error' : 'badge-fire'}`}
           >
             {fireHotspotsError
               ? 'Indisponível'

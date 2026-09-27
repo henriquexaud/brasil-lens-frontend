@@ -105,7 +105,6 @@ test('useTerritorySearch só consulta o backend quando o termo tem pelo menos 2 
     return null;
   }
 
-  // 1. Termo com 1 caractere -> desabilitado
   await act(async () => {
     root.render(
       h(QueryClientProvider, { client: queryClient }, h(SearchHarness, { query: 's', enabled: true })),
@@ -114,7 +113,6 @@ test('useTerritorySearch só consulta o backend quando o termo tem pelo menos 2 
   await tick();
   assert.equal(requests.length, 0);
 
-  // 2. Termo com 2+ caracteres -> dispara chamada remota com parâmetro search
   await act(async () => {
     root.render(
       h(QueryClientProvider, { client: queryClient }, h(SearchHarness, { query: 'sao paulo', enabled: true })),

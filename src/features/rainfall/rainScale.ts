@@ -1,8 +1,3 @@
-/**
- * Escala cromática e classificações de quantidade de chuva (precipitação acumulada).
- * Utiliza a paleta oficial meteorológica de azuis contínuos (ColorBrewer Blues).
- */
-
 export interface RainScaleStop {
   min: number;
   label: string;
@@ -19,10 +14,6 @@ export const RAIN_SCALE_STOPS: RainScaleStop[] = [
   { min: 75, label: '100+ mm', color: '#1e3a8a' },
 ];
 
-/**
- * Chuva de uma leitura: o acumulado de 48 h; na falta dele, o total de hoje ou o
- * intervalo mais recente (respostas antigas em cache).
- */
 export function rainAmount(city: {
   precipitation48hMm?: number | null;
   precipitationSumMm?: number | null;
@@ -31,7 +22,6 @@ export function rainAmount(city: {
   return city.precipitation48hMm ?? city.precipitationSumMm ?? city.precipitationMm ?? 0;
 }
 
-/** "Chovendo agora", com a proporção de pontos na visão do Brasil. */
 export function rainingNowText(city: {
   rainingNow?: boolean;
   samplePoints?: number | null;
@@ -43,9 +33,6 @@ export function rainingNowText(city: {
     : 'Chovendo agora';
 }
 
-/**
- * Retorna a tonalidade de azul correspondente ao acumulado de chuva em milímetros.
- */
 export function rainColor(mm: number | null | undefined): string {
   if (mm == null || mm <= 0) return '#f1f5f9';
   if (mm < 2) return '#dbeafe';
@@ -58,9 +45,6 @@ export function rainColor(mm: number | null | undefined): string {
   return '#1e3a8a';
 }
 
-/**
- * Descrição amigável do nível de precipitação acumulada.
- */
 export function rainDescription(mm: number | null | undefined): string {
   if (mm == null || mm <= 0) return 'Sem chuva registrada';
   if (mm < 2) return 'Garoa / Chuva fraca';
@@ -71,9 +55,6 @@ export function rainDescription(mm: number | null | undefined): string {
   return 'Chuva torrencial';
 }
 
-/**
- * Rótulo conciso para badges de status.
- */
 export function rainBadgeText(mm: number | null | undefined): string {
   if (mm == null || mm <= 0) return 'Sem chuva';
   if (mm < 5) return 'Chuva leve';

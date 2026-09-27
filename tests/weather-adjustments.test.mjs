@@ -35,30 +35,24 @@ await writeFile(bundlePath, compiled.outputFiles[0].text);
 const { measurement, rainAmount } = await import(pathToFileURL(bundlePath).href);
 
 test('temperaturas devem sempre arredondar e não mostrar casas depois da vírgula', () => {
-  // Arredondamento para cima e para baixo
   assert.equal(measurement(24.4, '°'), '24°');
   assert.equal(measurement(24.5, '°'), '25°');
   assert.equal(measurement(24.9, '°'), '25°');
   assert.equal(measurement(19.1, '°'), '19°');
 
-  // Com °C e espaço
   assert.equal(measurement(31.8, ' °C'), '32 °C');
   assert.equal(measurement(20.4, '°C'), '20°C');
 
-  // Proteção contra -0
   assert.equal(measurement(-0.2, '°'), '0°');
   assert.equal(measurement(-0.0, '°'), '0°');
 
-  // Temperaturas negativas arredondadas
   assert.equal(measurement(-3.2, '°'), '-3°');
   assert.equal(measurement(-3.8, '°'), '-4°');
 
-  // Valores ausentes ou inválidos
   assert.equal(measurement(null, '°'), '—');
   assert.equal(measurement(undefined, '°'), '—');
   assert.equal(measurement(Number.NaN, '°'), '—');
 
-  // Outras unidades não-térmicas preservam decimais quando aplicável
   assert.equal(measurement(12.4, ' km/h'), '12,4 km/h');
   assert.equal(measurement(75, '%'), '75%');
 });
@@ -69,7 +63,6 @@ test('lugares com 0mm de chuva são identificados com acumulado zero', () => {
   assert.equal(rainAmount({ precipitationSumMm: 0, precipitationMm: 0 }), 0);
   assert.equal(rainAmount({}), 0);
 
-  // Lugares com chuva têm acumulado positivo
   assert.equal(rainAmount({ precipitation48hMm: 5.2 }), 5.2);
   assert.equal(rainAmount({ precipitation48hMm: 0.1 }), 0.1);
 });

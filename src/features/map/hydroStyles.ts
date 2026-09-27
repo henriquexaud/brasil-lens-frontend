@@ -14,7 +14,6 @@ export function getHydroStyle(properties: HydroFeatureProperties, fireActive = f
     };
   }
 
-  // category === 'river'
   const area = properties.drainageAreaKm2 ?? 0;
   let weight = 0.45;
   let color = '#9fbac2';

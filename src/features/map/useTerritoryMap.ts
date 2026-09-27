@@ -14,7 +14,6 @@ interface TerritoryMapInput {
   pageVisible: boolean;
 }
 
-/** Resolve malha visível, seleção e prontidão das camadas temáticas. */
 export function useTerritoryMap({
   scope,
   isDrilledDown,
@@ -23,7 +22,6 @@ export function useTerritoryMap({
   pageVisible,
 }: TerritoryMapInput) {
   const mapLayer = useMapLayer({ level: scope.level, parent: scope.parent });
-  // Mesma malha da visão nacional: a consulta de geometria é compartilhada.
   const statesOutlineLayer = useMapLayer({ level: 'state' });
   const selectedStateOutline = useMemo(() => {
     if (!isDrilledDown || !scope.parent) return null;
@@ -65,7 +63,6 @@ export function useTerritoryMap({
     isCurrentStateMesh || Boolean(lastCompleteMunicipalMapRef.current);
 
   const visibleMunicipalities = useVisibleMunicipalities(
-    // A malha municipal acompanha a janela visível apenas se a malha do estado ainda não estiver carregada.
     viewportIsInState ? viewport.bbox : undefined,
     isDrilledDown &&
       Boolean(selectedStateOutline) &&
@@ -92,7 +89,6 @@ export function useTerritoryMap({
     }
   }, [selectedBoundary.data]);
 
-  // O contorno do estado permite navegar imediatamente, antes dos lotes municipais.
   const municipalCollection = useMemo<MapFeatureCollection | undefined>(() => {
     if (!isDrilledDown || !selectedStateOutline) return undefined;
     const bounds = geoJSON(selectedStateOutline).getBounds();
@@ -139,10 +135,6 @@ export function useTerritoryMap({
   const showsCurrentScope =
     collection?.scope.level === scope.level && (collection?.scope.parent ?? null) === scope.parent;
   const scopeReady = Boolean(showsCurrentScope && !mapLayer.isPlaceholderData);
-  // A prontidão territorial é deliberadamente independente de clima. Ela é
-  // a barreira que impede camadas pesadas de aparecerem antes das fronteiras:
-  // no país, a malha estadual; dentro de uma UF, o primeiro lote municipal
-  // (ou o município selecionado, quando ele foi buscado diretamente).
   const territoryReady = isDrilledDown
     ? Boolean(
         selectedStateOutline &&

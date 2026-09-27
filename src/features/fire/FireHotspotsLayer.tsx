@@ -18,7 +18,6 @@ interface Props {
   onMapError: (error: boolean) => void;
 }
 
-/** Abaixo disso os pontos se sobrepõem e o clique continua sendo o da UF/município. */
 const MIN_IDENTIFY_ZOOM = 9;
 const IDENTIFY_PIXELS = 10;
 
@@ -39,7 +38,6 @@ function nearClick(
   );
 }
 
-/** Tiles mantêm a cobertura completa. O JSON só é consultado no ponto clicado. */
 export function FireHotspotsLayer({ collection, query, onMapError }: Props) {
   const { metadata } = collection;
   const [location, setLocation] = useState<FireHotspotLocation | null>(null);
@@ -56,7 +54,6 @@ export function FireHotspotsLayer({ collection, query, onMapError }: Props) {
       const nearby = map.containerPointToLatLng(
         event.containerPoint.add([IDENTIFY_PIXELS, IDENTIFY_PIXELS]),
       );
-      // O duplo clique continua pertencendo à navegação territorial.
       timer.current = window.setTimeout(
         () =>
           setLocation({

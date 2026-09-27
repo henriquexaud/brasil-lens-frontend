@@ -1,19 +1,3 @@
-/**
- * Seção "Municípios seguidos" para acesso rápido a recortes ambientais.
- * O alternador ("Seguir" ↔ "Seguindo") só existe com um município aberto.
- *
- * As escritas são otimistas (ver `useFollowMunicipality`): o botão muda no
- * clique, e uma falha desfaz a mudança e mostra o erro. A lista é carregada
- * assim que a seção monta, mesmo recolhida, para que abrir um município já
- * saiba se ele é seguido.
- *
- * Deixar de seguir é exclusividade do alternador "Seguindo" no topo — a
- * lista não tem um "x" próprio; para remover um município é preciso abri-lo
- * no mapa primeiro. Cada item da lista tem só um sino discreto, que liga/
- * desliga o alerta daquele vínculo (ligado por padrão ao seguir). Mesmo
- * ciclo otimista das outras escritas. Nada de canal de disparo aqui ainda —
- * só a preferência.
- */
 import { useEffect, useRef, useState } from 'react';
 
 import {
@@ -27,9 +11,7 @@ import type { FollowedMunicipality } from '@/api/types';
 import { ErrorMessage } from '@/components/Feedback';
 
 interface Props {
-  /** Município aberto no mapa, ou `null` fora do nível municipal. */
   current: FollowTarget | null;
-  /** Leva o mapa até um município da lista. */
   onOpen: (municipality: FollowedMunicipality) => void;
 }
 
@@ -52,7 +34,6 @@ function PinIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-/** Sino do alerta de notificações: aberto quando ligado, com um traço quando desligado. */
 function BellIcon({ size = 13, muted = false }: { size?: number; muted?: boolean }) {
   return (
     <svg viewBox="0 0 16 16" width={size} height={size} aria-hidden="true">
@@ -97,8 +78,6 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
     currentCode !== null && municipalities.some((item) => item.municipalityCode === currentCode);
   const writeError = follow.error ?? unfollow.error ?? notifications.error;
 
-  // Entrar no nível municipal abre a seção: é ali que o gesto de seguir faz
-  // sentido. Trocar de município com ela fechada não a reabre.
   const hasCurrent = currentCode !== null;
   useEffect(() => {
     if (hasCurrent) setOpen(true);
@@ -154,7 +133,9 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
             <button
               type="button"
               className={
-                isFollowing ? 'follow-toggle-btn follow-btn is-following' : 'follow-toggle-btn follow-btn'
+                isFollowing
+                  ? 'follow-toggle-btn follow-btn is-following'
+                  : 'follow-toggle-btn follow-btn'
               }
               aria-pressed={isFollowing}
               disabled={listQuery.isPending}

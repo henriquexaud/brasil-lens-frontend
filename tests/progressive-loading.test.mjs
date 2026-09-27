@@ -388,7 +388,6 @@ test('resumo de fogo não apaga o mapa: nova janela e UF aberta reaproveitam o a
   await render(h(Summary, { query: brazil, at: '2026-09-20T10:00:00Z' }));
   await until(() => result.data);
 
-  // A janela seguinte do Brasil: o mapa segue pintado com a anterior.
   await render(h(Summary, { query: brazil, at: '2026-09-20T10:10:00Z' }));
   await until(() => release);
   assert.equal(result.isPlaceholderData, true);
@@ -396,7 +395,6 @@ test('resumo de fogo não apaga o mapa: nova janela e UF aberta reaproveitam o a
   release(); release = undefined;
   await until(() => !result.isPlaceholderData);
 
-  // Abrir São Paulo: os municípios dele no resumo do Brasil pintam na hora.
   await render(h(Summary, { query: { level: 'state', parent: '35' }, at: undefined }));
   assert.equal(result.isPlaceholderData, true);
   assert.deepEqual(result.data.municipalities.map((m) => m.ibgeCode), ['3550308']);
@@ -460,7 +458,6 @@ test('zoom próximo traz a área numa consulta na grade do zoom e aquece só as 
   assert.ok(client.getQueryData(weatherCurrentOptions('3550308').queryKey), 'medida aquece a seleção');
   assert.equal(client.getQueryData(weatherCurrentOptions('3548708').queryKey), undefined, 'estimativa não');
 
-  // Arrastar dentro da mesma célula reaproveita a consulta; o zoom 12 usa a de 10.
   await render(h(Viewport, { bbox: '-47.4,-23.9,-46.1,-23.05', enabled: true }));
   await tick();
   assert.equal(requests.length, 1);
@@ -535,7 +532,6 @@ test('Brasil: capitais numa consulta, depois a média dos estados; a seleção p
   assert.equal(result.averaged, false);
   assert.equal(result.isRefining, true);
 
-  // A seleção pausa a segunda etapa.
   await render(h(National, { pause: true }));
   await tick(220); await runIdle();
   assert.equal(requests.length, 1);
@@ -547,7 +543,6 @@ test('Brasil: capitais numa consulta, depois a média dos estados; a seleção p
   assert.equal(result.capitals.cities[0].samplePoints, undefined, 'a seleção usa a capital');
   assert.equal(result.isRefining, false);
 
-  // Com a média em cache, voltar ao Brasil não pede nada: nem as capitais.
   await render(h(National, { enabled: false }));
   await render(h(National));
   await tick(220); await runIdle();

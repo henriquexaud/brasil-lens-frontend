@@ -1,17 +1,3 @@
-/**
- * Cliente HTTP da API.
- *
- * Único lugar do frontend que conhece URLs. Traduz o envelope de erro do
- * backend (`{ error: { code, message } }`) em uma exceção tipada, para que a
- * interface possa reagir ao `code` em vez de comparar strings de mensagem.
- *
- * As funções de leitura e escrita expõem os contratos usados pelas camadas
- * ambientais e pelos municípios acompanhados.
- *
- * Também é aqui que mora a pausa por fonte externa (ver "Fontes externas"
- * abaixo): várias camadas consultam a mesma fonte em paralelo, e só o cliente
- * enxerga todas as requisições para decidir que ela precisa de um tempo.
- */
 import type { ApiErrorBody } from './types';
 
 const BASE_URL = (
@@ -19,19 +5,13 @@ const BASE_URL = (
   'http://localhost:8000/api/v1'
 ).replace(/\/$/, '');
 
-/** Fonte externa que a API consulta sob demanda para responder a rota. */
 export type ExternalSource = 'weather' | 'fire' | 'hydrography';
 
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly details?: Record<string, unknown>;
-  /** Fonte externa por trás da rota, quando há uma. */
   source?: ExternalSource;
-  /**
-   * Quando a fonte volta a ser consultada automaticamente (epoch ms). `null`
-   * significa que só uma ação do usuário libera a próxima tentativa.
-   */
   retryAt?: number | null;
 
   constructor(status: number, code: string, message: string, details?: Record<string, unknown>) {
@@ -42,35 +22,16 @@ export class ApiError extends Error {
     this.details = details;
   }
 
-  /** Cota da fonte esgotada: insistir não ajuda, só esperar (ou o usuário pedir). */
   get isRateLimited(): boolean {
     return this.code === 'provider_rate_limited';
   }
 }
 
-/**
- * Falha que vale repetir logo em seguida: rede instável ou o servidor que não
- * respondeu (gateway, reinício). Erros de domínio — validação, 404, fonte
- * externa fora do ar ou sem cota — não mudam em um segundo e ficam de fora.
- */
 export function isTransientError(error: unknown): boolean {
   if (error instanceof ApiError) return error.code === 'http_error' && error.status >= 500;
-  return error instanceof TypeError; // `fetch` sem conexão
+  return error instanceof TypeError;
 }
 
-/* ------------------------------------------------------- fontes externas --
- *
- * Quando uma fonte externa falha, todas as rotas que dependem dela são
- * pausadas no próprio navegador: as requisições seguintes falham na hora, com
- * o mesmo erro, em vez de irem à rede. Sem isso, lotes, viewport, seleção e
- * prefetch continuavam consultando uma fonte que já não respondia.
- *
- * - Fonte indisponível (`provider_error`): pausa automática com espera
- *   crescente (30 s, 1 min, 2 min… até 5 min). Ao fim dela, quem assina
- *   `onSourceRecovered` refaz as consultas.
- * - Cota esgotada (`provider_rate_limited`): pausa até o usuário pedir uma
- *   nova tentativa (`clearSourcePauses`). Tentar sozinho só gastaria a cota.
- */
 const SOURCE_BACKOFF_MS = 30_000;
 const SOURCE_MAX_BACKOFF_MS = 5 * 60_000;
 
@@ -84,7 +45,6 @@ const consecutiveFailures = new Map<ExternalSource, number>();
 const recoveryListeners = new Set<(source: ExternalSource) => void>();
 
 function sourceOf(path: string): ExternalSource | undefined {
-  // Só as rotas que consultam a Open-Meteo; avisos e contornos vêm do banco.
   if (/^\/weather\/(current|municipalities|states?|viewport)\b/.test(path)) return 'weather';
   if (path.startsWith('/fire-hotspots')) return 'fire';
   if (path.startsWith('/hydrography')) return 'hydrography';
@@ -94,7 +54,6 @@ function sourceOf(path: string): ExternalSource | undefined {
 function pauseSource(source: ExternalSource, error: ApiError) {
   error.source = source;
   const current = pauses.get(source);
-  // Uma rajada de falhas da mesma queda (lotes em paralelo) conta como uma só.
   if (current && !error.isRateLimited) {
     const { retryAt } = current.error;
     if (retryAt === null || (retryAt !== undefined && retryAt > Date.now())) {
@@ -133,40 +92,24 @@ function activePause(source: ExternalSource): ApiError | undefined {
   return pause.error;
 }
 
-/** Libera as fontes pausadas — a nova tentativa pedida pelo usuário. */
 export function clearSourcePauses() {
   for (const { timer } of pauses.values()) if (timer) clearTimeout(timer);
   pauses.clear();
   consecutiveFailures.clear();
 }
 
-/** Avisa quando a pausa automática de uma fonte termina. Devolve o cancelamento. */
 export function onSourceRecovered(listener: (source: ExternalSource) => void): () => void {
   recoveryListeners.add(listener);
   return () => recoveryListeners.delete(listener);
 }
 
-/* --------------------------------------------------- atualização forçada --
- *
- * O botão "Atualizar dados" precisa que, desta vez, o backend ignore o
- * frescor normal (15/30 min) e busque a fonte na hora — mas só nas rotas de
- * clima e só nesta rajada de consultas, nunca no polling automático. Em vez
- * de espalhar um parâmetro por cada `queryFn` de `features/weather/queries.ts`,
- * a janela abaixo marca a rajada inteira: todo GET de clima disparado nos
- * próximos instantes (a invalidação é síncrona; todas as consultas ativas
- * partem no mesmo tick) sai com `force=true`. O backend decide o resto —
- * inclusive ignorar o pedido se a última leitura tiver menos de 5 minutos
- * (ver `FORCE_MIN_AGE` em `app/services/weather_forecast.py`).
- */
 const FORCE_WEATHER_REFRESH_WINDOW_MS = 4_000;
 let forceWeatherRefreshUntil = 0;
 
-/** Municípios ficam de fora de propósito: o clique já não os refaz (ver `App.tsx`). */
 function isForceableWeatherPath(path: string): boolean {
   return /^\/weather\/(current|state|states|viewport)\b/.test(path);
 }
 
-/** Pedido explícito do usuário — chamar logo antes de invalidar as consultas de clima. */
 export function requestForcedWeatherRefresh() {
   forceWeatherRefreshUntil = Date.now() + FORCE_WEATHER_REFRESH_WINDOW_MS;
 }
@@ -189,7 +132,6 @@ export function buildUrl(path: string, params?: Record<string, QueryValue>): str
 
 interface RequestOptions {
   params?: Record<string, QueryValue>;
-  /** Corpo JSON das escritas. Ausente nos GET e nos DELETE. */
   body?: unknown;
   signal?: AbortSignal;
 }
@@ -229,9 +171,7 @@ async function request<T>(
         message = errorBody.error.message;
         details = errorBody.error.details;
       }
-    } catch {
-      // Resposta sem corpo JSON: mantém a mensagem genérica.
-    }
+    } catch {} // eslint-disable-line no-empty
     const error = new ApiError(response.status, code, message, details);
     if (source && (code === 'provider_error' || code === 'provider_rate_limited')) {
       pauseSource(source, error);
@@ -240,7 +180,6 @@ async function request<T>(
   }
 
   if (source) consecutiveFailures.delete(source);
-  // 204 (DELETE) não tem corpo: chamar .json() aqui estouraria.
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }

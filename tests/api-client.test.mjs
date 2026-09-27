@@ -59,12 +59,10 @@ test('cota esgotada pausa a fonte inteira até o usuário pedir nova tentativa',
   assert.equal(first.retryAt, null);
   assert.match(first.message, /limite diário/);
 
-  // Outras rotas da mesma fonte falham na hora, sem ir à rede.
   const second = await apiGet('/weather/states').catch((error) => error);
   assert.equal(second, first);
   assert.deepEqual(calls, ['/api/v1/weather/state']);
 
-  // Avisos vêm do banco, não da Open-Meteo: continuam consultando.
   await apiGet('/weather/alerts');
   assert.equal(calls.length, 2);
 
@@ -88,10 +86,10 @@ test('fonte indisponível espera um intervalo crescente e depois volta a consult
     await apiGet('/fire-hotspots/summary').catch(() => {});
     assert.equal(calls.length, 1);
 
-    Date.now = () => realNow() + 31_000; // a pausa terminou
+    Date.now = () => realNow() + 31_000;
     const second = await apiGet('/fire-hotspots').catch((error) => error);
     assert.equal(calls.length, 2);
-    assert.ok(second.retryAt - Date.now() > 55_000); // segunda falha seguida: espera dobra
+    assert.ok(second.retryAt - Date.now() > 55_000);
   } finally {
     Date.now = realNow;
     clearSourcePauses();

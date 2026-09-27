@@ -129,7 +129,7 @@ export function WeatherPanel({
         </button>
       </header>
 
-      {/* Quando a camada de fogo está ativa, Focos de Calor é o elemento primário (Hero) */}
+      {}
       {fireActive && (
         <FireStatusSection
           fire={fireMunicipality}
@@ -139,7 +139,7 @@ export function WeatherPanel({
         />
       )}
 
-      {/* Quando a camada de chuva está ativa, Chuva é o elemento primário (Hero) com previsão diária */}
+      {}
       {!fireActive && rainActive && (
         <>
           <RainStatusSection city={city} loading={loading} highlight />
@@ -158,10 +158,10 @@ export function WeatherPanel({
 
       {!city && error != null && showClimateDetails && <ErrorMessage error={error} />}
 
-      {/* Quando a camada de temperatura está ativa, o Clima geral é o elemento primário */}
+      {}
       {weatherDetailsContent}
 
-      {/* Botão de drill-down para navegar aos municípios do estado */}
+      {}
       {isState && territory && (
         <button className="drill-button" onClick={() => onDrillDown(code, territory.name)}>
           Ver municípios <span aria-hidden="true">→</span>

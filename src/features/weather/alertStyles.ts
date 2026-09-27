@@ -1,22 +1,7 @@
-/**
- * Mapeamento e calibração de cores e estilos para alertas oficiais (INMET e CEMADEN).
- *
- * Normalização visual comum em 4 níveis de severidade:
- * - Moderado:   #C58A00
- * - Alto:       #E25822
- * - Muito alto: #C62828
- * - Extremo:    #7F1D1D
- *
- * A cor representa EXCLUSIVAMENTE a severidade, sempre acompanhada por texto
- * ou ícone (acessibilidade / contraste). As fontes (CEMADEN e INMET) aparecem
- * com badges neutros.
- */
-
 import type { WeatherAlertSeverityLevel } from '@/api/types';
 
 export type AlertSeverityTier = WeatherAlertSeverityLevel;
 
-/** Ordem de importância visual — menor é mais severo. Usado para ordenar mapa e lista. */
 export const SEVERITY_RANK: Record<AlertSeverityTier, number> = {
   extreme: 0,
   very_high: 1,
@@ -27,7 +12,6 @@ export const SEVERITY_RANK: Record<AlertSeverityTier, number> = {
   other: 3,
 };
 
-/** Cores canônicas por severidade */
 export const SEVERITY_COLORS = {
   moderate: '#C58A00',
   high: '#E25822',
@@ -35,7 +19,6 @@ export const SEVERITY_COLORS = {
   extreme: '#7F1D1D',
 } as const;
 
-/** Nome de exibição por fonte — a origem aparece como badge neutro. */
 export const ALERT_SOURCE_LABELS: Record<string, string> = {
   inmet: 'INMET',
   cemaden: 'CEMADEN',
@@ -121,7 +104,6 @@ export const ALERT_STYLES: Record<AlertSeverityTier, AlertStyle> = {
   very_high: VERY_HIGH_STYLE,
   high: HIGH_STYLE,
   moderate: MODERATE_STYLE,
-  // Aliases para retrocompatibilidade
   danger: HIGH_STYLE,
   potential: MODERATE_STYLE,
   other: MODERATE_STYLE,
@@ -134,16 +116,10 @@ export function resolveAlertTier(
   const sev = (severity ?? '').toLowerCase();
   const col = (color ?? '').toLowerCase();
 
-  // 1. Extremo
-  if (
-    sev.includes('extremo') ||
-    sev.includes('grande perigo') ||
-    col === '#7f1d1d'
-  ) {
+  if (sev.includes('extremo') || sev.includes('grande perigo') || col === '#7f1d1d') {
     return 'extreme';
   }
 
-  // 2. Muito Alto
   if (
     sev.includes('muito alto') ||
     col === '#c62828' ||
@@ -154,7 +130,6 @@ export function resolveAlertTier(
     return 'very_high';
   }
 
-  // 3. Moderado (checado antes de "perigo" para não colidir com "perigo potencial")
   if (
     sev.includes('moderado') ||
     sev.includes('potencial') ||
@@ -166,7 +141,6 @@ export function resolveAlertTier(
     return 'moderate';
   }
 
-  // 4. Alto / Perigo
   if (
     sev.includes('alto') ||
     sev.includes('perigo') ||

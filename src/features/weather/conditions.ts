@@ -1,6 +1,5 @@
 export { WeatherIcon } from './WeatherIcon';
 
-/** Códigos WMO publicados pela Open-Meteo. */
 export function weatherDescription(code: number | null): string {
   if (code === 0) return 'Céu limpo';
   if (code === 1) return 'Predominantemente limpo';

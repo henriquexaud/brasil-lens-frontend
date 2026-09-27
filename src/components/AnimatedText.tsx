@@ -8,10 +8,6 @@ interface Props {
   mode?: 'text' | 'number';
 }
 
-/**
- * Renderiza textos e métricas de forma limpa, direta e com alta performance.
- * Números recebem alinhamento tabular (tabular-nums) para visual sério e moderno.
- */
 export function AnimatedText({
   text,
   as: Element = 'span',

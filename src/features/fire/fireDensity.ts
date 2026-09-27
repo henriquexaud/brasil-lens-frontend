@@ -4,7 +4,6 @@ export function fireMode(zoom: number): FireMode {
   return zoom < 9 ? 'territorial' : 'points';
 }
 
-// Limites fixos: uma cor mantém o mesmo significado entre estados e municípios.
 export const FIRE_DENSITY_BREAKS = [1, 5, 10, 25, 50];
 export const FIRE_COLORS = ['#fff4ad', '#ffdb55', '#ffab35', '#f47724', '#dc3526', '#8b1823'];
 

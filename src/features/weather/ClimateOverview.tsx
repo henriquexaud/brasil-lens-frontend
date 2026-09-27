@@ -47,7 +47,6 @@ export function ClimateOverview({
       return { hottest: [first], coldest: [second] };
     }
 
-    // Para 3 ou mais cidades, seleciona até 3 mais quentes e até 3 mais frias sem sobreposição
     const maxPerGroup = Math.min(3, Math.floor(valid.length / 2) || 1);
     const topHottest = sortedDesc.slice(0, maxPerGroup);
     const hottestIds = new Set(topHottest.map((c) => c.id));
@@ -63,7 +62,6 @@ export function ClimateOverview({
   }
 
   const hasEstimate = [...hottest, ...coldest].some((city) => city.isInferred);
-  // No Brasil, as capitais chegam primeiro; depois, cada estado é uma média.
   const averaged = !isDrilledDown && cities.some(isStateAverage);
   const title = isDrilledDown
     ? scopeName

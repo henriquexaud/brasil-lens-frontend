@@ -1,4 +1,3 @@
-/** Hidrografia auxiliar: geometria simplificada por escala e nenhum bloqueio da navegação. */
 import type { Feature, Geometry } from 'geojson';
 import type { Layer, LeafletMouseEvent } from 'leaflet';
 import { useCallback } from 'react';

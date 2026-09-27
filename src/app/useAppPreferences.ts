@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 
-/** Preferências visuais das camadas climáticas. */
 export function useAppPreferences() {
   const [showWeatherAlerts, setShowWeatherAlerts] = useState<boolean>(() => {
     const saved = loadSessionState();

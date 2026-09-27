@@ -9,13 +9,9 @@ interface WeatherAlertGroupCardProps {
   defaultOpen?: boolean;
 }
 
-export function WeatherAlertGroupCard({
-  group,
-  defaultOpen = false,
-}: WeatherAlertGroupCardProps) {
+export function WeatherAlertGroupCard({ group, defaultOpen = false }: WeatherAlertGroupCardProps) {
   const style = ALERT_STYLES[group.tier] ?? ALERT_STYLES.moderate;
 
-  // Extrai riscos e instruções consolidadas da feature principal
   const { cleanedRisks, cleanedInstructions } = useMemo(() => {
     const risks: string[] = [];
     const instructions: string[] = [];
@@ -60,18 +56,18 @@ export function WeatherAlertGroupCard({
             >
               {style.label}
             </span>
-            <span className="weather-alert-source-tag">
-              {alertSourceLabel(group.provider)}
-            </span>
+            <span className="weather-alert-source-tag">{alertSourceLabel(group.provider)}</span>
           </span>
         }
       >
         <div className="weather-alert-detail-content">
-          {/* Metadados compactos */}
+          {}
           <div className="weather-alert-compact-meta">
             <span className="alert-meta-item">
               <span className="alert-meta-label">Classificação na fonte:</span>{' '}
-              <strong className="alert-meta-value">{group.primaryFeature.properties.severity}</strong>
+              <strong className="alert-meta-value">
+                {group.primaryFeature.properties.severity}
+              </strong>
             </span>
             <span className="alert-meta-separator" aria-hidden="true">
               ·
@@ -84,7 +80,7 @@ export function WeatherAlertGroupCard({
             </span>
           </div>
 
-          {/* Municípios afetados em chips interativos que abrem o boletim */}
+          {}
           {group.municipalities.length > 0 && (
             <div className="weather-alert-municipalities-block">
               <p className="field-label sr-only">Municípios com ocorrência:</p>
@@ -114,7 +110,7 @@ export function WeatherAlertGroupCard({
             </div>
           )}
 
-          {/* Riscos consolidados */}
+          {}
           {cleanedRisks.length > 0 && (
             <div className="weather-alert-risk-list">
               {cleanedRisks.map((risk, index) => (
@@ -125,7 +121,7 @@ export function WeatherAlertGroupCard({
             </div>
           )}
 
-          {/* Instruções consolidadas */}
+          {}
           {cleanedInstructions.length > 0 && (
             <div className="weather-alert-instruction-list">
               {cleanedInstructions.map((instruction, index) => (
@@ -136,7 +132,7 @@ export function WeatherAlertGroupCard({
             </div>
           )}
 
-          {/* Ações: fallback de boletim oficial apenas quando não houver municípios com link direto */}
+          {}
           {group.municipalities.length === 0 && group.bulletinUrls.length > 0 && (
             <div className="weather-alert-actions">
               {group.bulletinUrls.map((url, index) => (
@@ -163,4 +159,3 @@ export function WeatherAlertGroupCard({
     </div>
   );
 }
-

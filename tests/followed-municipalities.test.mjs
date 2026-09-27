@@ -57,7 +57,6 @@ const SAO_PAULO = {
 
 let root, client, requests, server;
 
-/** Backend em memória: a lista do usuário é a fonte de verdade. */
 function fakeServer({ failWrites = false } = {}) {
   const followed = new Map();
   return {
@@ -176,7 +175,6 @@ test('seguir é otimista e a lista é confirmada pelo servidor', async () => {
   assert.match(followButton().textContent, /Seguir\s*São Paulo/);
 
   await act(async () => followButton().click());
-  // Muda no clique, antes de o PUT responder.
   assert.equal(followButton().getAttribute('aria-pressed'), 'true');
   assert.match(followButton().textContent, /Seguindo/);
 
@@ -186,8 +184,6 @@ test('seguir é otimista e a lista é confirmada pelo servidor', async () => {
   assert.equal($('.follow-count-badge').textContent, '1');
   assert.ok($('.follow-item.is-current'), 'o município aberto é destacado na lista');
 
-  // Com a releitura do primeiro clique ainda em voo, o otimista espera o
-  // `cancelQueries` — alguns microtasks, não a resposta do DELETE.
   await act(async () => followButton().click());
   await until(() => followButton().getAttribute('aria-pressed') === 'false');
   await until(() => requests.some((r) => r.startsWith('DELETE')));
@@ -251,7 +247,6 @@ test('o sino alterna as notificações de um município seguido via POST otimist
   assert.equal(bellButton().getAttribute('aria-pressed'), 'true');
 
   await act(async () => bellButton().click());
-  // Muda no clique, antes de o POST responder.
   await until(() => bellButton().getAttribute('aria-pressed') === 'false');
   assert.equal(bellButton().getAttribute('aria-pressed'), 'false');
   assert.equal(bellButton().classList.contains('is-enabled'), false);

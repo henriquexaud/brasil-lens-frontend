@@ -1,8 +1,5 @@
 import type { MapFeature } from '@/api/types';
 
-/**
- * Localiza o contorno da UF a partir do código IBGE (ex.: '35') ou sigla (ex.: 'SP').
- */
 export function findStateOutline(
   isDrilledDown: boolean,
   parentCode: string | null | undefined,
@@ -16,9 +13,6 @@ export function findStateOutline(
   );
 }
 
-/**
- * Prioriza o contorno detalhado (detail LOD) com fallback seguro para overview.
- */
 export function resolveSelectedStateOutline(
   isDrilledDown: boolean,
   parentCode: string | null | undefined,

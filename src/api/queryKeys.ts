@@ -1,16 +1,9 @@
 import type { FireHotspotQuery, HydroQuery, MapQuery } from './types';
 
-/** Janela curta reduz o payload e mantém o mapa alinhado com o uso recente. */
 export const FIRE_HOTSPOT_HOURS = 48;
 
 export const queryKeys = {
-  map: (query: MapQuery) =>
-    [
-      'map',
-      query.level,
-      query.parent ?? null,
-      query.lod ?? null,
-    ] as const,
+  map: (query: MapQuery) => ['map', query.level, query.parent ?? null, query.lod ?? null] as const,
   hydrography: (query: HydroQuery) =>
     [
       'hydrography',

@@ -1,15 +1,3 @@
-/**
- * Hooks de dados (TanStack Query).
- *
- * Por que uma biblioteca de fetching aqui e não estado global: o produto tem
- * exatamente um tipo de estado difícil — respostas de servidor cacheadas por
- * escopo geográfico. React Query resolve deduplicação, cache, estados de
- * carregamento e prefetch. Redux resolveria um problema que não existe: não há
- * estado compartilhado complexo no cliente.
- *
- * O estado da *interface* (camadas ativas, território selecionado) fica em
- * `useState`/hook local, como deve.
- */
 import { useQuery } from '@tanstack/react-query';
 import { useRef } from 'react';
 
@@ -47,7 +35,6 @@ function geometryOptions(
   };
 }
 
-/** Malha territorial progressiva: carrega overview e troca por detail em repouso. */
 export function useMapLayer(query: Omit<MapQuery, 'lod'>) {
   const { level } = query;
   const parent = query.parent ?? null;
@@ -69,10 +56,6 @@ export function useMapLayer(query: Omit<MapQuery, 'lod'>) {
   };
 }
 
-/**
- * Consulta oficial da malha hidrográfica (ANA / SNIRH).
- * Carrega cursos d'água e massas d'água com resolução e detalhes progressivos.
- */
 export function useHydrography(query: HydroQuery, enabled = true) {
   const queryKey = queryKeys.hydrography(query);
   useCancelWhenDisabled(queryKey, enabled);
@@ -98,7 +81,6 @@ export function useHydrography(query: HydroQuery, enabled = true) {
   });
 }
 
-/** A camada só consulta o INPE enquanto ativa; detalhes não entram no carregamento inicial. */
 export function useFireHotspots(query: FireHotspotQuery, enabled = true) {
   const queryKey = queryKeys.fireHotspots(query);
   useCancelWhenDisabled(queryKey, enabled);
@@ -145,7 +127,6 @@ export function useFireHotspotDetails(
   });
 }
 
-/** Os municípios de uma UF já estão no resumo do Brasil: a mesma janela, recortada. */
 function stateFireSummary(summary: FireSummary, parent: string): FireSummary {
   return {
     ...summary,
@@ -175,9 +156,6 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
     enabled: enabled && Boolean(at),
     staleTime: Infinity,
     gcTime: 30 * 60 * 1000,
-    // O resumo leva segundos na fonte. Enquanto o novo chega, o mapa não apaga:
-    // a janela anterior do mesmo recorte continua pintada e, ao abrir uma UF,
-    // os municípios dela no resumo do Brasil já pintam o estado.
     placeholderData: (previous, previousQuery) => {
       const [, level, parent, previousHours] = previousQuery?.queryKey ?? [];
       if (!previous || previousHours !== hours) return undefined;
@@ -213,10 +191,6 @@ export function useFireSummary(query: FireHotspotQuery, at: string | undefined, 
   };
 }
 
-/**
- * Busca de territórios delegada ao backend, que compara nome e sigla sem
- * acento (colunas normalizadas na ingestão) e ordena por relevância.
- */
 export function useTerritorySearch(query: string, enabled = true, limit = 8) {
   const clean = query.trim();
   return useQuery({

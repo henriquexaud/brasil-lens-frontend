@@ -13,7 +13,9 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
   if (summary.totalAlerts === 0) {
     return (
       <div className="weather-alerts-empty-state">
-        <p className="source-note">Nenhum aviso meteorológico ou geo-hidrológico ativo no Brasil.</p>
+        <p className="source-note">
+          Nenhum aviso meteorológico ou geo-hidrológico ativo no Brasil.
+        </p>
       </div>
     );
   }
@@ -22,7 +24,7 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
 
   return (
     <div className="weather-alerts-national-summary" aria-label="Visão geral dos alertas no Brasil">
-      {/* Linha principal com contagem de alertas e estados */}
+      {}
       <div className="national-summary-header">
         <div className="national-summary-title">
           <span className="national-summary-count">{totalAlerts}</span>
@@ -34,7 +36,7 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
           </span>
         </div>
 
-        {/* Badges neutros de fontes presentes */}
+        {}
         <div className="national-summary-sources" aria-label="Fontes oficiais">
           {sources.inmet > 0 && (
             <span className="weather-alert-source-tag">INMET ({sources.inmet})</span>
@@ -45,10 +47,13 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
         </div>
       </div>
 
-      {/* Distribuição por severidade com dots coloridos e texto acessível */}
+      {}
       <div className="national-summary-severities" aria-label="Distribuição por severidade">
         {summary.severityDistribution.extreme > 0 && (
-          <span className="weather-alert-severity-pill" style={{ borderColor: ALERT_STYLES.extreme.color }}>
+          <span
+            className="weather-alert-severity-pill"
+            style={{ borderColor: ALERT_STYLES.extreme.color }}
+          >
             <span
               className="weather-alert-indicator-dot"
               style={{
@@ -63,7 +68,10 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
         )}
 
         {summary.severityDistribution.very_high > 0 && (
-          <span className="weather-alert-severity-pill" style={{ borderColor: ALERT_STYLES.very_high.color }}>
+          <span
+            className="weather-alert-severity-pill"
+            style={{ borderColor: ALERT_STYLES.very_high.color }}
+          >
             <span
               className="weather-alert-indicator-dot"
               style={{
@@ -78,7 +86,10 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
         )}
 
         {summary.severityDistribution.high > 0 && (
-          <span className="weather-alert-severity-pill" style={{ borderColor: ALERT_STYLES.high.color }}>
+          <span
+            className="weather-alert-severity-pill"
+            style={{ borderColor: ALERT_STYLES.high.color }}
+          >
             <span
               className="weather-alert-indicator-dot"
               style={{
@@ -93,7 +104,10 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
         )}
 
         {summary.severityDistribution.moderate > 0 && (
-          <span className="weather-alert-severity-pill" style={{ borderColor: ALERT_STYLES.moderate.color }}>
+          <span
+            className="weather-alert-severity-pill"
+            style={{ borderColor: ALERT_STYLES.moderate.color }}
+          >
             <span
               className="weather-alert-indicator-dot"
               style={{
@@ -108,15 +122,14 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
         )}
       </div>
 
-      {/* Estados com maior quantidade de ocorrências */}
+      {}
       {topStates.length > 0 && (
         <div className="national-summary-top-states">
           <span className="top-states-label">Mais ocorrências:</span>
           <span className="top-states-list">
             {topStates.map((s, idx) => (
               <span key={s.uf} className="top-state-item">
-                <strong>{s.uf}</strong> ({s.count})
-                {idx < topStates.length - 1 ? ' · ' : ''}
+                <strong>{s.uf}</strong> ({s.count}){idx < topStates.length - 1 ? ' · ' : ''}
               </span>
             ))}
           </span>
@@ -125,4 +138,3 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
     </div>
   );
 }
-

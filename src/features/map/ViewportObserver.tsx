@@ -8,7 +8,6 @@ export interface MapViewport {
   moving?: boolean;
 }
 
-/** Pausa o trabalho de fundo ao mover; só atualiza a área quando o mapa assenta. */
 export function ViewportObserver({
   onChange,
   scopeKey,

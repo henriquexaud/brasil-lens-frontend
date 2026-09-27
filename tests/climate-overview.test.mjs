@@ -86,7 +86,6 @@ test('ClimateOverview renderiza capitais mais quentes e mais frias em visão nac
   assert.ok(summary);
   assert.equal(summary.textContent, 'Capital mais quente e capital mais fria');
 
-  // Abre o disclosure
   const details = document.querySelector('details');
   assert.ok(details);
   await act(async () => {
@@ -104,11 +103,9 @@ test('ClimateOverview renderiza capitais mais quentes e mais frias em visão nac
   const cityButtons = document.querySelectorAll('.climate-ranking-city');
   assert.ok(cityButtons.length >= 2);
 
-  // Mais quente: Cuiabá com 36°C
   assert.match(cityButtons[0].textContent, /Cuiabá/);
   assert.match(cityButtons[0].textContent, /36°C/);
 
-  // Clica na cidade mais quente
   await act(async () => cityButtons[0].click());
   assert.equal(selectedCity?.name, 'Cuiabá');
   assert.equal(selectedCity?.id, 'MT');
@@ -136,7 +133,6 @@ test('ClimateOverview renderiza título customizado para estado em visão drilld
   assert.ok(summary);
   assert.equal(summary.textContent, 'Cidade mais quente e mais fria · São Paulo');
 
-  // Abre o disclosure
   const details = document.querySelector('details');
   assert.ok(details);
   await act(async () => {

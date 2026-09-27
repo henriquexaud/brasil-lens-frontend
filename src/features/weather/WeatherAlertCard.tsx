@@ -6,7 +6,6 @@ import { extractAlertUrls, formatAlertDate } from './alertUtils';
 
 interface WeatherAlertCardProps {
   feature: WeatherAlertFeature;
-  /** Se o nome do município já estiver evidente pelo contexto, pode ocultar. */
   showLocation?: boolean;
   defaultOpen?: boolean;
 }
@@ -19,7 +18,6 @@ export function WeatherAlertCard({
   const { properties } = feature;
   const style = getAlertStyle(properties);
 
-  // Extrai URLs de riscos e instruções e limpa os textos
   const { cleanedRisks, cleanedInstructions, bulletinUrls } = useMemo(() => {
     const urls: string[] = [];
     const risks: string[] = [];
@@ -37,7 +35,6 @@ export function WeatherAlertCard({
       urls.push(...iUrls);
     }
 
-    // Deduplica URLs
     const uniqueUrls = Array.from(new Set(urls));
     return {
       cleanedRisks: risks,
@@ -46,7 +43,6 @@ export function WeatherAlertCard({
     };
   }, [properties.risks, properties.instructions]);
 
-  // Município/descrição livre (ex.: "Blumenau" do CEMADEN)
   const locationText = showLocation && properties.description ? properties.description : null;
 
   return (
@@ -86,7 +82,7 @@ export function WeatherAlertCard({
         }
       >
         <div className="weather-alert-detail-content">
-          {/* Metadados compactos: classificação original da fonte e validade */}
+          {}
           <div className="weather-alert-compact-meta">
             <span className="alert-meta-item">
               <span className="alert-meta-label">Classificação na fonte:</span>{' '}
@@ -101,7 +97,7 @@ export function WeatherAlertCard({
             </span>
           </div>
 
-          {/* Riscos identificados */}
+          {}
           {cleanedRisks.length > 0 && (
             <div className="weather-alert-risk-list">
               {cleanedRisks.map((risk, index) => (
@@ -112,7 +108,7 @@ export function WeatherAlertCard({
             </div>
           )}
 
-          {/* Instruções de segurança */}
+          {}
           {cleanedInstructions.length > 0 && (
             <div className="weather-alert-instruction-list">
               {cleanedInstructions.map((instruction, index) => (
@@ -123,7 +119,7 @@ export function WeatherAlertCard({
             </div>
           )}
 
-          {/* Ação oficial: link limpo para boletim, sem URL crua */}
+          {}
           {bulletinUrls.length > 0 && (
             <div className="weather-alert-actions">
               {bulletinUrls.map((url, index) => (
@@ -148,4 +144,3 @@ export function WeatherAlertCard({
     </div>
   );
 }
-

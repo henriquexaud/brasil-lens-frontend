@@ -1,9 +1,3 @@
-/**
- * Alertas oficiais (INMET + CEMADEN) com alto contraste sobre a escala térmica.
- * Uma única camada — a origem aparece dentro de cada alerta, nunca como controle
- * separado (ver WeatherOptions). Renderizados no pane zIndex 450 (sobre a
- * coropleta), sem interceptar a navegação territorial.
- */
 import { useMemo } from 'react';
 import { GeoJSON, Pane } from 'react-leaflet';
 
@@ -20,14 +14,6 @@ export function AlertsLayer({
   muted?: boolean;
   stateCode?: string | null;
 }) {
-  // Severidade mais importante que a fonte na tela: quando dois alertas se
-  // sobrepõem (um aviso do INMET e um risco do CEMADEN na mesma área, por
-  // exemplo — os dois continuam distintos, nunca fundidos), o mais severo
-  // desenha por último e fica visualmente por cima. `SEVERITY_RANK` é menor
-  // para mais severo, então do maior rank para o menor desenha nessa ordem.
-  //
-  // Na visualização de estados e municípios (stateCode informado), oculta
-  // qualquer alerta que esteja fora do limite do estado ativo.
   const orderedFeatures = useMemo(() => {
     const features = collection?.features ?? [];
     const filtered = stateCode

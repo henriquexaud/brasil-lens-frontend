@@ -40,7 +40,6 @@ export function RainOverview({
     [cities, precalculatedRanked],
   );
 
-  // Onde chove agora, entre as leituras da tela (medidas ou estimadas).
   const rainingNow = cities.filter((city) => city.rainingNow).length;
 
   if (!ranked.length && !rainingNow) return null;

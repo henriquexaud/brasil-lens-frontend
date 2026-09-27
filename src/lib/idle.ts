@@ -1,4 +1,3 @@
-/** Agenda trabalho secundário sem disputar o primeiro desenho da tela. */
 export function scheduleIdle(work: () => void, delay = 180): () => void {
   let idle: number | undefined;
   const timer = window.setTimeout(() => {

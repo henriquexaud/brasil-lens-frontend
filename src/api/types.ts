@@ -1,15 +1,8 @@
-/**
- * Contratos da API, tipados à mão para espelhar os schemas Pydantic do backend.
- *
- * Nenhum `any`: se o backend mudar um contrato, o erro aparece na compilação e
- * não em runtime.
- */
 import type { Geometry, MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 export type GeometryLod = 'canonical' | 'overview' | 'detail';
 
-/** [oeste, sul, leste, norte] — mesma ordem do GeoJSON. */
 export type BoundingBox = [number, number, number, number];
 
 export interface Pagination {
@@ -71,7 +64,6 @@ export interface MapFeatureCollection {
   nextOffset?: number | null;
   type: 'FeatureCollection';
   scope: MapScope;
-  /** Ausente quando não há extensão conhecida — a RFC 7946 não admite `null`. */
   bbox?: BoundingBox;
   features: MapFeature[];
   parentFeature?: MapFeature | null;
@@ -80,15 +72,9 @@ export interface MapFeatureCollection {
 export interface MapQuery {
   level: TerritoryLevel;
   parent?: string | null;
-  /** A API não serve a malha canônica em `/map` (ver `MapLod` no backend). */
   lod?: Exclude<GeometryLod, 'canonical'>;
 }
 
-/**
- * Município seguido para acompanhamento climático. O backend guarda só o código IBGE;
- * nome e UF chegam resolvidos na leitura (nulos se o município sumir do
- * catálogo depois de seguido).
- */
 export interface FollowedMunicipality {
   municipalityCode: string;
   name: string | null;
@@ -108,13 +94,10 @@ export interface TerritoryListResponse {
   pagination: Pagination;
 }
 
-/** Fonte oficial de um alerta. Nunca decida layout por isto — use `category`/`severityLevel`. */
 export type WeatherAlertProvider = 'inmet' | 'cemaden' | (string & {});
 
-/** Classificação comum entre fontes, calculada no backend (`services/weather.py`). */
 export type WeatherAlertCategory = 'meteorological' | 'geo_hydrological';
 
-/** Tier visual comum entre fontes — o que decide cor/proeminência no mapa e na lista. */
 export type WeatherAlertSeverityLevel =
   'moderate' | 'high' | 'very_high' | 'extreme' | 'potential' | 'danger' | 'other';
 
@@ -122,12 +105,9 @@ export interface WeatherAlertProperties {
   provider: WeatherAlertProvider;
   category: WeatherAlertCategory;
   event: string;
-  /** Texto de severidade verbatim da fonte (vocabulário varia por fonte; ver `severityLevel`). */
   severity: string;
   severityLevel: WeatherAlertSeverityLevel;
-  /** Cor oficial da fonte (ex.: INMET, CEMADEN) — exibida como está, nunca trocada. */
   color: string | null;
-  /** Frase livre opcional além de `event` (ex.: município do CEMADEN). Nula quando a fonte não tem. */
   description: string | null;
   onset: string;
   expires: string;
@@ -175,16 +155,12 @@ export interface WeatherCity {
   precipitationSumMm?: number | null;
   precipitationProbabilityPct?: number | null;
   precipitationIntervalMinutes: number;
-  /** Acumulado das últimas 48 h — o valor que o mapa de chuva pinta. */
   precipitation48hMm?: number | null;
-  /** Chovendo no intervalo mais recente (precipitação ou código de chuva). */
   rainingNow?: boolean;
-  /** Mapa do Brasil: pontos medidos na média do estado e quantos têm chuva agora. */
   samplePoints?: number | null;
   rainingPoints?: number | null;
   weatherCode: number | null;
   forecast: WeatherForecastDay[];
-  /** Indica se a leitura é uma estimativa por interpolação espacial ou dado real medido */
   isInferred?: boolean;
 }
 

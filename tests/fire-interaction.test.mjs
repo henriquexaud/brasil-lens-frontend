@@ -559,7 +559,6 @@ test('WeatherPanel em camada de fogo oculta completamente detalhes e disclosures
   assert.ok(panel);
   assert.equal(panel.getAttribute('aria-label'), 'Focos de calor do local selecionado');
   assert.equal(document.querySelector('.fire-detail-card'), panel.querySelector('.fire-detail-card'));
-  // Não deve conter 'Condições meteorológicas' ou indicadores térmicos (°C, Sensação, etc.)
   assert.equal(document.querySelector('.weather-disclosure'), null);
   assert.doesNotMatch(panel.textContent, /Condições meteorológicas/);
   assert.doesNotMatch(panel.textContent, /°C/);
@@ -629,7 +628,6 @@ test('WeatherPanel em camada de chuva exibe métricas de precipitação e oculta
   const disclosure = document.querySelector('.weather-disclosure');
   assert.equal(disclosure.open, false);
   assert.match(disclosure.textContent, /Previsão diária de chuva/);
-  // Não deve conter clima geral (°C, Sensação, Umidade) nem disclosure de focos de calor
   assert.equal(document.querySelectorAll('.weather-disclosure').length, 1);
   assert.doesNotMatch(panel.textContent, /Condições meteorológicas/);
   assert.doesNotMatch(panel.textContent, /°C/);
@@ -685,26 +683,22 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
   assert.match(panel.textContent, /24°/);
   assert.match(panel.textContent, /Sensação de 25°/);
 
-  // Não deve exibir disclosure de Quantidade de chuva nem Focos de calor no modo clima puro
   const summaries = Array.from(document.querySelectorAll('summary')).map((s) => s.textContent);
   assert.equal(summaries.some((text) => text.includes('Quantidade de chuva')), false);
   assert.equal(summaries.some((text) => text.includes('Focos de calor')), false);
   assert.doesNotMatch(panel.textContent, /Focos de calor/);
   assert.doesNotMatch(panel.textContent, /focos \/ 1\.000 km²/);
 
-  // Não deve existir disclosure de "Mais detalhes", apenas "Próximos dias"
   const details = Array.from(document.querySelectorAll('details'));
   assert.equal(details.some((d) => d.textContent?.includes('Mais detalhes')), false);
   assert.equal(details.some((d) => d.textContent?.includes('Próximos dias')), true);
 
-  // Umidade e Vento devem estar sempre visíveis em linha compacta
   const compactMetrics = document.querySelector('.weather-compact-metrics');
   assert.ok(compactMetrics);
   assert.match(compactMetrics.textContent, /Umidade 65%/);
   assert.match(compactMetrics.textContent, /Vento 14 km\/h/);
   assert.doesNotMatch(panel.textContent, /Chuva acumulada/);
 
-  // Não deve repetir o nome do estado acima do município no kicker
   assert.equal(panel.querySelector('.detail-kicker'), null);
 });
 
@@ -731,18 +725,15 @@ test('seletor temático exibe Clima, Focos e Chuva e alterna a camada ativa', as
   );
 
   const segmentButtons = document.querySelectorAll('.weather-segment-btn');
-  // Clima, Chuva, Focos
   assert.equal(segmentButtons.length, 3);
   assert.equal(segmentButtons[0].classList.contains('is-active'), true, 'Clima deve estar ativo');
   assert.equal(segmentButtons[1].classList.contains('is-active'), false, 'Chuva deve estar inativa');
   assert.equal(segmentButtons[2].classList.contains('is-active'), false, 'Focos deve estar inativo');
 
-  // Badge de clima ativo
   const climateBadge = document.querySelector('.badge-climate');
   assert.ok(climateBadge);
   assert.equal(climateBadge.textContent, 'Ativo');
 
-  // Teste de interação com botão de foco (índice 2)
   await act(async () => segmentButtons[2].click());
   assert.equal(fireToggled, true);
 });
@@ -769,7 +760,6 @@ test('seletor temático exibe faixa de temperatura no badge da camada de clima',
   assert.ok(badge);
   assert.equal(badge.textContent, '20 - 34°C · Brasil');
 
-  // Quando min == max (temperatura única)
   await act(async () =>
     root.render(
       h(
@@ -1018,16 +1008,13 @@ test('linha de hover de cidades e estados renderiza em pane superior para ficar 
   });
   assert.ok(layer);
 
-  // Inicialmente sem hover outline
   assert.equal(hoverPane.querySelectorAll('path').length, 0);
 
-  // Ao passar o mouse, a linha de hover é desenhada no pane territory-hover
   layer.fire('mouseover', { containerPoint: { x: 10, y: 10 } });
   const hoverPaths = hoverPane.querySelectorAll('path');
   assert.equal(hoverPaths.length, 1, 'deve desenhar 1 path de contorno no pane territory-hover');
   assert.ok(hoverPaths[0].classList.contains('territory-hover-outline'));
 
-  // Ao retirar o mouse, o contorno de hover é limpo
   layer.fire('mouseout');
   assert.equal(hoverPane.querySelectorAll('path').length, 0);
 });
@@ -1085,28 +1072,23 @@ test('garante apenas um contorno no mapa, sem rastro durante movimentação/zoom
   });
   assert.equal(layers.length, 2);
 
-  // 1. Passa o mouse no primeiro município
   layers[0].fire('mouseover', { containerPoint: { x: 10, y: 10 } });
   let hoverPaths = hoverPane.querySelectorAll('path');
   assert.equal(hoverPaths.length, 1, 'apenas 1 contorno deve existir');
   assert.match(hoverPaths[0].getAttribute('stroke') ?? '', /#52606d/i, 'deve usar o cinza suave #52606d no lugar do preto');
 
-  // 2. Passa o mouse direto no segundo município sem mouseout do primeiro (movimento rápido)
   layers[1].fire('mouseover', { containerPoint: { x: 20, y: 20 } });
   hoverPaths = hoverPane.querySelectorAll('path');
   assert.equal(hoverPaths.length, 1, 'continua garantindo estritamente apenas 1 contorno sem rastro');
 
-  // 3. Ao iniciar movimentação ou aproximação do mapa (ex: zoom/movestart ao entrar no estado), limpa contorno
   map.fire('movestart');
   hoverPaths = hoverPane.querySelectorAll('path');
   assert.equal(hoverPaths.length, 0, 'movimentação do mapa deve anular o hover para não deixar rastros');
 
-  // 4. Enquanto o mapa está em movimento (aproximação/zoom), eventos de mouseover são ignorados
   layers[0].fire('mouseover', { containerPoint: { x: 10, y: 10 } });
   hoverPaths = hoverPane.querySelectorAll('path');
   assert.equal(hoverPaths.length, 0, 'não deve criar rastro por onde o mouse passa com a aproximação');
 
-  // 5. Ao encerrar o movimento (moveend), o hover volta a funcionar normalmente para um único território
   map.fire('moveend');
   layers[0].fire('mouseover', { containerPoint: { x: 10, y: 10 } });
   hoverPaths = hoverPane.querySelectorAll('path');
@@ -1123,7 +1105,6 @@ test('cidade aberta: poucos rótulos vizinhos, menos e mais espaçados com mais 
 
 test('ScopeHeader navegação hierárquica: exibe Brasil na visão de estado e nome do estado no município', async () => {
   let backClicked = false;
-  // 1. Visão de estado: deve exibir Brasil no botão de voltar
   await act(async () =>
     root.render(
       h(ScopeHeader, {
@@ -1147,7 +1128,6 @@ test('ScopeHeader navegação hierárquica: exibe Brasil na visão de estado e n
   });
   assert.equal(backClicked, true);
 
-  // 2. Ao entrar em um município: o botão de voltar deve mudar para o nome do estado
   let municipalityBackClicked = false;
   await act(async () =>
     root.render(
@@ -1188,7 +1168,6 @@ test('WeatherPanel mantém kicker de Estado para UFs e remove repetição do est
     forecast: [],
   };
 
-  // Visão de Estado
   await act(async () =>
     root.render(
       h(
@@ -1214,7 +1193,6 @@ test('WeatherPanel mantém kicker de Estado para UFs e remove repetição do est
   assert.ok(kicker);
   assert.equal(kicker.textContent, 'Estado');
 
-  // Visão de Município: kicker com nome repetido do estado deve ser omitido
   const dummyMuniCity = {
     id: '3549904',
     name: 'São José dos Campos',
@@ -1253,19 +1231,16 @@ test('WeatherPanel mantém kicker de Estado para UFs e remove repetição do est
   kicker = document.querySelector('.detail-kicker');
   assert.equal(kicker, null, 'município não deve ter kicker repetindo o nome do estado');
 
-  // Hero com temperatura, condição e sensação
   const temp = document.querySelector('.weather-temperature');
   assert.ok(temp);
   assert.match(temp.textContent, /26°/);
   assert.match(document.querySelector('.weather-current').textContent, /Sensação de 27°/);
 
-  // Umidade e Vento em linha compacta
   const compact = document.querySelector('.weather-compact-metrics');
   assert.ok(compact);
   assert.match(compact.textContent, /Umidade 55%/);
   assert.match(compact.textContent, /Vento 8 km\/h/);
 
-  // Apenas "Próximos dias" como disclosure
   const allDetails = Array.from(document.querySelectorAll('details'));
   assert.equal(allDetails.some((d) => d.textContent?.includes('Próximos dias')), true);
   assert.equal(allDetails.some((d) => d.textContent?.includes('Mais detalhes')), false);

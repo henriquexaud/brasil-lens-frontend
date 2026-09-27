@@ -17,7 +17,6 @@ interface WeatherMapDataInput {
   collection?: MapFeatureCollection;
 }
 
-/** Une leituras da camada ativa, mantém cidades já vistas e calcula a escala exibida. */
 export function useWeatherMapData({
   scope,
   isDrilledDown,
@@ -31,16 +30,11 @@ export function useWeatherMapData({
   currentWeather,
   collection,
 }: WeatherMapDataInput) {
-  // Um único histórico por recorte mantém cidades já vistas durante o pan.
-  // A leitura mais nova vence; no mesmo horário, a medição vence a estimativa.
   const knownWeatherRef = useRef({ scope: scope.parent, byId: new Map<string, WeatherCity>() });
   const weatherCities = useMemo(() => {
     if (knownWeatherRef.current.scope !== scope.parent) {
       knownWeatherRef.current = { scope: scope.parent, byId: new Map() };
     }
-    // A média estadual substitui a capital, mesmo quando seu ponto mais antigo
-    // é anterior à leitura da capital. São recortes distintos, não atualizações
-    // da mesma medição; no país a consulta já entrega a etapa correta.
     if (!isDrilledDown) return nationalWeather.data?.cities ?? [];
     const { byId } = knownWeatherRef.current;
     const cities =
@@ -125,7 +119,6 @@ export function useWeatherMapData({
 
   const weatherByCode = useMemo(() => {
     const result = new Map(weatherCities.map((city) => [city.id, city]));
-    // No mapa do Brasil a leitura é da capital, identificada pela sigla da UF.
     for (const feature of collection?.features ?? []) {
       const abbreviation = feature.properties.abbreviation;
       const city = abbreviation ? result.get(abbreviation) : undefined;

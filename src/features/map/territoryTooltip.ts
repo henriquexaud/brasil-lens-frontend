@@ -10,7 +10,6 @@ import {
 import { measurement, weatherDescription } from '@/features/weather/conditions';
 import { isStateAverage } from '@/features/weather/EstimateMark';
 
-// textContent keeps API names and units as text, including accents and symbols.
 export function fillTooltipContent(
   el: HTMLElement,
   properties: MapFeatureProperties,
@@ -30,8 +29,6 @@ export function fillTooltipContent(
   };
   add('tooltip-name', properties.name);
   if (properties.parentName) add('tooltip-meta', properties.parentName);
-  // Valor interpolado de cidades próximas: marcado de leve, sem esconder o dado.
-  // Um estado no mapa do Brasil feito de vários pontos, também.
   const estimatePrefix = weather?.isInferred ? '≈ ' : '';
   const estimateSuffix = weather?.isInferred
     ? ' · estimado'

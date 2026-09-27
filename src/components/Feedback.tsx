@@ -1,20 +1,11 @@
-/** Estados de carregamento, erro e vazio. */
 import { ApiError } from '@/api/client';
 
-/**
- * Indicador de carregamento em andamento: uma linha fina no topo do mapa.
- *
- * Substitui um cartão com spinner. Uma requisição em curso não é informação
- * que mereça um objeto flutuante próprio disputando atenção com o mapa.
- */
 export function TopProgress() {
   return <div className="top-progress" role="status" aria-label="Carregando dados" />;
 }
 
 export interface ErrorDescription {
-  /** O que aconteceu — a mensagem do backend, quando há uma. */
   message: string;
-  /** O que acontece agora: nova tentativa automática, ou quando o usuário pedir. */
   hint?: string;
 }
 
@@ -22,10 +13,6 @@ function clockTime(epochMs: number): string {
   return new Date(epochMs).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-/**
- * Traduz uma falha em texto para a pessoa: a causa real (a mensagem do
- * backend já é escrita para o usuário) e o próximo passo.
- */
 export function describeError(error: unknown): ErrorDescription {
   if (typeof error === 'string') return { message: error };
   if (error instanceof ApiError) {

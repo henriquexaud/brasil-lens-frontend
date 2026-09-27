@@ -1,17 +1,9 @@
-/**
- * Estado da navegação do mapa.
- *
- * É um hook local com `useState`, não uma store global: o estado é pequeno
- * (nível, pai, seleção) e consumido por poucos componentes. Introduzir Redux
- * aqui resolveria um problema que não existe.
- */
 import { useCallback, useEffect, useState } from 'react';
 
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 
 export interface MapScopeState {
   level: 'state' | 'municipality';
-  /** Código IBGE do território pai quando há drill-down (ex.: UF). */
   parent: string | null;
   parentName: string | null;
 }
@@ -32,7 +24,6 @@ export function useMapScope() {
     saveSessionState({ scope, selectedCode });
   }, [scope, selectedCode]);
 
-  /** Drill-down: carrega apenas os municípios da UF escolhida. */
   const drillIntoState = useCallback((ibgeCode: string, name: string) => {
     setScope({ level: 'municipality', parent: ibgeCode, parentName: name });
     setSelectedCode(null);

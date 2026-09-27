@@ -37,7 +37,6 @@ test('escala fixa de temperatura com 9 faixas em intervalos de 5°C', () => {
 });
 
 test('colorForTemperature mapeia valores conforme a classe fixa especificada', () => {
-  // Casos de fronteira e valores intermediários
   assert.equal(colorForTemperature(-10), '#2454C6');
   assert.equal(colorForTemperature(0), '#2454C6');
   assert.equal(colorForTemperature(0.1), '#2F7DE1');
@@ -49,7 +48,6 @@ test('colorForTemperature mapeia valores conforme a classe fixa especificada', (
   assert.equal(colorForTemperature(18), '#D8F4F0');
   assert.equal(colorForTemperature(20), '#D8F4F0');
 
-  // Exemplos explícitos do usuário
   assert.equal(colorForTemperature(23), '#FFF5A6', '23°C deve usar #FFF5A6');
   assert.equal(colorForTemperature(25), '#FFF5A6');
   assert.equal(colorForTemperature(28), '#FFD447', '28°C deve usar #FFD447');
@@ -60,7 +58,6 @@ test('colorForTemperature mapeia valores conforme a classe fixa especificada', (
   assert.equal(colorForTemperature(36), '#F04432');
   assert.equal(colorForTemperature(42), '#F04432');
 
-  // Ausência de dado
   assert.equal(colorForTemperature(null), NO_DATA_COLOR);
   assert.equal(colorForTemperature(undefined), NO_DATA_COLOR);
   assert.equal(colorForTemperature(Number.NaN), NO_DATA_COLOR);

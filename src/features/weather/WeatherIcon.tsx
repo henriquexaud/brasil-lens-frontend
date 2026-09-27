@@ -8,7 +8,6 @@ interface WeatherIconProps extends SVGProps<SVGSVGElement> {
 export function WeatherIcon({ code, size = 16, className = '', ...props }: WeatherIconProps) {
   const c = code ?? -1;
 
-  // Céu limpo (0)
   if (c === 0) {
     return (
       <svg
@@ -32,7 +31,6 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
     );
   }
 
-  // Predominantemente / Parcialmente nublado (1, 2)
   if (c === 1 || c === 2) {
     return (
       <svg
@@ -63,7 +61,6 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
     );
   }
 
-  // Nublado (3)
   if (c === 3) {
     return (
       <svg
@@ -93,7 +90,6 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
     );
   }
 
-  // Nevoeiro (45, 48)
   if (c === 45 || c === 48) {
     return (
       <svg
@@ -116,7 +112,6 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
     );
   }
 
-  // Chuva / Garoa / Pancadas (51-67, 80-82)
   if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(c)) {
     return (
       <svg
@@ -146,7 +141,6 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
     );
   }
 
-  // Neve (71-77, 85, 86)
   if ([71, 73, 75, 77, 85, 86].includes(c)) {
     return (
       <svg
@@ -170,7 +164,6 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
     );
   }
 
-  // Trovoadas (95, 96, 99)
   if ([95, 96, 99].includes(c)) {
     return (
       <svg
@@ -201,7 +194,6 @@ export function WeatherIcon({ code, size = 16, className = '', ...props }: Weath
     );
   }
 
-  // Fallback (temperatura / clima geral)
   return (
     <svg
       viewBox="0 0 20 20"

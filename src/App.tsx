@@ -1,4 +1,3 @@
-/** Composição e prioridade: mapa → camada atual → detalhes solicitados. */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { clearSourcePauses, requestForcedWeatherRefresh } from '@/api/client';
@@ -174,7 +173,6 @@ export default function App() {
     pageVisible,
   });
 
-  // A camada temática ativa só começa depois de a base territorial estar pronta.
   const fireHotspotQuery: FireHotspotQuery = useMemo(
     () => ({
       level: isDrilledDown && scope.parent ? 'state' : 'country',
@@ -186,8 +184,6 @@ export default function App() {
   const fireLayerRequested = showFireHotspots && territoryReady && pageVisible;
   const fireHotspotsLayer = useFireHotspots(fireHotspotQuery, fireLayerRequested);
   const fireLayerSettled = Boolean(fireHotspotsLayer.data || fireHotspotsLayer.error);
-  // As camadas temáticas são exclusivas também na rede: com focos ativos nada
-  // de clima é consultado, e com clima ou chuva o INPE não é consultado.
   const weatherStageReady = weatherLayerActive && territoryReady && pageVisible;
 
   const fireSummaryWanted = fireLayerRequested && Boolean(fireHotspotsLayer.data);
@@ -195,8 +191,6 @@ export default function App() {
     `fire-summary:${scope.parent ?? 'BR'}:${fireHotspotsLayer.data?.metadata.windowEnd ?? 'none'}`,
     fireSummaryWanted,
   );
-  // Longe, o resumo é a própria camada (a coropleta): sai assim que a janela é
-  // conhecida. De perto, espera a ociosidade para não disputar com os pontos.
   const fireSummaryReady =
     activeFireMode === 'territorial' ? fireSummaryWanted : fireSummaryDeferred;
   const fireSummary = useFireSummary(
@@ -214,8 +208,6 @@ export default function App() {
     selectedWeather.isFetching || Boolean(viewport.moving),
   );
   useEffect(() => {
-    // Selecionar uma UF mostra a sua capital: a leitura das capitais já serve,
-    // sem nova ida à rede. A média do estado não é essa leitura.
     const data = nationalWeather.capitals;
     if (!data) return;
     const updatedAt = Date.parse(data.fetchedAt);
@@ -229,21 +221,13 @@ export default function App() {
   }, [client, nationalWeather.capitals, statesOutlineLayer.data]);
   const forecastBusy = useIsFetching({ queryKey: ['weather', 'forecast'] });
   const viewportWeatherBusy = useIsFetching({ queryKey: ['weather', 'viewport'] });
-  // Pausa de requisições de tela (viewport) apenas durante movimento do mapa ou seleção explícita
   const pauseNearbyWeather =
     selectedWeather.isFetching || forecastBusy > 0 || Boolean(viewport.moving);
 
-  // Prioridade para requisições ativas do usuário e visão municipal aproximada:
-  // pausa lotes de fundo do estado completo quando o usuário estiver focado nas cidades da tela,
-  // ou durante fetches prioritários e movimento do mapa.
   const pauseMunicipalBatching =
     closeMunicipalView || pauseNearbyWeather || viewportWeatherBusy > 0;
 
   const stateWeather = useUserStateWeather(scope.parent, weatherStageReady && isDrilledDown);
-  // Lotes municipais são o caminho alternativo ao clima do estado inteiro e só
-  // começam se `/weather/state` falhar: quando ele responde, já cobre todos os
-  // municípios, e um lote disparado junto seria uma consulta à Open-Meteo
-  // descartada pela tela.
   const municipalBatchingEnabled =
     weatherStageReady && !stateWeather.data && stateWeather.isError && !stateWeather.isFetching;
   const municipalities = useMunicipalityWeather(
@@ -278,7 +262,6 @@ export default function App() {
         nearbyWeather.isError ||
         selectedWeather.isError
       : Boolean(nationalWeather.data) || nationalWeather.isError);
-  // Avisos e hidrografia aguardam o primeiro lote da camada temática ativa.
   const layerBaseReady = weatherLayerActive
     ? climateBaseReady
     : showFireHotspots
@@ -294,7 +277,6 @@ export default function App() {
       ),
     [fireSummary.data],
   );
-  // As camadas opcionais aguardam o primeiro lote, não todos os municípios.
   const primarySettled =
     layerBaseReady &&
     !viewport.moving &&
@@ -399,17 +381,12 @@ export default function App() {
     currentWeather,
     collection,
   });
-  // Enquanto a leitura chega, um município usa a do mapa; uma UF espera pela
-  // da capital (o mapa tem a média do estado).
   const city = selectedCode
     ? (selectedWeather.data?.cities[0] ??
       (selectedCode.length === 7 ? weatherByCode.get(selectedCode) : undefined))
     : undefined;
 
   const failure = isDrilledDown ? visibleMunicipalities.error : mapLayer.error;
-  // Consultas desligadas guardam o último erro: só conta o da camada na tela.
-  // Com o estado inteiro carregado, os lotes (desligados) não entram; sem ele,
-  // vale o lote que falhou ou, antes de qualquer lote, o próprio estado.
   const weatherError = !weatherLayerActive
     ? null
     : isDrilledDown
@@ -438,7 +415,6 @@ export default function App() {
       ? 'Cobertura parcial'
       : undefined;
 
-  // Identifica se há requisições ativas ou mais páginas na fila em segundo plano na visualização atual
   const isViewActivelyWorking = Boolean(
     selectedWeather.isFetching ||
     forecastBusy > 0 ||
@@ -460,8 +436,6 @@ export default function App() {
     selectedBoundary.isFetching,
   );
 
-  // Estabiliza a alternância entre "Atualizando…" e "Atualizar dados" para evitar piscar:
-  // entra imediatamente em Atualizando, mas só sai após 600ms de repouso completo.
   const [isViewUpdating, setIsViewUpdating] = useState(false);
   useEffect(() => {
     if (isViewActivelyWorking) {
@@ -475,7 +449,6 @@ export default function App() {
   const isMunicipalityActive = Boolean(isDrilledDown && selectedCode?.length === 7);
   const stateScopeName = scope.parentName ?? selectedFeature?.properties.parentName ?? 'Estado';
 
-  // O que "Seguir" grava é só o código; nome e UF servem à linha otimista.
   const followTarget: FollowTarget | null = useMemo(() => {
     if (!isMunicipalityActive || !selectedCode) return null;
     const stateCode = scope.parent ?? selectedCode.slice(0, 2);
@@ -744,17 +717,8 @@ export default function App() {
                 alertsError={alerts.error}
                 scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
                 onRefresh={() => {
-                  // Pedido explícito do usuário: libera também as fontes pausadas,
-                  // inclusive por cota esgotada.
                   clearSourcePauses();
-                  // Com a última leitura há mais de 5 min, o backend busca a fonte
-                  // na hora em vez de só agendar a renovação em segundo plano
-                  // (ver `FORCE_MIN_AGE`/`force` em `app/services/weather_forecast.py`).
-                  // Com menos de 5 min, o pedido é ignorado — o dado já é recente.
                   requestForcedWeatherRefresh();
-                  // Os lotes municipais só rodam se o estado falhar: refazê-los junto
-                  // com ele seria uma segunda consulta à mesma fonte. Ficam apenas
-                  // marcados como desatualizados.
                   void client.invalidateQueries({
                     queryKey: ['weather', 'municipalities'],
                     refetchType: 'none',

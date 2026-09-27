@@ -17,7 +17,6 @@ export interface WeatherOptionsProps {
   hydrographyError?: boolean;
   code: string | null;
   current: WeatherCurrentResponse | undefined;
-  /** Falha da camada temática ativa (clima, chuva ou focos), exibida no rodapé. */
   error: unknown;
   loading: boolean;
   onRefresh: () => void;
@@ -44,14 +43,12 @@ export function WeatherOptions({
   alertsError,
   scopeName,
 }: WeatherOptionsProps) {
-  // Lógica progressiva: Brasil (nacional) → Estado → Município
   const territoryLevel = code?.length === 7 ? 'municipality' : code ? 'state' : 'national';
   const stateCode = code?.slice(0, 2) ?? null;
   const municipalityCode = territoryLevel === 'municipality' ? code : null;
   const stateUf = stateCode ? IBGE_UF_MAP[stateCode] : undefined;
   const stateName = scopeName ?? (stateUf ? UF_NAMES[stateUf] : undefined);
 
-  // Visão de estado: ocorrências semelhantes agrupadas (ex.: Risco hidrológico · 8 municípios)
   const groupedStateAlerts = useMemo(() => {
     if (territoryLevel !== 'state' || !stateCode || !alertsData?.features) {
       return [];
@@ -59,7 +56,6 @@ export function WeatherOptions({
     return groupStateAlerts(alertsData.features, stateCode);
   }, [territoryLevel, stateCode, alertsData?.features]);
 
-  // Visão de município: particiona entre avisos locais diretos e demais avisos do estado
   const { localAlerts, otherStateAlerts } = useMemo(() => {
     if (
       territoryLevel !== 'municipality' ||
@@ -72,7 +68,6 @@ export function WeatherOptions({
     return partitionMunicipalityAlerts(alertsData.features, municipalityCode, stateCode);
   }, [territoryLevel, municipalityCode, stateCode, alertsData?.features]);
 
-  // Contagem para o badge da camada de alertas no cabeçalho
   const relevantCount = useMemo(() => {
     if (!alertsData?.features) return 0;
     if (territoryLevel === 'national') {
@@ -93,11 +88,9 @@ export function WeatherOptions({
       className="panel-section weather-options-section"
       aria-label="Camadas e fontes de clima"
     >
-      {/* Grupo Unificado de Camadas Interativas */}
+      {}
       <div className="weather-layers-panel">
-        {/* Camada: Alertas — uma só camada para as duas fontes; a origem
-            aparece dentro de cada alerta (ver Disclosure abaixo), nunca como
-            controle separado. */}
+        {}
         <div className="weather-layer-card">
           <label className="weather-layer-label weather-toggle">
             <input
@@ -125,7 +118,7 @@ export function WeatherOptions({
           )}
         </div>
 
-        {/* Camada: Rios e Lagos */}
+        {}
         {onToggleHydrography && (
           <div className="weather-layer-card">
             <label className="weather-layer-label weather-toggle">
@@ -156,17 +149,17 @@ export function WeatherOptions({
         )}
       </div>
 
-      {/* Alertas Ativos no Território com Divulgação Progressiva */}
+      {}
       {showAlerts && (
         <div className="weather-alerts-container">
           {alertsError != null && <ErrorMessage error={alertsError} />}
 
-          {/* 1. Nível Nacional: Brasil (resumo compacto agregado, sem listar municípios ou boletins individuais) */}
+          {}
           {territoryLevel === 'national' && (
             <WeatherAlertsNationalSummary features={alertsData?.features ?? []} />
           )}
 
-          {/* 2. Nível Estadual: UF (ocorrências semelhantes agrupadas ex.: Risco hidrológico · 8 municípios) */}
+          {}
           {territoryLevel === 'state' && (
             <div className="weather-alert-state-view">
               {groupedStateAlerts.length > 0 ? (
@@ -193,7 +186,7 @@ export function WeatherOptions({
             </div>
           )}
 
-          {/* 3. Nível Municipal: Município ("Neste município" prioritário + "Demais avisos no estado" recolhido) */}
+          {}
           {territoryLevel === 'municipality' && (
             <div className="weather-alert-municipality-view">
               <div className="weather-alert-section">
@@ -250,7 +243,7 @@ export function WeatherOptions({
         </div>
       )}
 
-      {/* Rodapé Inteligente e Compacto */}
+      {}
       <div className="weather-footer-bar">
         <div className="weather-sync-status">
           <span
@@ -281,7 +274,6 @@ export function WeatherOptions({
   );
 }
 
-/** A causa real da falha (a mensagem do backend) e o que acontece a seguir. */
 function LayerErrorNote({ error }: { error: unknown }) {
   const { message, hint } = describeError(error);
   return (
