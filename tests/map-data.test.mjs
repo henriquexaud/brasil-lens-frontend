@@ -102,6 +102,24 @@ test('histórico preserva cidades fora da janela e limpa todas ao trocar de UF',
   assert.equal(result.weatherByCode.size, 0);
 });
 
+test('média estadual substitui a capital mesmo quando o ponto mais antigo da média é anterior', async () => {
+  const props = {
+    scope: { parent: null }, isDrilledDown: false, selectedCode: '35',
+    collection: { features: [{ properties: { abbreviation: 'SP', ibgeCode: '35' } }] },
+  };
+  const capital = reading(30, '11', { id: 'SP', name: 'São Paulo' });
+  await render({ ...props, nationalWeather: { data: data([capital]) } });
+  assert.equal(result.weatherByCode.get('35').temperatureC, 30);
+  const average = reading(24, '10', { id: 'SP', name: 'São Paulo', samplePoints: 8 });
+  await render({
+    ...props, nationalWeather: { data: data([average]) },
+    selectedWeather: { data: data([capital]) },
+  });
+  assert.deepEqual(result.weatherCities, [average]);
+  assert.equal(result.weatherByCode.get('35').temperatureC, 24);
+  assert.equal(result.weatherByCode.get('35').samplePoints, 8, 'o mapa usa a média, não a capital selecionada');
+});
+
 test('movimento pausa o trabalho de fundo imediatamente e publica a nova área ao assentar', async () => {
   const handlers = new Map();
   let west = -48;

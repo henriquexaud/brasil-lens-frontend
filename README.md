@@ -1,30 +1,62 @@
 # Brasil Lens — Frontend
 
-Brasil Lens é uma aplicação web para explorar clima e meio ambiente no Brasil. O frontend usa React, TypeScript e Leaflet para apresentar o mapa territorial, observações meteorológicas, precipitação, alertas, focos de calor e hidrografia.
+Interface principal do Brasil Lens, uma aplicação para explorar clima e meio ambiente no Brasil. React, TypeScript, Leaflet e TanStack Query compõem o mapa territorial, as condições meteorológicas, chuva acumulada, alertas, focos de calor, hidrografia e municípios acompanhados.
 
-## Executar localmente
+## Dependências e instalação
 
-Requisitos: Node.js 20 ou superior e npm.
+Requisitos para desenvolvimento: Git, Node.js 22 e npm. A [API própria](https://github.com/henriquexaud/brasil-lens-backend) deve estar em execução e com os dados territoriais importados.
 
-```bash
-npm install
+```sh
+git clone https://github.com/henriquexaud/brasil-lens-frontend.git
+cd brasil-lens-frontend
+npm ci
 npm run dev
 ```
 
-A interface estará em `http://localhost:5173`. Configure `VITE_API_BASE_URL` no arquivo `.env` para apontar para o backend; o valor padrão é `http://localhost:8000/api/v1`.
+A interface estará em `http://localhost:5173`. O backend oferece um Compose que sobe toda a aplicação, incluindo este frontend, PostgreSQL/PostGIS e Redis.
+
+## Configuração
+
+Copie `.env.example` para `.env` para personalizar:
+
+- `VITE_API_BASE_URL`: URL acessível pelo navegador, por padrão `http://localhost:8000/api/v1` na execução isolada. No Compose completo, `/api/v1` usa o proxy Nginx para o serviço interno `api:8000`.
+- `WEB_PORT`: porta publicada pelo Compose, por padrão `5173`.
+
+As variáveis `VITE_*` são incorporadas durante o build. Após mudar a URL, reinicie o Vite em desenvolvimento ou reconstrua a imagem/bundle. Para acessar uma API em outra origem, inclua a origem da interface em `CORS_ORIGINS` no backend. Uma URL com `localhost` aponta para o computador de quem abre o navegador.
 
 ## Docker
 
-O Dockerfile e o Docker Compose permitem servir a interface com Nginx. `docker compose up --build --wait` compila a aplicação e inicia o serviço web.
+Requisitos: Docker e Docker Compose v2. O Dockerfile compila com Node e serve o bundle com Nginx; Node e ferramentas de desenvolvimento não entram na imagem final.
+
+```sh
+docker compose up --build --wait
+```
+
+Este Compose sobe apenas a interface. O Nginx pode iniciar sem o serviço interno `api`; nesse modo o navegador usa a URL absoluta configurada da API. No Compose completo do backend, o mesmo Nginx resolve `api` pelo DNS do Docker e encaminha `/api/` à API. Para parar: `docker compose down`.
+
+## Arquitetura e operações
+
+A interface consome a API própria por REST. A API processa fontes públicas e gratuitas, incluindo IBGE para geografia e Open-Meteo para clima; os dados são usados em mapas, agregações e análises espaciais, não apenas em links externos. Os dois componentes desenvolvidos permanecem em repositórios separados.
+
+| Método | Operação da API | Uso na interface |
+|---|---|---|
+| GET | `/map`, `/weather/*`, `/me/followed-municipalities` | Mapa, clima e acompanhamento |
+| POST | `/territories/locate` | Localização pelo navegador |
+| PUT | `/me/followed-municipalities/{code}` | Acompanhar município |
+| DELETE | `/me/followed-municipalities/{code}` | Deixar de acompanhar |
+| POST | `/me/followed-municipalities/{code}/notifications` | Preferência de avisos |
+
+Todas as rotas têm prefixo `/api/v1`. A persistência dos municípios acompanhados fica no PostgreSQL da API, sob o usuário compartilhado `local`. A preferência de avisos é salva; o MVP não envia notificações por push ou e-mail.
 
 ## Comandos
 
 | Comando | Descrição |
 |---|---|
-| `npm run dev` | inicia o servidor local |
-| `npm run build` | verifica tipos e compila para produção |
-| `npm run lint` | executa ESLint e TypeScript |
-| `npm test` | executa os testes da interface |
+| `npm run dev` | Inicia o servidor local |
+| `npm run build` | Verifica tipos e compila para produção |
+| `npm run preview` | Serve o bundle produzido, para verificação local |
+| `npm run lint` | Executa ESLint e TypeScript |
+| `npm test` | Executa os testes da interface |
 
 ## Documentação
 

@@ -38,20 +38,20 @@ export function useWeatherMapData({
     if (knownWeatherRef.current.scope !== scope.parent) {
       knownWeatherRef.current = { scope: scope.parent, byId: new Map() };
     }
+    // A média estadual substitui a capital, mesmo quando seu ponto mais antigo
+    // é anterior à leitura da capital. São recortes distintos, não atualizações
+    // da mesma medição; no país a consulta já entrega a etapa correta.
+    if (!isDrilledDown) return nationalWeather.data?.cities ?? [];
     const { byId } = knownWeatherRef.current;
-    const cities = isDrilledDown
-      ? (stateWeather.data?.cities ??
-        municipalities.data?.pages.flatMap((page) => page.cities) ??
-        [])
-      : (nationalWeather.data?.cities ?? []);
+    const cities =
+      stateWeather.data?.cities ?? municipalities.data?.pages.flatMap((page) => page.cities) ?? [];
     const incoming = [
       ...cities,
       ...(closeMunicipalView ? (nearbyWeather.data?.cities ?? []) : []),
-      // A capital selecionada não substitui a média estadual no mapa nacional.
       ...(selectedCode?.length === 7 ? (selectedWeather.data?.cities ?? []) : []),
     ];
     for (const city of incoming) {
-      if (isDrilledDown && scope.parent && !city.id.startsWith(scope.parent)) continue;
+      if (scope.parent && !city.id.startsWith(scope.parent)) continue;
       const known = byId.get(city.id);
       if (known) {
         const knownAt = Date.parse(known.observedAt);
