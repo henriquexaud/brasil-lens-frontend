@@ -107,6 +107,13 @@ export default function App() {
     longitude: number;
     requestedAt: number;
   } | null>(null);
+  // O alvo só vale enquanto o município localizado está selecionado; senão o
+  // FitToScope voltaria a centralizar nele ao subir de escopo.
+  const activeLocationTarget =
+    locationTarget && locationTarget.code === selectedCode ? locationTarget : null;
+  useEffect(() => {
+    if (locationTarget && !activeLocationTarget) setLocationTarget(null);
+  }, [locationTarget, activeLocationTarget]);
   const hydroDetail = hydroZoom(viewport.zoom);
   const [fireMapError, setFireMapError] = useState(false);
   const [mobilePeek, setMobilePeek] = useState(false);
@@ -579,7 +586,7 @@ export default function App() {
         exploredWeatherByCode={exploredWeatherByCode}
         exploredFireByCode={exploredFireByCode}
         onViewportChange={setViewport}
-        locationTarget={locationTarget}
+        locationTarget={activeLocationTarget}
         climateMode={showClimate}
         fireMode={showFireHotspots ? activeFireMode : undefined}
         fireByCode={fireByCode}
