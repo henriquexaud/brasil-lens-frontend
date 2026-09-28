@@ -18,6 +18,8 @@ npm run build
 
 Docker: `docker compose up --build --wait` sobe só a interface (bundle servido por nginx).
 
+Vercel (preset Vite): defina `VITE_API_BASE_URL` com a URL absoluta da API e inclua o domínio da Vercel em `CORS_ORIGINS` no backend. O `vercel.json` só dá cache longo aos assets com hash. Passo a passo: `../backend/docs/development.md#deploy`.
+
 ## Documentação
 
 [AGENTS.md](AGENTS.md) é o mapa do projeto: arquitetura, invariantes, UI e testes. A documentação de sistema fica no [backend](https://github.com/henriquexaud/brasil-lens-backend/tree/main/docs).
