@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/open-meteo/v1/forecast.ts": { "maxDuration": 30 }
+  },
   "headers": [
     {
       "source": "/assets/(.*)",
