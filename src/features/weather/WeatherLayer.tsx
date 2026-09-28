@@ -1,5 +1,7 @@
-import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
-import { CircleMarker, Pane, Tooltip, useMap } from 'react-leaflet';
+import { divIcon } from 'leaflet';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Marker, Pane, useMap } from 'react-leaflet';
 import type { WeatherCity } from '@/api/types';
 import { colorForTemperature } from '@/features/map/colors';
 import { rainAmount, rainColor } from '@/features/rainfall/rainScale';
@@ -16,6 +18,122 @@ export function focusLabelBudget(density: number) {
 }
 
 const STATE_LABELS = { maxLabels: Infinity, spacing: 96 };
+
+// Every field a pill draws; a fresh response with the same reading keeps the pill.
+function samePill(a: WeatherCity, b: WeatherCity): boolean {
+  return (
+    a === b ||
+    (a.latitude === b.latitude &&
+      a.longitude === b.longitude &&
+      a.temperatureC === b.temperatureC &&
+      a.weatherCode === b.weatherCode &&
+      a.isInferred === b.isInferred &&
+      a.rainingNow === b.rainingNow &&
+      rainAmount(a) === rainAmount(b))
+  );
+}
+
+interface CityPillProps {
+  city: WeatherCity;
+  selected: boolean;
+  municipal: boolean;
+  rain: boolean;
+  compact: boolean;
+  stagger: number;
+}
+
+// A div icon is only translated on zoom and pan; a permanent tooltip would be
+// measured again on every zoom step and every re-render.
+const CityPill = memo(
+  function CityPill({ city, selected, municipal, rain, compact, stagger }: CityPillProps) {
+    const position = useMemo<[number, number]>(
+      () => [city.latitude, city.longitude],
+      [city.latitude, city.longitude],
+    );
+    const [host] = useState(() => {
+      const element = document.createElement('div');
+      element.className = 'weather-marker-anchor';
+      return element;
+    });
+    const icon = useMemo(
+      () => divIcon({ html: host, className: 'weather-marker-label', iconSize: [0, 0] }),
+      [host],
+    );
+    // A later delay would send a pill that is already visible back to its first frame.
+    const [entryDelay] = useState(stagger);
+    const rainVal = rainAmount(city);
+    const color = rain ? rainColor(rainVal) : colorForTemperature(city.temperatureC);
+    const formattedRain =
+      rainVal >= 10
+        ? `${Math.round(rainVal)} mm`
+        : `${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
+    const reading = rain ? (
+      <>
+        <span
+          className={`weather-pill-dot${city.rainingNow ? ' is-raining' : ''}`}
+          style={{ backgroundColor: color }}
+          aria-hidden="true"
+        />
+        <span className="weather-pill-temp">
+          <EstimateMark city={city} />
+          {formattedRain}
+        </span>
+      </>
+    ) : (
+      <>
+        <span className="weather-pill-icon">
+          <WeatherIcon code={city.weatherCode} size={municipal ? 13 : 14} />
+        </span>
+        <span className="weather-pill-temp">
+          <EstimateMark city={city} />
+          {Math.round(city.temperatureC) || 0}°
+        </span>
+      </>
+    );
+
+    return (
+      <>
+        {/* 0.9 is the Leaflet tooltip opacity these pills always had. */}
+        <Marker
+          position={position}
+          icon={icon}
+          opacity={0.9}
+          interactive={false}
+          keyboard={false}
+        />
+        {createPortal(
+          municipal ? (
+            <div
+              className={`weather-pill weather-pill-city ${selected ? 'is-selected' : ''}`}
+              style={
+                {
+                  '--pill-band-color': color,
+                  '--stagger': entryDelay,
+                } as React.CSSProperties
+              }
+            >
+              {reading}
+            </div>
+          ) : (
+            <div
+              className={`weather-pill ${selected ? 'is-selected' : ''} ${compact && !selected ? 'is-compact' : ''}`}
+              style={{ '--pill-band-color': color } as React.CSSProperties}
+            >
+              {reading}
+            </div>
+          ),
+          host,
+        )}
+      </>
+    );
+  },
+  (previous, next) =>
+    samePill(previous.city, next.city) &&
+    previous.selected === next.selected &&
+    previous.municipal === next.municipal &&
+    previous.rain === next.rain &&
+    previous.compact === next.compact,
+);
 
 export const WeatherLayer = memo(function WeatherLayer({
   cities,
@@ -113,106 +231,18 @@ export const WeatherLayer = memo(function WeatherLayer({
       {sortedCities.map((city, index) => {
         const isSelected = city.id === selectedId;
         const isCapital = !municipal || index === 0;
-        const shouldShowPill = isSelected || showAllPills || isCapital;
-
-        if (!shouldShowPill) return null;
-
-        const rainVal = rainAmount(city);
-        if (isRain && rainVal < 0.1) return null;
-
-        const color = isRain ? rainColor(rainVal) : colorForTemperature(city.temperatureC);
-        const formattedRain =
-          rainVal >= 10
-            ? `${Math.round(rainVal)} mm`
-            : `${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
-
+        if (!isSelected && !showAllPills && !isCapital) return null;
+        if (isRain && rainAmount(city) < 0.1) return null;
         return (
-          <Fragment key={city.id}>
-            <CircleMarker
-              center={[city.latitude, city.longitude]}
-              radius={0.1}
-              stroke={false}
-              fill={false}
-              interactive={false}
-              pathOptions={{
-                opacity: 0,
-                fillOpacity: 0,
-              }}
-            >
-              <Tooltip
-                permanent
-                direction="center"
-                offset={[0, 0]}
-                className="weather-marker-label"
-                interactive={false}
-              >
-                {municipal ? (
-                  <div
-                    className={`weather-pill weather-pill-city ${isSelected ? 'is-selected' : ''}`}
-                    style={
-                      {
-                        '--pill-band-color': color,
-                        '--stagger': index % 16,
-                      } as React.CSSProperties
-                    }
-                  >
-                    {isRain ? (
-                      <>
-                        <span
-                          className={`weather-pill-dot${city.rainingNow ? ' is-raining' : ''}`}
-                          style={{ backgroundColor: color }}
-                          aria-hidden="true"
-                        />
-                        <span className="weather-pill-temp">
-                          <EstimateMark city={city} />
-                          {formattedRain}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="weather-pill-icon">
-                          <WeatherIcon code={city.weatherCode} size={13} />
-                        </span>
-                        <span className="weather-pill-temp">
-                          <EstimateMark city={city} />
-                          {Math.round(city.temperatureC) || 0}°
-                        </span>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div
-                    className={`weather-pill ${isSelected ? 'is-selected' : ''} ${isCompact && !isSelected ? 'is-compact' : ''}`}
-                    style={{ '--pill-band-color': color } as React.CSSProperties}
-                  >
-                    {isRain ? (
-                      <>
-                        <span
-                          className={`weather-pill-dot${city.rainingNow ? ' is-raining' : ''}`}
-                          style={{ backgroundColor: color }}
-                          aria-hidden="true"
-                        />
-                        <span className="weather-pill-temp">
-                          <EstimateMark city={city} />
-                          {formattedRain}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="weather-pill-icon">
-                          <WeatherIcon code={city.weatherCode} size={14} />
-                        </span>
-                        <span className="weather-pill-temp">
-                          <EstimateMark city={city} />
-                          {Math.round(city.temperatureC) || 0}°
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </Tooltip>
-            </CircleMarker>
-          </Fragment>
+          <CityPill
+            key={city.id}
+            city={city}
+            selected={isSelected}
+            municipal={municipal}
+            rain={isRain}
+            compact={isCompact}
+            stagger={index % 16}
+          />
         );
       })}
     </Pane>

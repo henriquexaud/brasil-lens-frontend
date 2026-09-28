@@ -1,9 +1,34 @@
-import type { Feature, FeatureCollection, Geometry } from 'geojson';
+import type { Feature, FeatureCollection, Geometry, Position } from 'geojson';
 import { GeoJSON as LeafletGeoJSON, Polyline, type Layer, type LeafletMouseEvent } from 'leaflet';
 import { useCallback, useEffect, useRef } from 'react';
 import { GeoJSON, Pane } from 'react-leaflet';
 import type { HydroFeatureCollection, HydroFeatureProperties } from '@/api/types';
 import { formatDrainageArea, getHydroStyle } from './hydroStyles';
+
+type Coordinates = Position | Coordinates[];
+
+function sameCoordinates(a: Coordinates, b: Coordinates): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!;
+    const y = b[i]!;
+    if (typeof x === 'number' ? x !== y : typeof y === 'number' || !sameCoordinates(x, y)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sameGeometry(a: Geometry, b: Geometry): boolean {
+  return (
+    a === b ||
+    (a.type === b.type &&
+      'coordinates' in a &&
+      'coordinates' in b &&
+      sameCoordinates(a.coordinates as Coordinates, b.coordinates as Coordinates))
+  );
+}
 
 export function HydrographyLayer({
   collection,
@@ -57,6 +82,12 @@ export function HydrographyLayer({
     [],
   );
 
+  const style = useCallback(
+    (feature?: Feature<Geometry, HydroFeatureProperties>) =>
+      getHydroStyle(feature!.properties, fireActive),
+    [fireActive],
+  );
+
   useEffect(() => {
     const group = layerRef.current;
     if (!group || !collection || renderedCollection.current === collection) return;
@@ -71,11 +102,18 @@ export function HydrographyLayer({
         return;
       }
       remaining.delete(String(current.id));
+      if (!(layer instanceof Polyline)) {
+        group.removeLayer(layer);
+        remaining.set(String(next.id), next);
+        return;
+      }
+      layer.feature = next;
+      layer.setStyle(getHydroStyle(next.properties, fireActive));
+      // Re-projecting every river on each pan is the costly part; most keep their shape.
+      if (sameGeometry(current.geometry, next.geometry)) return;
       const nextLayer = LeafletGeoJSON.geometryToLayer(next);
-      if (layer instanceof Polyline && nextLayer instanceof Polyline) {
+      if (nextLayer instanceof Polyline) {
         layer.setLatLngs(nextLayer.getLatLngs());
-        layer.feature = next;
-        layer.setStyle(getHydroStyle(next.properties, fireActive));
       } else {
         group.removeLayer(layer);
         remaining.set(String(next.id), next);
@@ -96,9 +134,7 @@ export function HydrographyLayer({
         ref={layerRef}
         data={collection}
         interactive
-        style={(feature) =>
-          getHydroStyle(feature!.properties as HydroFeatureProperties, fireActive)
-        }
+        style={style}
         onEachFeature={onEachFeature}
       />
     </Pane>

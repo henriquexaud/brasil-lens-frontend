@@ -2176,14 +2176,26 @@ body {
   display: none !important;
 }
 
+/* O ícone tem tamanho zero no ponto; a pílula se centra nele, como a tooltip
+   centrada fazia. A ordem de empilhamento segue o DOM, sem o z-index por
+   latitude que o Leaflet dá aos marcadores. As pílulas não usam
+   backdrop-filter: sob a opacidade do ícone ele não desfocava nada e custava
+   ~1 em cada 4 quadros no zoom. */
+.leaflet-marker-icon.weather-marker-label {
+  z-index: auto !important;
+}
+
+.weather-marker-anchor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
 .weather-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 3px 8px 3px 6px;
   background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.98);
   border-radius: 999px;
   box-shadow:

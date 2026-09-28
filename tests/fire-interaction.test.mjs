@@ -26,13 +26,13 @@ dom.window.matchMedia = () => ({ matches: true });
 const { createElement: h, act } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { MapContainer, useMap } = await import('react-leaflet');
-const { latLng, point } = (await import('leaflet')).default;
+const { latLng, point, Polyline } = (await import('leaflet')).default;
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget } from './src/features/weather/WeatherLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget, WeatherLayer } from './src/features/weather/WeatherLayer'; export { HydrographyLayer } from './src/features/map/HydrographyLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -60,6 +60,8 @@ const {
   WeatherOptions,
   WeatherThematicSwitch,
   focusLabelBudget,
+  WeatherLayer,
+  HydrographyLayer,
   ScopeHeader,
 } = await import(pathToFileURL(path).href);
 let root, client, map, requests;
@@ -929,6 +931,100 @@ test('malha nova do mesmo território atualiza o polígono sem recriar o SVG', a
   assert.equal(shapes.length, 1);
   assert.equal(shapes[0], first, 'malha detalhada: o mesmo SVG, sem piscar');
   assert.equal(northEdge(), -9, 'com a geometria nova');
+});
+
+test('render sem dado novo não reescreve os polígonos; dado novo repinta só o que mudou', async () => {
+  const municipality = (code, west) => ({
+    type: 'Feature', id: code,
+    properties: { ibgeCode: code, name: `Município ${code}`, level: 'municipality' },
+    geometry: { type: 'MultiPolygon', coordinates: [[[
+      [west, -12], [west + 1, -12], [west + 1, -11], [west, -11], [west, -12],
+    ]]] },
+  });
+  const collection = {
+    type: 'FeatureCollection',
+    scope: { level: 'municipality', parent: '51', lod: 'detail' },
+    features: [municipality('5100001', -55), municipality('5100002', -54)],
+  };
+  const reading = (id, temperatureC) => ({ id, temperatureC, weatherCode: 0 });
+  const draw = (weatherByCode) => act(async () => root.render(h(MapContainer,
+    { center: [-11.5, -54], zoom: 7, zoomControl: false }, h(CaptureMap),
+    h(TerritoryLayer, {
+      collection, selectedCode: null, onSelect: () => {}, weatherByCode,
+      discoveredStateCodes: new Set(),
+    }),
+  )));
+  await draw(new Map([['5100001', reading('5100001', 30)], ['5100002', reading('5100002', 30)]]));
+  const writes = [];
+  const setAttribute = dom.window.Element.prototype.setAttribute;
+  dom.window.Element.prototype.setAttribute = function (name, value) {
+    if (this.classList?.contains('territory-shape')) writes.push([this.getAttribute('aria-label'), name]);
+    return setAttribute.call(this, name, value);
+  };
+  try {
+    await draw(new Map([['5100001', reading('5100001', 30)], ['5100002', reading('5100002', 30)]]));
+    assert.deepEqual(writes, [], 'novas instâncias com os mesmos dados não tocam o SVG');
+    await draw(new Map([['5100001', reading('5100001', 36)], ['5100002', reading('5100002', 30)]]));
+    assert.ok(writes.some(([, name]) => name === 'fill'));
+    assert.ok(writes.every(([label]) => label === 'Município 5100001'), 'só o polígono com dado novo');
+  } finally {
+    dom.window.Element.prototype.setAttribute = setAttribute;
+  }
+  assert.equal(
+    document.querySelector('[aria-label="Município 5100001"]').getAttribute('fill'),
+    colorForTemperature(36),
+  );
+});
+
+test('pílulas são ícones que o Leaflet só desloca; leitura igual mantém o nó, nova atualiza', async () => {
+  const city = (id, temperatureC, longitude) => ({
+    id, name: id, stateAbbreviation: id, latitude: -12, longitude, temperatureC, weatherCode: 0,
+  });
+  const draw = (cities) => act(async () => root.render(h(MapContainer,
+    { center: [-12, -50], zoom: 5, zoomControl: false }, h(CaptureMap),
+    h(WeatherLayer, { cities, municipal: false }),
+  )));
+  await draw([city('MT', 30, -55), city('GO', 28, -49)]);
+  const pills = [...document.querySelectorAll('.weather-pill')];
+  assert.equal(pills.length, 2);
+  assert.equal(document.querySelectorAll('.leaflet-tooltip').length, 0);
+  const icon = pills[0].closest('.leaflet-marker-icon');
+  assert.ok(icon.classList.contains('weather-marker-label'));
+  assert.equal(icon.style.opacity, '0.9', 'mesma opacidade da tooltip de antes');
+  assert.equal(icon.getAttribute('tabindex'), null, 'não entra na ordem de foco');
+  await draw([city('MT', 30, -55), city('GO', 28, -49)]);
+  assert.deepEqual([...document.querySelectorAll('.weather-pill')], pills);
+  await draw([city('MT', 33, -55), city('GO', 28, -49)]);
+  assert.equal(document.querySelectorAll('.weather-pill')[0], pills[0]);
+  assert.match(pills[0].textContent, /33°/);
+});
+
+test('hidrografia só reprojeta rios cuja geometria mudou', async () => {
+  const river = (id, coordinates) => ({
+    type: 'Feature', id,
+    properties: { name: `Rio ${id}`, category: 'river', drainageAreaKm2: 5000 },
+    geometry: { type: 'MultiLineString', coordinates },
+  });
+  const collection = (features) => ({ type: 'FeatureCollection', features, metadata: { status: 'ok' } });
+  const draw = (data) => act(async () => root.render(h(MapContainer,
+    { center: [-12, -50], zoom: 8, zoomControl: false }, h(CaptureMap),
+    h(HydrographyLayer, { collection: data, zoom: 8 }),
+  )));
+  await draw(collection([river('a', [[[-50, -12], [-49, -11]]]), river('b', [[[-51, -12], [-50, -13]]])]));
+  const setLatLngs = Polyline.prototype.setLatLngs;
+  const updated = [];
+  Polyline.prototype.setLatLngs = function (latlngs) {
+    if (this.feature) updated.push(this.feature.id);
+    return setLatLngs.call(this, latlngs);
+  };
+  try {
+    await draw(collection([river('a', [[[-50, -12], [-49, -11]]]), river('b', [[[-51, -12], [-50, -13]]])]));
+    assert.deepEqual(updated, [], 'resposta nova com os mesmos rios não redesenha nada');
+    await draw(collection([river('a', [[[-50, -12], [-49, -11]]]), river('b', [[[-51, -12], [-50, -14]]])]));
+    assert.deepEqual(updated, ['b']);
+  } finally {
+    Polyline.prototype.setLatLngs = setLatLngs;
+  }
 });
 
 test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', async () => {

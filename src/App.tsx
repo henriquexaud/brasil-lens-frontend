@@ -28,6 +28,7 @@ import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
+import { hydroArea } from '@/features/map/viewport';
 import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
 import { useTerritoryMap } from '@/features/map/useTerritoryMap';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
@@ -289,8 +290,9 @@ export default function App() {
     !alerts.isFetching &&
     !fireHotspotsLayer.isFetching &&
     !fireSummary.isFetching;
+  const hydroBbox = hydroArea(hydroDetail, viewport.bbox);
   const hydroReady = useDeferredReady(
-    `hydro:${scope.parent}:${hydroDetail}:${viewport.bbox}`,
+    `hydro:${scope.parent}:${hydroDetail}:${hydroBbox}`,
     showHydrography && primarySettled,
   );
   const hydroQuery: HydroQuery = useMemo(
@@ -298,11 +300,11 @@ export default function App() {
       level: hydroDetail < 6 ? 'country' : hydroDetail < 10 ? 'state' : 'municipality',
       parent: isDrilledDown ? scope.parent : undefined,
       zoom: hydroDetail,
-      bbox: viewport.bbox,
+      bbox: hydroBbox,
       includeWaterBodies: true,
       includeRivers: true,
     }),
-    [hydroDetail, isDrilledDown, scope.parent, viewport.bbox],
+    [hydroDetail, isDrilledDown, scope.parent, hydroBbox],
   );
   const hydrographyLayer = useHydrography(hydroQuery, hydroReady);
   const hydroCollection = hydrographyLayer.data;
@@ -400,8 +402,16 @@ export default function App() {
       }
     }
   }
-  const exploredWeatherByCode = new Map([...weatherByCode, ...exploredWeatherRef.current]);
-  const exploredFireByCode = new Map([...fireByCode, ...exploredFireRef.current]);
+  // Stable identities keep the mosaic from restyling on unrelated renders; the
+  // explored refs above only grow when these inputs change.
+  const exploredWeatherByCode = useMemo(
+    () => new Map([...weatherByCode, ...exploredWeatherRef.current]),
+    [weatherByCode],
+  );
+  const exploredFireByCode = useMemo(
+    () => new Map([...fireByCode, ...exploredFireRef.current]),
+    [fireByCode],
+  );
   const city = selectedCode
     ? (selectedWeather.data?.cities[0] ??
       (selectedCode.length === 7 ? weatherByCode.get(selectedCode) : undefined))

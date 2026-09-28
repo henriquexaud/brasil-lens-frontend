@@ -17,6 +17,7 @@ import type {
   WeatherCity,
   WeatherCurrentResponse,
 } from '@/api/types';
+import { snapBbox } from '@/features/map/viewport';
 import { useDeferredReady } from '@/lib/useDeferredReady';
 
 function seedCityWeather(
@@ -274,15 +275,6 @@ function weatherGridStep(zoom: number): number {
   return zoom <= 8 ? 0.5 : zoom === 9 ? 0.25 : 0.1;
 }
 
-export function snapBbox(bbox: string, step: number): string {
-  const [west = 0, south = 0, east = 0, north = 0] = bbox.split(',').map(Number);
-  const floor = (value: number) => Math.floor(value / step) * step;
-  const ceil = (value: number) => Math.ceil(value / step) * step;
-  return [floor(west), floor(south), ceil(east), ceil(north)]
-    .map((value) => value.toFixed(2))
-    .join(',');
-}
-
 export function useViewportWeather(
   bbox: string | undefined,
   parent: string | null | undefined,
@@ -307,6 +299,9 @@ export function useViewportWeather(
     staleTime: staleUntilExpiry(MAP_FRESHNESS_MS),
     gcTime: 20 * 60 * 1000,
     refetchOnWindowFocus: false,
+    // Keeps the panel steady between pans; never shows another state's area.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === (parent ?? 'all') ? previous : undefined,
   });
   useEffect(() => {
     if (!query.data) return;

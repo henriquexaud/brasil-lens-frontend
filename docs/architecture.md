@@ -16,7 +16,7 @@ A visão de sistema (API, fontes, fluxos entre repositórios) está em `../backe
 ## Dados
 
 - **Cliente (`client.ts`):** `VITE_API_BASE_URL` é fixada no build. Erros viram `ApiError`, e só falhas passageiras (5xx, rede) são repetidas, até 2 vezes. A pausa é por fonte (`weather`, `fire`, `hydrography`): `provider_rate_limited` pausa até o usuário pedir nova tentativa; outras falhas, de 30 s a 5 min, com retomada automática. `requestForcedWeatherRefresh()` acrescenta `force=true` por 4 s.
-- **Consultas:** as chaves incluem escopo, nível e LOD. A validade do clima segue a idade da leitura (`observedAt` + 15 ou 30 min, no mínimo 2 min), igual ao backend. Alertas: polling de 90 s. Malha: `staleTime` de 30 min. Consultas desligadas são canceladas (`useCancelWhenDisabled`), páginas extras carregam quando o navegador está ocioso (`useIdleNextPage`) e leituras em lote semeiam o cache da seleção (`seedCityWeather`).
+- **Consultas:** as chaves incluem escopo, nível e LOD. A validade do clima segue a idade da leitura (`observedAt` + 15 ou 30 min, no mínimo 2 min), igual ao backend. Alertas: polling de 90 s. Malha: `staleTime` de 30 min. Consultas desligadas são canceladas (`useCancelWhenDisabled`), páginas extras carregam quando o navegador está ocioso (`useIdleNextPage`) e leituras em lote semeiam o cache da seleção (`seedCityWeather`). No pan, o clima por viewport mostra a leitura anterior da mesma UF até a nova chegar. A hidrografia pede o bbox numa grade grossa (`hydroArea`) e nenhum abaixo do zoom 6.
 - **Fusão (`useWeatherMapData.ts`):** dentro da UF, a leitura mais nova vence; se empatar, a medida vence a estimada. Trocar de UF limpa tudo.
 - **Mutações** de acompanhamento são otimistas (`onMutate`), com rollback no `onError`.
 - **Sessão:** `sessionStorage` na chave `brasil_lens_session_v3`. Se o formato mudar, a chave vira v4 e a v3 entra na lista de legadas, que são limpas.
@@ -33,6 +33,9 @@ Panes, de baixo para cima: `basemap` 200 (Esri, opacidade 0,32), território 400
   - Pane com nome repetido faz o react-leaflet lançar erro.
   - O `SLD_BODY` precisa ficar abaixo de ~5 KB, com aspas simples.
   - Trabalho de fundo pausa enquanto o mapa se move.
+  - O `GeoJSON` do react-leaflet reaplica o estilo em todas as feições quando `style` muda de identidade. Mantenha `style` estável (funções e objetos memoizados; `Set`/`Map` derivados também) e, no território, aplique só o que mudou por polígono. Com 800+ municípios, um `new Set()` por render bastava para repintar a malha a cada commit.
+  - Rótulos numerosos são `Marker` com `divIcon` e conteúdo por portal, não `Tooltip` permanente, que mede o próprio tamanho a cada passo de zoom e a cada re-render. As pílulas usam opacidade 0,9, a da tooltip que tinham antes, e só re-renderizam quando muda o que desenham.
+  - `backdrop-filter` em dezenas de elementos sobre o mapa custa ~1 em cada 4 quadros no zoom. Dentro de um ancestral com opacidade < 1, ele nem aparece.
 
 ## Testes
 

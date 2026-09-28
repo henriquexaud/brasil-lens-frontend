@@ -159,6 +159,12 @@ export function useTerritoryMap({
         : discoveredMosaicRef.current.versions(),
     [discoveredMosaicVersion],
   );
+  // A new Set on every render would restyle every polygon on the map.
+  const completeStatesKey = [...completeMapsRef.current.keys()].join(',');
+  const completeMosaicStates = useMemo(
+    () => new Set(completeStatesKey ? completeStatesKey.split(',') : []),
+    [completeStatesKey],
+  );
 
   return {
     mapLayer,
@@ -175,6 +181,6 @@ export function useTerritoryMap({
     discoveredMosaicVersion,
     discoveredMosaicVersions,
     revealMosaicState: !isDrilledDown ? lastExploredStateRef.current : null,
-    completeMosaicStates: new Set(completeMapsRef.current.keys()),
+    completeMosaicStates,
   };
 }

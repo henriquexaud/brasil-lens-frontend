@@ -20,7 +20,8 @@ const compiled = await build({
   stdin: {
     contents: `export { useWeatherMapData } from './src/features/weather/useWeatherMapData';
       export { ViewportObserver } from './src/features/map/ViewportObserver';
-      export { DiscoveredMosaic } from './src/features/map/discoveredMosaic';`,
+      export { DiscoveredMosaic } from './src/features/map/discoveredMosaic';
+      export { hydroArea } from './src/features/map/viewport';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -43,7 +44,7 @@ const compiled = await build({
 });
 const modulePath = join(scratch, 'harness.mjs');
 await writeFile(modulePath, compiled.outputFiles[0].text);
-const { useWeatherMapData, ViewportObserver, DiscoveredMosaic } = await import(pathToFileURL(modulePath).href);
+const { useWeatherMapData, ViewportObserver, DiscoveredMosaic, hydroArea } = await import(pathToFileURL(modulePath).href);
 let root, result;
 const reading = (temperatureC, hour, extra = {}) => ({
   id: '3550308', observedAt: `2026-09-27T${hour}:00:00Z`, temperatureC,
@@ -74,6 +75,12 @@ test('mosaico conserva estados visitados e prefere a geometria mais detalhada ao
   assert.deepEqual(mosaic.all(), [spDetail, rjDetail]);
   assert.equal(mosaic.version, 3);
   assert.deepEqual([...mosaic.versions()], [['35', 2], ['33', 3]]);
+});
+test('hidrografia pede áreas em grade grossa: pans pequenos reaproveitam a resposta', () => {
+  assert.equal(hydroArea(4, '-50.5,-20,-40,-10'), undefined, 'abaixo do zoom 6 a API ignora a área');
+  assert.equal(hydroArea(8, '-47.3,-20.6,-41.0,-16.6'), '-47.50,-21.00,-41.00,-16.50');
+  assert.equal(hydroArea(8, '-47.2,-20.7,-41.1,-16.8'), hydroArea(8, '-47.3,-20.6,-41.0,-16.6'));
+  assert.equal(hydroArea(10, '-44.03,-19.97,-43.81,-19.83'), '-44.25,-20.00,-43.75,-19.75');
 });
 function WeatherData(props) {
   result = useWeatherMapData({ ...defaults, ...props });

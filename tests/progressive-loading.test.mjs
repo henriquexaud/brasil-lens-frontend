@@ -353,6 +353,32 @@ test('hidrografia espera os dados principais e idle; mantém o desenho durante z
   assert.equal(visible, undefined, 'não mostra os rios da UF anterior');
 });
 
+test('clima da área visível mantém a leitura anterior no pan e nunca mostra outra UF', async () => {
+  let visible;
+  function Nearby({ bbox, parent }) {
+    visible = useViewportWeather(bbox, parent, 9, true, false).data;
+    return null;
+  }
+  let release;
+  respond = async (url) =>
+    url.searchParams.get('bbox') === '-47.00,-24.00,-46.00,-23.00'
+      ? new Response(JSON.stringify(page(['3550308'])), { status: 200 })
+      : new Promise((resolve) => {
+          release = () => resolve(new Response(JSON.stringify(page(['3509502'])), { status: 200 }));
+        });
+  await render(h(Nearby, { bbox: '-47,-24,-46,-23', parent: '35' }));
+  await until(() => visible);
+  const first = visible;
+  await render(h(Nearby, { bbox: '-48,-24,-47,-23', parent: '35' }));
+  await until(() => requests.length === 2);
+  assert.equal(visible, first, 'o painel não esvazia enquanto a área nova carrega');
+  release();
+  await until(() => visible !== first);
+  assert.equal(visible.cities[0].id, '3509502');
+  await render(h(Nearby, { bbox: '-48,-24,-47,-23', parent: '33' }));
+  assert.equal(visible, undefined, 'não mostra a área de outra UF');
+});
+
 test('resumo de fogo espera o período dos metadados e cancela ao desligar a camada', async () => {
   function Summary({ at, enabled }) { useFireSummary({ level: 'country' }, at, enabled); return null; }
   respond = async (_url, options) => new Promise((_resolve, reject) => {

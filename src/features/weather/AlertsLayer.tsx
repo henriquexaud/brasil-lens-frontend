@@ -14,40 +14,39 @@ export function AlertsLayer({
   muted?: boolean;
   stateCode?: string | null;
 }) {
-  const orderedFeatures = useMemo(() => {
+  const shapes = useMemo(() => {
     const features = collection?.features ?? [];
     const filtered = stateCode
       ? features.filter((feature) => isAlertInState(feature, stateCode))
       : features;
 
-    return [...filtered].sort(
-      (a, b) =>
-        SEVERITY_RANK[getAlertStyle(b.properties).tier] -
-        SEVERITY_RANK[getAlertStyle(a.properties).tier],
-    );
-  }, [collection, stateCode]);
+    return filtered
+      .map((feature) => ({ feature, alert: getAlertStyle(feature.properties) }))
+      .sort((a, b) => SEVERITY_RANK[b.alert.tier] - SEVERITY_RANK[a.alert.tier])
+      .map(({ feature, alert }) => ({
+        feature,
+        style: {
+          color: alert.strokeColor,
+          weight: alert.strokeWeight,
+          dashArray: alert.strokeDashArray,
+          opacity: muted ? 0.35 : alert.strokeOpacity,
+          fillColor: alert.fillColor,
+          fillOpacity: muted ? 0 : alert.fillOpacity,
+          className: 'weather-alert-shape',
+        },
+      }));
+  }, [collection, stateCode, muted]);
 
   return (
     <Pane name="weather-alerts" style={{ zIndex: 450, pointerEvents: 'none' }}>
-      {orderedFeatures.map((feature) => {
-        const style = getAlertStyle(feature.properties);
-        return (
-          <GeoJSON
-            key={`${feature.id}:${feature.properties.expires}`}
-            data={feature}
-            interactive={false}
-            style={{
-              color: style.strokeColor,
-              weight: style.strokeWeight,
-              dashArray: style.strokeDashArray,
-              opacity: muted ? 0.35 : style.strokeOpacity,
-              fillColor: style.fillColor,
-              fillOpacity: muted ? 0 : style.fillOpacity,
-              className: 'weather-alert-shape',
-            }}
-          />
-        );
-      })}
+      {shapes.map(({ feature, style }) => (
+        <GeoJSON
+          key={`${feature.id}:${feature.properties.expires}`}
+          data={feature}
+          interactive={false}
+          style={style}
+        />
+      ))}
     </Pane>
   );
 }

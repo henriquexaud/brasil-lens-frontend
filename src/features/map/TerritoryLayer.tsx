@@ -332,6 +332,12 @@ function Territories({
     climateMode,
     style,
   };
+  // react-leaflet restyles every polygon whenever `style` changes identity; the
+  // style effect below only touches the polygons whose style actually changed.
+  const initialStyle = useCallback(
+    (feature?: TerritoryFeature) => propsRef.current.style(feature),
+    [],
+  );
 
   const boundLayersRef = useRef(new WeakSet<Path>());
 
@@ -710,7 +716,7 @@ function Territories({
       }
 
       const element = layer.getElement();
-      if (element) {
+      if (element && element.getAttribute('aria-pressed') !== String(selected)) {
         element.setAttribute('aria-pressed', String(selected));
       }
     });
@@ -758,7 +764,12 @@ function Territories({
 
   return (
     <>
-      <GeoJSON ref={layerRef} data={collection} style={style} onEachFeature={preserveBoundary} />
+      <GeoJSON
+        ref={layerRef}
+        data={collection}
+        style={initialStyle}
+        onEachFeature={preserveBoundary}
+      />
       {selectedFeature && (
         <>
           <GeoJSON
