@@ -103,8 +103,9 @@ export function WeatherThematicSwitch({
     const tick = (time: number) => {
       const dt = spring.lastTime ? Math.min((time - spring.lastTime) / 1000, 0.032) : 1 / 60;
       spring.lastTime = time;
-      // A damped spring keeps its velocity when another option is selected mid-flight.
-      spring.velocity += (270 * (spring.target - spring.x) - 25 * spring.velocity) * dt;
+      // Stiff, near-critically damped spring: settles in ~0.2s without wobble, and keeps
+      // its velocity when another option is selected mid-flight.
+      spring.velocity += (900 * (spring.target - spring.x) - 54 * spring.velocity) * dt;
       spring.x += spring.velocity * dt;
       indicator.style.transform = `translate3d(${spring.x}px, 0, 0)`;
       if (Math.abs(spring.target - spring.x) < 0.3 && Math.abs(spring.velocity) < 2) {
