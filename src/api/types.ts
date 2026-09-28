@@ -206,8 +206,6 @@ export interface HydroFeature {
 
 export interface HydroMetadata {
   status?: 'ok' | 'partial';
-  level: string;
-  parentCode: string | null;
   riverCount: number;
   waterBodyCount: number;
   source: string;
@@ -218,15 +216,6 @@ export interface HydroFeatureCollection {
   metadata: HydroMetadata;
   bbox?: BoundingBox;
   features: HydroFeature[];
-}
-
-export interface HydroQuery {
-  level: 'country' | 'state' | 'municipality';
-  parent?: string | null;
-  includeWaterBodies?: boolean;
-  includeRivers?: boolean;
-  zoom?: number;
-  bbox?: string;
 }
 
 export interface FireHotspotProperties {

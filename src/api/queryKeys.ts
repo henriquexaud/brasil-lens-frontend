@@ -1,19 +1,11 @@
-import type { FireHotspotQuery, HydroQuery, MapQuery } from './types';
+import type { FireHotspotQuery, MapQuery } from './types';
 
 export const FIRE_HOTSPOT_HOURS = 48;
 
 export const queryKeys = {
   map: (query: MapQuery) => ['map', query.level, query.parent ?? null, query.lod ?? null] as const,
-  hydrography: (query: HydroQuery) =>
-    [
-      'hydrography',
-      query.level,
-      query.parent ?? null,
-      query.includeWaterBodies ?? true,
-      query.includeRivers ?? true,
-      query.zoom ?? 4,
-      query.bbox,
-    ] as const,
+  hydrography: (detail: number, area: string | undefined) =>
+    ['hydrography', detail, area ?? null] as const,
   fireHotspots: (query: FireHotspotQuery) =>
     [
       'fire-hotspots',

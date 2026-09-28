@@ -1,6 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import {
+  hashKey,
+  keepPreviousData,
+  useIsFetching,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useRef } from 'react';
 
+import { coversArea, hydroArea } from '@/features/map/viewport';
 import { useDeferredReady } from '@/lib/useDeferredReady';
 
 import { apiGet } from './client';
@@ -13,7 +20,6 @@ import type {
   FireHotspotQuery,
   FireSummary,
   HydroFeatureCollection,
-  HydroQuery,
   MapFeatureCollection,
   MapQuery,
   TerritoryListResponse,
@@ -56,36 +62,33 @@ export function useMapLayer(query: Omit<MapQuery, 'lod'>) {
   };
 }
 
-export function useHydrography(query: HydroQuery, enabled = true) {
-  const queryKey = queryKeys.hydrography(query);
-  useCancelWhenDisabled(queryKey, enabled);
-  return useQuery<HydroFeatureCollection>({
+// Rios e lagos quase não mudam e são a camada de menor prioridade. Uma área já
+// carregada nesse detalhe que cubra a vista é reaproveitada, só uma requisição
+// corre por vez e nenhuma é abortada: o servidor termina o trabalho na ANA de
+// qualquer jeito, então a resposta fica no cache em vez de ser descartada.
+export function useHydrography(detail: number, bbox: string | undefined, enabled: boolean) {
+  const client = useQueryClient();
+  const loaded = bbox
+    ? client
+        .getQueryCache()
+        .findAll({ queryKey: ['hydrography', detail] })
+        .map((query) => query.queryKey[2])
+        .find((area): area is string => typeof area === 'string' && coversArea(area, bbox))
+    : undefined;
+  const area = loaded ?? hydroArea(detail, bbox);
+  const queryKey = queryKeys.hydrography(detail, area);
+  const hash = hashKey(queryKey);
+  // Só as outras contam: a própria, ao falhar, voltaria a se habilitar e refaria em laço.
+  const busy =
+    useIsFetching({ queryKey: ['hydrography'], predicate: (query) => query.queryHash !== hash }) >
+    0;
+  return useQuery({
     queryKey,
-    placeholderData: (previous, previousQuery) => {
-      const previousKey = previousQuery?.queryKey;
-      return previousKey?.[2] === queryKey[2] &&
-        previousKey[3] === queryKey[3] &&
-        previousKey[4] === queryKey[4]
-        ? previous
-        : undefined;
-    },
-    queryFn: ({ signal }) =>
-      apiGet<HydroFeatureCollection>(
-        '/hydrography',
-        {
-          level: query.level,
-          parent: query.parent ?? undefined,
-          include_water_bodies: query.includeWaterBodies ?? true,
-          include_rivers: query.includeRivers ?? true,
-          zoom: query.zoom ?? 4,
-          bbox: query.bbox,
-        },
-        signal,
-      ),
-    enabled,
-    staleTime: 30 * 60 * 1000,
+    queryFn: () => apiGet<HydroFeatureCollection>('/hydrography', { zoom: detail, bbox: area }),
+    enabled: enabled && !busy,
+    placeholderData: keepPreviousData,
+    staleTime: (query) => (query.state.data?.metadata.status === 'partial' ? 60_000 : Infinity),
     gcTime: 60 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 }
 

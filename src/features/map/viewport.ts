@@ -43,3 +43,9 @@ export function hydroArea(detail: number, bbox: string | undefined): string | un
   if (detail < 6 || !bbox) return undefined;
   return snapBbox(bbox, detail < 8 ? 1 : detail < 10 ? 0.5 : 0.25);
 }
+
+export function coversArea(area: string, bbox: string): boolean {
+  const [west = 0, south = 0, east = 0, north = 0] = area.split(',').map(Number);
+  const [w = 0, s = 0, e = 0, n = 0] = bbox.split(',').map(Number);
+  return west <= w && south <= s && east >= e && north >= n;
+}

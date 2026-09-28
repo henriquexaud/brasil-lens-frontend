@@ -329,14 +329,24 @@ test('sair da camada cancela INPE e trocar de estado não reapresenta o recorte 
 });
 
 
-test('hidrografia espera os dados principais e idle; mantém o desenho durante zoom sem misturar UFs', async () => {
+test('hidrografia espera os dados principais e o idle, reaproveita a área carregada e nunca aborta', async () => {
   let visible;
-  function Hydro({ primarySettled, zoom = 4, parent }) {
-    const ready = useDeferredReady(`hydro:${zoom}`, primarySettled);
-    visible = useHydrography({ level: 'country', parent, zoom, bbox: '-60,-20,-40,0', includeWaterBodies: false }, ready).data;
+  function Hydro({ primarySettled, detail = 4, bbox = '-60,-20,-40,0' }) {
+    const ready = useDeferredReady(`hydro:${detail}:${bbox}`, primarySettled);
+    visible = useHydrography(detail, bbox, ready).data;
     return null;
   }
-  respond = async () => new Response(JSON.stringify({ features: [], metadata: { level: 'country' } }), { status: 200 });
+  const held = [];
+  respond = (url) => {
+    const body = () =>
+      new Response(JSON.stringify({ features: [], metadata: { status: 'ok' }, area: url.searchParams.get('bbox') }), { status: 200 });
+    return url.searchParams.get('zoom') === '4' ? body() : new Promise((resolve) => held.push(() => resolve(body())));
+  };
+  const release = async () => {
+    await act(async () => held.shift()());
+    await tick();
+  };
+
   await render(h(Hydro, { primarySettled: false }));
   await tick(200); await runIdle();
   assert.equal(requests.length, 0);
@@ -344,13 +354,28 @@ test('hidrografia espera os dados principais e idle; mantém o desenho durante z
   await tick(200);
   assert.equal(requests.length, 0, 'espera a agenda de baixa prioridade');
   await runIdle(); await until(() => requests.length === 1 && visible);
-  assert.equal(requests[0].url.searchParams.get('zoom'), '4');
-  assert.equal(requests[0].url.searchParams.get('include_water_bodies'), 'false');
-  const previous = visible;
-  await render(h(Hydro, { primarySettled: true, zoom: 8 }));
-  assert.equal(visible, previous, 'mantém os rios até o recorte novo chegar');
-  await render(h(Hydro, { primarySettled: true, zoom: 8, parent: '35' }));
-  assert.equal(visible, undefined, 'não mostra os rios da UF anterior');
+  assert.deepEqual([...requests[0].url.searchParams.keys()], ['zoom'], 'o nacional ignora a área');
+  const national = visible;
+
+  await render(h(Hydro, { primarySettled: true, detail: 8, bbox: '-47.3,-20.6,-41.0,-16.6' }));
+  assert.equal(visible, national, 'mantém os rios até a área nova chegar');
+  await tick(200); await runIdle(); await until(() => requests.length === 2);
+  assert.equal(requests[1].url.searchParams.get('bbox'), '-47.50,-21.00,-41.00,-16.50');
+  assert.equal(requests[1].signal, undefined, 'a camada de menor prioridade não é abortada');
+
+  await render(h(Hydro, { primarySettled: true, detail: 8, bbox: '-40.3,-10.6,-38,-9' }));
+  await tick(200); await runIdle(); await tick(50);
+  assert.equal(requests.length, 2, 'uma área por vez');
+  await release();
+  await until(() => requests.length === 3);
+  assert.equal(requests[2].url.searchParams.get('bbox'), '-40.50,-11.00,-38.00,-9.00');
+  await release();
+  await until(() => visible?.area === '-40.50,-11.00,-38.00,-9.00');
+
+  await render(h(Hydro, { primarySettled: true, detail: 8, bbox: '-46,-20,-43,-18' }));
+  await tick(200); await runIdle(); await tick(50);
+  assert.equal(requests.length, 3, 'a vista dentro de uma área carregada não pede de novo');
+  assert.equal(visible.area, '-47.50,-21.00,-41.00,-16.50');
 });
 
 test('clima da área visível mantém a leitura anterior no pan e nunca mostra outra UF', async () => {

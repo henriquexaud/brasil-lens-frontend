@@ -18,7 +18,6 @@ import type {
   FireHotspotQuery,
   FireMunicipality,
   FollowedMunicipality,
-  HydroQuery,
   WeatherCity,
 } from '@/api/types';
 import { ScopeHeader } from '@/components/ScopeHeader';
@@ -28,7 +27,6 @@ import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
-import { hydroArea } from '@/features/map/viewport';
 import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
 import { useTerritoryMap } from '@/features/map/useTerritoryMap';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
@@ -296,24 +294,15 @@ export default function App() {
     !selectedWeather.isFetching &&
     !alerts.isFetching &&
     !fireHotspotsLayer.isFetching &&
-    !fireSummary.isFetching;
-  const hydroBbox = hydroArea(hydroDetail, viewport.bbox);
+    !fireSummary.isFetching &&
+    viewportWeatherBusy === 0;
+  // Pede só com o mapa parado, para não buscar áreas por onde o pan apenas passou.
   const hydroReady = useDeferredReady(
-    `hydro:${scope.parent}:${hydroDetail}:${hydroBbox}`,
+    `hydro:${hydroDetail}:${viewport.bbox}`,
     showHydrography && primarySettled,
+    500,
   );
-  const hydroQuery: HydroQuery = useMemo(
-    () => ({
-      level: hydroDetail < 6 ? 'country' : hydroDetail < 10 ? 'state' : 'municipality',
-      parent: isDrilledDown ? scope.parent : undefined,
-      zoom: hydroDetail,
-      bbox: hydroBbox,
-      includeWaterBodies: true,
-      includeRivers: true,
-    }),
-    [hydroDetail, isDrilledDown, scope.parent, hydroBbox],
-  );
-  const hydrographyLayer = useHydrography(hydroQuery, hydroReady);
+  const hydrographyLayer = useHydrography(hydroDetail, viewport.bbox, hydroReady);
   const hydroCollection = hydrographyLayer.data;
   const selectFireCity = useCallback(
     (city: FireMunicipality) => {
