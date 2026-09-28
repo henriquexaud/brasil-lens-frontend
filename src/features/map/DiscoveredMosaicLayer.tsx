@@ -7,6 +7,8 @@ import { densityColor, type FireMode } from '@/features/fire/fireDensity';
 import { rainAmount, rainColor } from '@/features/rainfall/rainScale';
 import { colorForTemperature } from './colors';
 
+const LAND_COLOR = '#f4f5f5';
+
 interface Props {
   features: MapFeature[];
   version: number;
@@ -66,11 +68,18 @@ export function DiscoveredMosaicLayer({
         fillColor = temperature != null ? colorForTemperature(temperature) : '#f1f5f9';
         fillOpacity = temperature != null ? 0.68 : 0.18;
       }
+      const opacity = completeStates.has(stateCode) ? fillOpacity : 1;
+      const solid =
+        opacity < 1
+          ? `color-mix(in srgb, ${fillColor} ${Math.round(opacity * 100)}%, ${LAND_COLOR})`
+          : fillColor;
       return {
         smoothFactor: 0,
-        stroke: false,
-        fillColor,
-        fillOpacity: completeStates.has(stateCode) ? fillOpacity : 1,
+        color: solid,
+        weight: 0.5,
+        opacity: 1,
+        fillColor: solid,
+        fillOpacity: 1,
         className:
           revealStateCode === stateCode
             ? 'discovered-mosaic-shape is-revealing'
