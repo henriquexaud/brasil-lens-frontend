@@ -53,6 +53,7 @@ interface Props {
   fireHours?: number;
   rainMode?: boolean;
   climateMode?: boolean;
+  discoveredStateCodes?: Set<string>;
 }
 
 type TerritoryFeature = Feature<Geometry, MapFeatureProperties>;
@@ -67,8 +68,35 @@ function styleKey(style: PathOptions): string {
 
 const DENSE_FEATURES = 150;
 
-function preserveBoundary(_feature: Feature, layer: Layer) {
-  if (layer instanceof Polygon) layer.options.smoothFactor = 0;
+function animateGeometryReveal(layer: Polygon) {
+  const element = layer.getElement();
+  if (!element?.classList.contains('territory-shape') || element.classList.contains('is-resolving'))
+    return;
+  if (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+    return;
+  element.classList.add('is-resolving');
+  element.addEventListener('animationend', () => element.classList.remove('is-resolving'), {
+    once: true,
+  });
+}
+
+function vertexCount(geometry: MultiPolygon | GeoJSONPolygon): number {
+  const polygons = geometry.type === 'MultiPolygon' ? geometry.coordinates : [geometry.coordinates];
+  return polygons.reduce(
+    (total, polygon) => total + polygon.reduce((sum, ring) => sum + ring.length, 0),
+    0,
+  );
+}
+
+function preserveBoundary(feature: Feature, layer: Layer) {
+  if (!(layer instanceof Polygon)) return;
+  layer.options.smoothFactor = 0;
+  if (feature.properties?.level === 'municipality') {
+    layer.once('add', () => animateGeometryReveal(layer));
+  }
 }
 
 function Territories({
@@ -82,6 +110,7 @@ function Territories({
   fireHours = 48,
   rainMode,
   climateMode = true,
+  discoveredStateCodes,
 }: Props) {
   const map = useMap();
   const layerRef = useRef<LeafletGeoJSON>(null);
@@ -197,6 +226,7 @@ function Territories({
       const properties = feature && featuresByCode.get(feature.properties.ibgeCode)?.properties;
       const hovered =
         properties?.ibgeCode === hoveredCode.current && properties?.ibgeCode !== selectedCode;
+      const covered = !municipal && Boolean(properties && discoveredStateCodes?.has(properties.ibgeCode));
 
       if (fireMode) {
         const fire = properties ? fireByCode?.get(properties.ibgeCode) : undefined;
@@ -207,7 +237,7 @@ function Territories({
           weight: municipal ? 0.45 : 0.85,
           opacity: 0.65,
           fillColor: showDensity ? densityColor(fire?.density) : '#edf0ee',
-          fillOpacity: showDensity
+          fillOpacity: covered ? 0 : showDensity
             ? hovered
               ? 0.82
               : fireMode === 'points'
@@ -230,7 +260,7 @@ function Territories({
           color: '#ffffff',
           weight: municipal ? 0.5 : 0.85,
           opacity: municipal ? 0.7 : 0.85,
-          fillOpacity,
+          fillOpacity: covered ? 0 : fillOpacity,
           fillColor,
           className: 'territory-shape',
         };
@@ -246,7 +276,7 @@ function Territories({
           color: '#ffffff',
           weight: municipal ? 0.5 : 0.85,
           opacity: municipal ? 0.7 : 0.85,
-          fillOpacity,
+          fillOpacity: covered ? 0 : fillOpacity,
           fillColor,
           className: 'territory-shape',
         };
@@ -256,7 +286,7 @@ function Territories({
         color: '#ffffff',
         weight: municipal ? 0.5 : 0.85,
         opacity: municipal ? 0.7 : 0.85,
-        fillOpacity: hovered ? 0.25 : 0.08,
+        fillOpacity: covered ? 0 : hovered ? 0.25 : 0.08,
         fillColor: '#f1f5f9',
         className: 'territory-shape',
       };
@@ -270,6 +300,7 @@ function Territories({
       fireMode,
       rainMode,
       climateMode,
+      discoveredStateCodes,
     ],
   );
 
@@ -656,6 +687,14 @@ function Territories({
           const coords = (feature.geometry as MultiPolygon | GeoJSONPolygon).coordinates;
           if (coords) {
             layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(coords, isMulti ? 2 : 1));
+            if (
+              municipal &&
+              (previousFeature.geometry.type === 'MultiPolygon' ||
+                previousFeature.geometry.type === 'Polygon') &&
+              vertexCount(feature.geometry) > vertexCount(previousFeature.geometry) * 1.15
+            ) {
+              animateGeometryReveal(layer);
+            }
           }
         } catch {} // eslint-disable-line no-empty
       }
@@ -696,7 +735,7 @@ function Territories({
     if (activeCode && hideFrameRef.current === null) {
       showTooltipFor(activeCode, fixedAnchorRef.current ?? undefined);
     }
-  }, [clearHover, style, selectedCode, featuresByCode, showTooltipFor, updateHoverOutline]);
+  }, [clearHover, style, selectedCode, featuresByCode, municipal, showTooltipFor, updateHoverOutline]);
 
   useEffect(() => {
     if (!selectedFeature) return;

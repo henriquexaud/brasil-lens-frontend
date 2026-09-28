@@ -329,11 +329,11 @@ test('sair da camada cancela INPE e trocar de estado não reapresenta o recorte 
 });
 
 
-test('hidrografia espera os dados principais e idle; não reutiliza geometrias de outro zoom', async () => {
+test('hidrografia espera os dados principais e idle; mantém o desenho durante zoom sem misturar UFs', async () => {
   let visible;
-  function Hydro({ primarySettled, zoom = 4 }) {
+  function Hydro({ primarySettled, zoom = 4, parent }) {
     const ready = useDeferredReady(`hydro:${zoom}`, primarySettled);
-    visible = useHydrography({ level: 'country', zoom, bbox: '-60,-20,-40,0', includeWaterBodies: false }, ready).data;
+    visible = useHydrography({ level: 'country', parent, zoom, bbox: '-60,-20,-40,0', includeWaterBodies: false }, ready).data;
     return null;
   }
   respond = async () => new Response(JSON.stringify({ features: [], metadata: { level: 'country' } }), { status: 200 });
@@ -346,8 +346,11 @@ test('hidrografia espera os dados principais e idle; não reutiliza geometrias d
   await runIdle(); await until(() => requests.length === 1 && visible);
   assert.equal(requests[0].url.searchParams.get('zoom'), '4');
   assert.equal(requests[0].url.searchParams.get('include_water_bodies'), 'false');
+  const previous = visible;
   await render(h(Hydro, { primarySettled: true, zoom: 8 }));
-  assert.equal(visible, undefined, 'não mantém rios de outra escala ou viewport');
+  assert.equal(visible, previous, 'mantém os rios até o recorte novo chegar');
+  await render(h(Hydro, { primarySettled: true, zoom: 8, parent: '35' }));
+  assert.equal(visible, undefined, 'não mostra os rios da UF anterior');
 });
 
 test('resumo de fogo espera o período dos metadados e cancela ao desligar a camada', async () => {

@@ -19,7 +19,8 @@ const scratch = await mkdtemp(join(frontend, 'node_modules', '.map-data-tests-')
 const compiled = await build({
   stdin: {
     contents: `export { useWeatherMapData } from './src/features/weather/useWeatherMapData';
-      export { ViewportObserver } from './src/features/map/ViewportObserver';`,
+      export { ViewportObserver } from './src/features/map/ViewportObserver';
+      export { DiscoveredMosaic } from './src/features/map/discoveredMosaic';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -42,7 +43,7 @@ const compiled = await build({
 });
 const modulePath = join(scratch, 'harness.mjs');
 await writeFile(modulePath, compiled.outputFiles[0].text);
-const { useWeatherMapData, ViewportObserver } = await import(pathToFileURL(modulePath).href);
+const { useWeatherMapData, ViewportObserver, DiscoveredMosaic } = await import(pathToFileURL(modulePath).href);
 let root, result;
 const reading = (temperatureC, hour, extra = {}) => ({
   id: '3550308', observedAt: `2026-09-27T${hour}:00:00Z`, temperatureC,
@@ -54,6 +55,26 @@ const defaults = {
   selectedCode: null, stateWeather: {}, municipalities: {}, nearbyWeather: {},
   nationalWeather: {}, selectedWeather: {},
 };
+
+test('mosaico conserva estados visitados e prefere a geometria mais detalhada ao voltar ao Brasil', () => {
+  const mosaic = new DiscoveredMosaic();
+  const feature = (id, marker) => ({
+    type: 'Feature', id,
+    properties: { ibgeCode: id, level: 'municipality' },
+    geometry: { type: 'MultiPolygon', coordinates: [[[[marker, 0], [1, 0], [1, 1], [marker, 0]]]] },
+  });
+  const spOverview = feature('3550308', 1);
+  const spDetail = feature('3550308', 2);
+  const rjDetail = feature('3304557', 3);
+  mosaic.addCollection({ scope: { level: 'municipality', parent: '35', lod: 'overview' }, features: [spOverview] }, '35');
+  mosaic.addCollection({ scope: { level: 'municipality', parent: '35', lod: 'detail' }, features: [spDetail] }, '35');
+  mosaic.addCollection({ scope: { level: 'municipality', parent: '33', lod: 'detail' }, features: [rjDetail] }, '33');
+  mosaic.addCollection({ scope: { level: 'municipality', parent: '35', lod: 'overview' }, features: [spOverview] }, '35');
+  assert.deepEqual(mosaic.forState('35'), [spDetail]);
+  assert.deepEqual(mosaic.all(), [spDetail, rjDetail]);
+  assert.equal(mosaic.version, 3);
+  assert.deepEqual([...mosaic.versions()], [['35', 2], ['33', 3]]);
+});
 function WeatherData(props) {
   result = useWeatherMapData({ ...defaults, ...props });
   return null;

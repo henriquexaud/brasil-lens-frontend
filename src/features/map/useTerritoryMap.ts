@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { geoJSON } from 'leaflet';
 import { useMapLayer, useSelectedBoundary, useVisibleMunicipalities } from '@/api/queries';
-import type { MapFeature, MapFeatureCollection } from '@/api/types';
+import type { MapFeatureCollection } from '@/api/types';
+import { DiscoveredMosaic } from './discoveredMosaic';
 import { resolveSelectedStateOutline } from './stateBoundary';
 import type { MapViewport } from './ViewportObserver';
 import type { MapScopeState } from './useMapScope';
@@ -40,15 +41,10 @@ export function useTerritoryMap({
   const selectedBoundary = useSelectedBoundary(selectedCode);
   const stateViewportKey = `municipality:${scope.parent}`;
   const viewportIsInState = isDrilledDown && viewport.scopeKey === stateViewportKey;
-  const lastStateParentRef = useRef<string | null>(null);
-  const lastCompleteMunicipalMapRef = useRef<MapFeatureCollection | undefined>(undefined);
-  const accumulatedMunicipalitiesRef = useRef<Map<string, MapFeature>>(new Map());
-
-  if (lastStateParentRef.current !== scope.parent) {
-    lastStateParentRef.current = scope.parent;
-    lastCompleteMunicipalMapRef.current = undefined;
-    accumulatedMunicipalitiesRef.current.clear();
-  }
+  const discoveredMosaicRef = useRef(new DiscoveredMosaic());
+  const completeMapsRef = useRef(new Map<string, MapFeatureCollection>());
+  const lastExploredStateRef = useRef<string | null>(null);
+  if (isDrilledDown && scope.parent) lastExploredStateRef.current = scope.parent;
 
   const isCurrentStateMesh =
     mapLayer.data?.scope.level === 'municipality' &&
@@ -56,11 +52,15 @@ export function useTerritoryMap({
     (mapLayer.data.features.length ?? 0) > 0;
 
   if (isCurrentStateMesh && mapLayer.data) {
-    lastCompleteMunicipalMapRef.current = mapLayer.data;
+    const previous = scope.parent ? completeMapsRef.current.get(scope.parent) : undefined;
+    if (scope.parent && (mapLayer.data.scope.lod === 'detail' || previous?.scope.lod !== 'detail')) {
+      completeMapsRef.current.set(scope.parent, mapLayer.data);
+    }
+    discoveredMosaicRef.current.addCollection(mapLayer.data, scope.parent);
   }
 
   const hasCompleteMunicipalLayer =
-    isCurrentStateMesh || Boolean(lastCompleteMunicipalMapRef.current);
+    isCurrentStateMesh || Boolean(scope.parent && completeMapsRef.current.has(scope.parent));
 
   const visibleMunicipalities = useVisibleMunicipalities(
     viewportIsInState ? viewport.bbox : undefined,
@@ -74,34 +74,29 @@ export function useTerritoryMap({
   );
 
   useEffect(() => {
-    if (visibleMunicipalities.data?.features) {
-      for (const f of visibleMunicipalities.data.features) {
-        accumulatedMunicipalitiesRef.current.set(f.id, f);
-      }
+    if (isDrilledDown && visibleMunicipalities.data?.scope.parent === scope.parent) {
+      discoveredMosaicRef.current.add(scope.parent, visibleMunicipalities.data.features, 2);
     }
-  }, [visibleMunicipalities.data]);
+  }, [isDrilledDown, scope.parent, visibleMunicipalities.data]);
 
   useEffect(() => {
-    if (selectedBoundary.data?.features) {
-      for (const f of selectedBoundary.data.features) {
-        accumulatedMunicipalitiesRef.current.set(f.id, f);
-      }
-    }
-  }, [selectedBoundary.data]);
+    if (isDrilledDown) discoveredMosaicRef.current.add(scope.parent, selectedBoundary.data?.features, 3);
+  }, [isDrilledDown, scope.parent, selectedBoundary.data]);
 
+  const effectiveCompleteMap = scope.parent ? completeMapsRef.current.get(scope.parent) : undefined;
   const municipalCollection = useMemo<MapFeatureCollection | undefined>(() => {
     if (!isDrilledDown || !selectedStateOutline) return undefined;
     const bounds = geoJSON(selectedStateOutline).getBounds();
-    const completeMap = isCurrentStateMesh ? mapLayer.data : lastCompleteMunicipalMapRef.current;
 
     const baseFeatures =
-      completeMap && completeMap.features.length > 0
-        ? completeMap.features
-        : (visibleMunicipalities.data?.features ?? [
-            ...accumulatedMunicipalitiesRef.current.values(),
-          ]);
+      effectiveCompleteMap && effectiveCompleteMap.features.length > 0
+        ? effectiveCompleteMap.features
+        : (visibleMunicipalities.data?.scope.parent === scope.parent
+            ? visibleMunicipalities.data.features
+            : discoveredMosaicRef.current.forState(scope.parent));
 
     const byCode = new Map(baseFeatures.map((f) => [f.id, f]));
+    for (const f of discoveredMosaicRef.current.forState(scope.parent)) byCode.set(f.id, f);
     for (const f of selectedBoundary.data?.features ?? []) byCode.set(f.id, f);
     const features = [...byCode.values()];
     if (features.length === 0) return undefined;
@@ -119,18 +114,14 @@ export function useTerritoryMap({
   }, [
     isDrilledDown,
     selectedStateOutline,
-    isCurrentStateMesh,
-    mapLayer.data,
+    effectiveCompleteMap,
     visibleMunicipalities.data,
     selectedBoundary.data,
     scope.parent,
   ]);
-  const effectiveCompleteMap = isCurrentStateMesh
-    ? mapLayer.data
-    : lastCompleteMunicipalMapRef.current;
 
   const collection = isDrilledDown
-    ? (effectiveCompleteMap ?? municipalCollection ?? statesOutlineLayer.data)
+    ? (municipalCollection ?? effectiveCompleteMap ?? statesOutlineLayer.data)
     : mapLayer.data;
   const showsCurrentScope =
     collection?.scope.level === scope.level && (collection?.scope.parent ?? null) === scope.parent;
@@ -156,6 +147,18 @@ export function useTerritoryMap({
         municipalCollection?.features.find((f) => f.properties.ibgeCode === selectedCode) ??
         mapLayer.data?.features.find((f) => f.properties.ibgeCode === selectedCode))
       : undefined);
+  const discoveredMosaicVersion = discoveredMosaicRef.current.version;
+  const discoveredMosaic = useMemo(
+    () => (isDrilledDown || discoveredMosaicVersion === 0 ? [] : discoveredMosaicRef.current.all()),
+    [isDrilledDown, discoveredMosaicVersion],
+  );
+  const discoveredMosaicVersions = useMemo(
+    () =>
+      discoveredMosaicVersion === 0
+        ? new Map<string, number>()
+        : discoveredMosaicRef.current.versions(),
+    [discoveredMosaicVersion],
+  );
 
   return {
     mapLayer,
@@ -168,5 +171,10 @@ export function useTerritoryMap({
     scopeReady,
     territoryReady,
     selectedFeature,
+    discoveredMosaic,
+    discoveredMosaicVersion,
+    discoveredMosaicVersions,
+    revealMosaicState: !isDrilledDown ? lastExploredStateRef.current : null,
+    completeMosaicStates: new Set(completeMapsRef.current.keys()),
   };
 }

@@ -36,17 +36,7 @@ Este Compose sobe apenas a interface. O Nginx pode iniciar sem o serviço intern
 
 ## Arquitetura e operações
 
-A interface consome a API própria por REST. A API processa fontes públicas e gratuitas, incluindo IBGE para geografia e Open-Meteo para clima; os dados são usados em mapas, agregações e análises espaciais, não apenas em links externos. Os dois componentes desenvolvidos permanecem em repositórios separados.
-
-| Método | Operação da API | Uso na interface |
-|---|---|---|
-| GET | `/map`, `/weather/*`, `/me/followed-municipalities` | Mapa, clima e acompanhamento |
-| POST | `/territories/locate` | Localização pelo navegador |
-| PUT | `/me/followed-municipalities/{code}` | Acompanhar município |
-| DELETE | `/me/followed-municipalities/{code}` | Deixar de acompanhar |
-| POST | `/me/followed-municipalities/{code}/notifications` | Preferência de avisos |
-
-Todas as rotas têm prefixo `/api/v1`. A persistência dos municípios acompanhados fica no PostgreSQL da API, sob o usuário compartilhado `local`. A preferência de avisos é salva; o MVP não envia notificações por push ou e-mail.
+A interface consome a API própria por REST (prefixo `/api/v1`). A API processa fontes públicas, como IBGE para geografia e Open-Meteo para clima, e entrega contratos prontos para o mapa, agregações e análises espaciais. Os municípios acompanhados ficam no PostgreSQL da API; ainda não há autenticação, então a lista pertence ao usuário único da instalação. Detalhes em [Integração com a API](docs/API_INTEGRATION.md).
 
 ## Comandos
 

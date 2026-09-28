@@ -9,7 +9,7 @@ Erros HTTP são convertidos em `ApiError`. Consultas transitórias podem ser rep
 
 ## Operações e persistência
 
-A interface usa GET para ler mapa, clima e municípios acompanhados; POST em `/territories/locate` para encontrar o município por coordenadas; PUT em `/me/followed-municipalities/{code}` para acompanhar; e DELETE na mesma rota para remover. POST em `/{code}/notifications` configura a preferência de avisos do acompanhamento. A API persiste esses vínculos e preferências no PostgreSQL; não há entrega de notificações por push, e-mail ou outro canal. O MVP usa um usuário fixo `local`, sem autenticação: a lista de acompanhamento é compartilhada por quem acessa a mesma instalação.
+`POST /territories/locate` encontra o município pelas coordenadas do navegador. O acompanhamento usa `PUT` e `DELETE` em `/me/followed-municipalities/{code}` e `POST /{code}/notifications` para a preferência de avisos. As mutações atualizam o cache do TanStack Query de forma otimista. A API persiste vínculos e preferências no PostgreSQL; nenhum aviso é enviado por enquanto. Sem autenticação, a lista pertence ao usuário único da instalação (`local`).
 
 ## Endereço da API
 

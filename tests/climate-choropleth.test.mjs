@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 const TEMPERATURE_SCALE = [
-  { max: 0, color: '#2454C6', label: '≤0°' },
+  { max: 0, color: '#2454C6', label: '<0°' },
   { max: 5, color: '#2F7DE1', label: '0–5°' },
   { max: 10, color: '#47B3E8', label: '5–10°' },
   { max: 15, color: '#79DCE2', label: '10–15°' },
@@ -10,13 +10,14 @@ const TEMPERATURE_SCALE = [
   { max: 25, color: '#FFF5A6', label: '20–25°' },
   { max: 30, color: '#FFD447', label: '25–30°' },
   { max: 35, color: '#FF9B38', label: '30–35°' },
-  { max: Infinity, color: '#F04432', label: '>35°' },
+  { max: Infinity, color: '#F04432', label: '≥35°' },
 ];
 
 function colorForTemperature(tempC) {
   if (tempC == null || Number.isNaN(tempC)) return '#94a3b8';
+  const displayed = Math.round(tempC);
   for (const band of TEMPERATURE_SCALE) {
-    if (tempC <= band.max) return band.color;
+    if (displayed < band.max) return band.color;
   }
   return TEMPERATURE_SCALE[TEMPERATURE_SCALE.length - 1].color;
 }
@@ -102,4 +103,3 @@ test('polígonos de estados e municípios são coloridos pela escala térmica no
   assert.equal(spHover.fillOpacity, 0.85);
   assert.equal(spHover.color, '#26373d');
 });
-

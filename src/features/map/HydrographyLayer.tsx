@@ -1,6 +1,6 @@
-import type { Feature, Geometry } from 'geojson';
-import type { Layer, LeafletMouseEvent } from 'leaflet';
-import { useCallback } from 'react';
+import type { Feature, FeatureCollection, Geometry } from 'geojson';
+import { GeoJSON as LeafletGeoJSON, Polyline, type Layer, type LeafletMouseEvent } from 'leaflet';
+import { useCallback, useEffect, useRef } from 'react';
 import { GeoJSON, Pane } from 'react-leaflet';
 import type { HydroFeatureCollection, HydroFeatureProperties } from '@/api/types';
 import { formatDrainageArea, getHydroStyle } from './hydroStyles';
@@ -14,6 +14,8 @@ export function HydrographyLayer({
   fireActive?: boolean;
   zoom?: number;
 }) {
+  const layerRef = useRef<LeafletGeoJSON>(null);
+  const renderedCollection = useRef(collection);
   const onEachFeature = useCallback(
     (feature: Feature<Geometry, HydroFeatureProperties>, layer: Layer) => {
       const props = feature.properties;
@@ -54,18 +56,50 @@ export function HydrographyLayer({
     },
     [],
   );
+
+  useEffect(() => {
+    const group = layerRef.current;
+    if (!group || !collection || renderedCollection.current === collection) return;
+
+    const remaining = new Map(collection.features.map((feature) => [String(feature.id), feature]));
+    group.eachLayer((layer) => {
+      const current = (layer as Layer & { feature?: Feature<Geometry, HydroFeatureProperties> })
+        .feature;
+      const next = current && remaining.get(String(current.id));
+      if (!next) {
+        group.removeLayer(layer);
+        return;
+      }
+      remaining.delete(String(current.id));
+      const nextLayer = LeafletGeoJSON.geometryToLayer(next);
+      if (layer instanceof Polyline && nextLayer instanceof Polyline) {
+        layer.setLatLngs(nextLayer.getLatLngs());
+        layer.feature = next;
+        layer.setStyle(getHydroStyle(next.properties, fireActive));
+      } else {
+        group.removeLayer(layer);
+        remaining.set(String(next.id), next);
+      }
+    });
+    group.addData({
+      type: 'FeatureCollection',
+      features: [...remaining.values()],
+    } as FeatureCollection<Geometry, HydroFeatureProperties>);
+    renderedCollection.current = collection;
+  }, [collection, fireActive]);
+
   if (!collection?.features.length) return null;
   const interactive = zoom >= 8 && !fireActive;
   return (
     <Pane name="hydrography" style={{ zIndex: 425, pointerEvents: interactive ? 'auto' : 'none' }}>
       <GeoJSON
-        key={`${collection.metadata.level}:${collection.metadata.parentCode}:${collection.bbox}:${zoom}:${interactive}:${collection.features.map((f) => f.id).join(',')}`}
+        ref={layerRef}
         data={collection}
-        interactive={interactive}
+        interactive
         style={(feature) =>
           getHydroStyle(feature!.properties as HydroFeatureProperties, fireActive)
         }
-        onEachFeature={interactive ? onEachFeature : undefined}
+        onEachFeature={onEachFeature}
       />
     </Pane>
   );

@@ -59,8 +59,16 @@ export function useMapLayer(query: Omit<MapQuery, 'lod'>) {
 export function useHydrography(query: HydroQuery, enabled = true) {
   const queryKey = queryKeys.hydrography(query);
   useCancelWhenDisabled(queryKey, enabled);
-  return useQuery({
+  return useQuery<HydroFeatureCollection>({
     queryKey,
+    placeholderData: (previous, previousQuery) => {
+      const previousKey = previousQuery?.queryKey;
+      return previousKey?.[2] === queryKey[2] &&
+        previousKey[3] === queryKey[3] &&
+        previousKey[4] === queryKey[4]
+        ? previous
+        : undefined;
+    },
     queryFn: ({ signal }) =>
       apiGet<HydroFeatureCollection>(
         '/hydrography',

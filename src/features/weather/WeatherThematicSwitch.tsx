@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react';
 import type { FireHotspotCollection, WeatherCurrentResponse } from '@/api/types';
 
 export interface WeatherThematicSwitchProps {
@@ -36,6 +36,16 @@ export function WeatherThematicSwitch({
   error,
   scopeName,
 }: WeatherThematicSwitchProps) {
+  const controlRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const springRef = useRef({
+    x: 0,
+    velocity: 0,
+    target: 0,
+    frame: null as number | null,
+    lastTime: 0,
+    ready: false,
+  });
   const calculatedRange = useMemo(() => {
     if (minTemperature != null && maxTemperature != null) {
       return { min: minTemperature, max: maxTemperature };
@@ -49,15 +59,110 @@ export function WeatherThematicSwitch({
       max: Math.max(...temps),
     };
   }, [minTemperature, maxTemperature, current?.cities]);
+  const available = [
+    Boolean(onToggleClimate),
+    Boolean(onToggleRainfall),
+    Boolean(onToggleFireHotspots),
+  ];
+  const active = showClimate ? 0 : showRainfall ? 1 : showFireHotspots ? 2 : -1;
+  const activeIndex = active < 0 ? -1 : available.slice(0, active).filter(Boolean).length;
+  const segmentCount = available.filter(Boolean).length;
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
+  const indicatorStyle: CSSProperties = {
+    width: `calc((100% - ${6 + (segmentCount - 1) * 3}px) / ${segmentCount})`,
+    transform: `translateX(calc(${activeIndex * 100}% + ${activeIndex * 3}px))`,
+  };
+
+  useLayoutEffect(() => {
+    const control = controlRef.current;
+    const indicator = indicatorRef.current;
+    const button =
+      control?.querySelectorAll<HTMLButtonElement>('.weather-segment-btn')[activeIndex];
+    if (!indicator || !button || button.offsetWidth === 0) return;
+
+    const spring = springRef.current;
+    if (spring.frame !== null) cancelAnimationFrame(spring.frame);
+    spring.frame = null;
+    spring.target = button.offsetLeft;
+    spring.lastTime = 0;
+    indicator.style.width = `${button.offsetWidth}px`;
+
+    const reducedMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!spring.ready || reducedMotion || typeof requestAnimationFrame !== 'function') {
+      spring.x = spring.target;
+      spring.velocity = 0;
+      spring.ready = true;
+      indicator.style.transform = `translate3d(${spring.x}px, 0, 0)`;
+      indicator.classList.remove('is-moving');
+      return;
+    }
+
+    const tick = (time: number) => {
+      const dt = spring.lastTime ? Math.min((time - spring.lastTime) / 1000, 0.032) : 1 / 60;
+      spring.lastTime = time;
+      // A damped spring keeps its velocity when another option is selected mid-flight.
+      spring.velocity += (270 * (spring.target - spring.x) - 25 * spring.velocity) * dt;
+      spring.x += spring.velocity * dt;
+      indicator.style.transform = `translate3d(${spring.x}px, 0, 0)`;
+      if (Math.abs(spring.target - spring.x) < 0.3 && Math.abs(spring.velocity) < 2) {
+        spring.x = spring.target;
+        spring.velocity = 0;
+        spring.frame = null;
+        indicator.style.transform = `translate3d(${spring.x}px, 0, 0)`;
+        indicator.classList.remove('is-moving');
+      } else {
+        spring.frame = requestAnimationFrame(tick);
+      }
+    };
+    indicator.classList.add('is-moving');
+    spring.frame = requestAnimationFrame(tick);
+    return () => {
+      if (spring.frame !== null) cancelAnimationFrame(spring.frame);
+      spring.frame = null;
+    };
+  }, [activeIndex, segmentCount]);
+
+  useEffect(() => {
+    const control = controlRef.current;
+    const indicator = indicatorRef.current;
+    if (!control || !indicator || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const button =
+        control.querySelectorAll<HTMLButtonElement>('.weather-segment-btn')[activeIndexRef.current];
+      if (!button || button.offsetWidth === 0) return;
+      const spring = springRef.current;
+      if (spring.frame !== null) cancelAnimationFrame(spring.frame);
+      spring.frame = null;
+      spring.target = button.offsetLeft;
+      spring.x = spring.target;
+      spring.velocity = 0;
+      spring.ready = true;
+      indicator.style.width = `${button.offsetWidth}px`;
+      indicator.style.transform = `translate3d(${spring.x}px, 0, 0)`;
+      indicator.classList.remove('is-moving');
+    });
+    observer.observe(control);
+    return () => observer.disconnect();
+  }, [segmentCount]);
 
   return (
     <div className="weather-thematic-selector">
       <p className="field-label sr-only">Modo de visualização do mapa</p>
       <div
+        ref={controlRef}
         className="weather-segmented-control"
         role="tablist"
         aria-label="Visualização temática do mapa"
       >
+        <span
+          ref={indicatorRef}
+          className={`weather-segment-indicator ${activeIndex < 0 ? 'is-hidden' : ''}`}
+          style={indicatorStyle}
+          aria-hidden="true"
+        />
         {onToggleClimate && (
           <button
             type="button"
@@ -88,7 +193,7 @@ export function WeatherThematicSwitch({
             className={`weather-segment-btn ${showFireHotspots ? 'is-active' : ''}`}
             onClick={() => onToggleFireHotspots(!showFireHotspots)}
           >
-            Focos
+            Fogo
           </button>
         )}
       </div>

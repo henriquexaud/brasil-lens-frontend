@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { clearSourcePauses, requestForcedWeatherRefresh } from '@/api/client';
 import {
@@ -165,6 +165,11 @@ export default function App() {
     scopeReady,
     territoryReady,
     selectedFeature,
+    discoveredMosaic,
+    discoveredMosaicVersion,
+    discoveredMosaicVersions,
+    revealMosaicState,
+    completeMosaicStates,
   } = useTerritoryMap({
     scope,
     isDrilledDown,
@@ -381,6 +386,22 @@ export default function App() {
     currentWeather,
     collection,
   });
+  const exploredWeatherRef = useRef(new Map<string, WeatherCity>());
+  const exploredFireRef = useRef(new Map<string, FireMunicipality>());
+  if (isDrilledDown && scope.parent) {
+    for (const city of weatherCities) {
+      if (city.id.startsWith(scope.parent) && city.id.length === 7) {
+        exploredWeatherRef.current.set(city.id, city);
+      }
+    }
+    for (const item of fireSummary.data?.municipalities ?? []) {
+      if (item.ibgeCode.startsWith(scope.parent)) {
+        exploredFireRef.current.set(item.ibgeCode, item);
+      }
+    }
+  }
+  const exploredWeatherByCode = new Map([...weatherByCode, ...exploredWeatherRef.current]);
+  const exploredFireByCode = new Map([...fireByCode, ...exploredFireRef.current]);
   const city = selectedCode
     ? (selectedWeather.data?.cities[0] ??
       (selectedCode.length === 7 ? weatherByCode.get(selectedCode) : undefined))
@@ -540,6 +561,13 @@ export default function App() {
         onDrillDown={drillIntoState}
         weatherByCode={weatherByCode}
         stateOutline={selectedStateOutline}
+        discoveredMosaic={discoveredMosaic}
+        discoveredMosaicVersion={discoveredMosaicVersion}
+        discoveredMosaicVersions={discoveredMosaicVersions}
+        revealMosaicState={revealMosaicState}
+        completeMosaicStates={completeMosaicStates}
+        exploredWeatherByCode={exploredWeatherByCode}
+        exploredFireByCode={exploredFireByCode}
         onViewportChange={setViewport}
         locationTarget={locationTarget}
         climateMode={showClimate}

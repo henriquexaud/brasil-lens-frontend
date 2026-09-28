@@ -14,6 +14,7 @@ import type {
 } from '@/api/types';
 
 import { TerritoryLayer } from './TerritoryLayer';
+import { DiscoveredMosaicLayer } from './DiscoveredMosaicLayer';
 import { ViewportObserver, type MapViewport } from './ViewportObserver';
 import type { FireMode } from '@/features/fire/fireDensity';
 import { scopeInsets } from './viewport';
@@ -53,6 +54,13 @@ interface Props {
   climateMode?: boolean;
   onViewportChange?: (viewport: MapViewport) => void;
   stateOutline?: MapFeature | null;
+  discoveredMosaic?: MapFeature[];
+  discoveredMosaicVersion?: number;
+  discoveredMosaicVersions?: Map<string, number>;
+  revealMosaicState?: string | null;
+  completeMosaicStates?: Set<string>;
+  exploredWeatherByCode?: Map<string, WeatherCity>;
+  exploredFireByCode?: Map<string, FireMunicipality>;
   locationTarget?: {
     code: string;
     latitude: number;
@@ -129,6 +137,13 @@ export function MapView({
   climateMode,
   onViewportChange,
   stateOutline,
+  discoveredMosaic = [],
+  discoveredMosaicVersion = 0,
+  discoveredMosaicVersions = new Map<string, number>(),
+  revealMosaicState,
+  completeMosaicStates = new Set<string>(),
+  exploredWeatherByCode,
+  exploredFireByCode,
   locationTarget,
 }: Props) {
   const scopeKey = collection
@@ -182,6 +197,20 @@ export function MapView({
             fireByCode={fireByCode}
             fireMode={fireMode}
             fireHours={fireHours}
+            rainMode={rainMode}
+            climateMode={climateMode}
+            discoveredStateCodes={completeMosaicStates}
+          />
+          <DiscoveredMosaicLayer
+            features={discoveredMosaic}
+            version={discoveredMosaicVersion}
+            versions={discoveredMosaicVersions}
+            revealStateCode={revealMosaicState}
+            visible={collection.scope.level === 'state'}
+            completeStates={completeMosaicStates}
+            weatherByCode={exploredWeatherByCode}
+            fireByCode={exploredFireByCode}
+            fireMode={fireMode}
             rainMode={rainMode}
             climateMode={climateMode}
           />
