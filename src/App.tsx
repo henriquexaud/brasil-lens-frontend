@@ -37,6 +37,7 @@ import { usePageVisible } from '@/lib/usePageVisible';
 import { useDeferredReady } from '@/lib/useDeferredReady';
 import { useWeatherMapData } from '@/features/weather/useWeatherMapData';
 import { useAppPreferences } from '@/app/useAppPreferences';
+import { useMobileSheet } from '@/app/useMobileSheet';
 
 const HydrographyLayer = lazy(() =>
   import('@/features/map/HydrographyLayer').then((module) => ({
@@ -114,15 +115,14 @@ export default function App() {
   }, [locationTarget, activeLocationTarget]);
   const hydroDetail = hydroZoom(viewport.zoom);
   const [fireMapError, setFireMapError] = useState(false);
-  const [mobilePeek, setMobilePeek] = useState(false);
+  const sheet = useMobileSheet();
+  const { setCollapsed: setSheetCollapsed } = sheet;
   useEffect(() => {
     setFireMapError(false);
   }, [scope.level, scope.parent, showFireHotspots]);
   useEffect(() => {
-    if (selectedCode) {
-      setMobilePeek(false);
-    }
-  }, [selectedCode]);
+    if (selectedCode) setSheetCollapsed(false);
+  }, [selectedCode, setSheetCollapsed]);
   const pageVisible = usePageVisible();
   const client = useQueryClient();
 
@@ -618,23 +618,18 @@ export default function App() {
         </Suspense>
       </MapView>
       <SearchBox onSelect={handleSearchSelect} onLocated={handleLocated} />
-      <div className={`panel-slot ${mobilePeek ? 'is-peek' : ''}`}>
+      <div ref={sheet.slotRef} className={`panel-slot ${sheet.collapsed ? 'is-peek' : ''}`}>
         <aside className="panel">
-          <button
-            type="button"
-            className="mobile-sheet-handle"
-            aria-label={mobilePeek ? 'Expandir painel' : 'Recolher painel'}
-            aria-expanded={!mobilePeek}
-            onClick={() => setMobilePeek((prev) => !prev)}
-          >
-            <span className="mobile-sheet-bar" />
-          </button>
-          <div
-            className="panel-section scope-section"
-            onClick={() => {
-              if (mobilePeek) setMobilePeek(false);
-            }}
-          >
+          <div ref={sheet.headerRef} className="panel-section scope-section" {...sheet.headerProps}>
+            <button
+              type="button"
+              className="mobile-sheet-handle"
+              aria-label={sheet.collapsed ? 'Expandir painel' : 'Recolher painel'}
+              aria-expanded={!sheet.collapsed}
+              onClick={sheet.toggle}
+            >
+              <span className="mobile-sheet-bar" />
+            </button>
             <ScopeHeader
               name={scope.parentName ?? 'Brasil'}
               onBack={handleBack}

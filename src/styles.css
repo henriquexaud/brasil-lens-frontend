@@ -1386,7 +1386,6 @@ body {
     left: 8px;
     right: 8px;
     width: auto;
-    max-height: 58%;
     transition: max-height var(--motion-ui) var(--ease-out);
   }
 
@@ -1397,12 +1396,6 @@ body {
 
   .scope-title {
     font-size: 17px;
-  }
-}
-
-@media (max-width: 420px) {
-  .search-slot {
-    width: calc(100vw - 2 * var(--gutter));
   }
 }
 
@@ -2334,16 +2327,29 @@ body {
     stroke-opacity var(--motion-ui) var(--ease-out);
 }
 @media (max-width: 900px) {
+  /* Gaveta: o cabeçalho (alça, título, seletor e resumo da camada) fica fixo no
+     topo ao rolar e é a área de arraste. Recolhida, só ele aparece; a altura
+     dele chega em --sheet-peek (ver useMobileSheet). */
+  .scope-section {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
   .mobile-sheet-handle {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    padding: 7px 0 3px;
+    width: calc(100% + 32px);
+    margin: -12px -16px 4px;
+    padding: 8px 0 10px;
     background: none;
     border: none;
-    cursor: pointer;
-    touch-action: manipulation;
+    cursor: grab;
   }
 
   .mobile-sheet-bar {
@@ -2360,26 +2366,30 @@ body {
   }
 
   .panel-slot {
-    max-height: 52%;
+    --sheet-max: 52%;
+    max-height: var(--sheet-max);
   }
   .panel-slot:has(.disclosure[open]) {
-    max-height: 62%;
+    --sheet-max: 62%;
   }
   .panel-slot.is-peek {
-    max-height: 52px !important;
+    max-height: var(--sheet-peek, 132px);
     overflow: hidden;
   }
   .panel-slot.is-peek .panel {
     overflow: hidden;
-  }
-  .search-slot {
-    width: min(340px, calc(100vw - 2 * var(--gutter)));
   }
 }
 @media (hover: none) {
   .disclosure-trigger,
   .weather-toggle {
     min-height: 40px;
+  }
+  .weather-segment-btn {
+    min-height: 34px;
+  }
+  .ghost-button {
+    min-height: 30px;
   }
   .icon-button {
     min-width: 36px;
@@ -2969,5 +2979,19 @@ body {
   .weather-pill-dot.is-raining,
   .rain-live-dot {
     animation: none;
+  }
+}
+
+/* Busca no mobile. Fica acima da gaveta, para os resultados não abrirem por
+   baixo dela, e usa fonte de 16px: com menos, o Safari do iOS dá zoom na
+   página ao focar o campo. Vem depois da regra geral de .search-slot. */
+@media (max-width: 900px) {
+  .search-slot {
+    z-index: 610;
+    width: min(340px, calc(100% - 2 * var(--gutter)));
+  }
+
+  .search-input {
+    font-size: 16px;
   }
 }
