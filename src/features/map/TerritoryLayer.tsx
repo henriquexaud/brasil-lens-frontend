@@ -70,7 +70,7 @@ function styleKey(style: PathOptions): string {
 }
 
 // Divisa leve entre municípios: o mosaico de cores continua lendo como um todo.
-const MUNICIPAL_BORDER: PolylineOptions = { color: '#ffffff', weight: 0.4, opacity: 0.4 };
+const MUNICIPAL_BORDER: PolylineOptions = { color: '#ffffff', weight: 0.5, opacity: 0.7 };
 const STATE_BORDER: PolylineOptions = { color: '#ffffff', weight: 0.85, opacity: 0.85 };
 // Estado já explorado vira mosaico por cima da malha; a divisa branca volta acima dele.
 const COVERED_STATE_BORDER: PolylineOptions = { ...STATE_BORDER, smoothFactor: 0, fill: false };
@@ -242,7 +242,9 @@ function Territories({
         const showDensity = fire?.density != null;
         return {
           smoothFactor: 0,
-          ...(municipal ? MUNICIPAL_BORDER : { color: '#ffffff', weight: 1, opacity: 0.65 }),
+          color: '#ffffff',
+          weight: municipal ? 0.45 : 0.85,
+          opacity: 0.65,
           fillColor: showDensity ? densityColor(fire?.density) : '#edf0ee',
           fillOpacity: covered ? 0 : showDensity
             ? hovered
