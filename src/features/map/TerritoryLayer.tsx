@@ -9,7 +9,7 @@ import {
   type PolylineOptions,
 } from 'leaflet';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { GeoJSON, useMap } from 'react-leaflet';
+import { GeoJSON, Pane, useMap } from 'react-leaflet';
 
 import type {
   MapFeatureCollection,
@@ -22,6 +22,8 @@ import { HOVER_COLOR, SELECTED_COLOR, colorForTemperature } from './colors';
 import { scopeInsets } from './viewport';
 import { rainAmount, rainColor } from '@/features/rainfall/rainScale';
 import { fillTooltipContent } from './territoryTooltip';
+import { PendingTerritoriesLayer } from './PendingTerritoriesLayer';
+import { realignRenderer } from './realignRenderer';
 import { densityColor, type FireMode } from '@/features/fire/fireDensity';
 
 const SELECTION_HALO_STYLE: PolylineOptions = {
@@ -53,6 +55,7 @@ interface Props {
   fireHours?: number;
   rainMode?: boolean;
   climateMode?: boolean;
+  loading?: boolean;
   discoveredStateCodes?: Set<string>;
 }
 
@@ -66,37 +69,15 @@ function styleKey(style: PathOptions): string {
   return [style.color, style.fillColor, style.weight, style.opacity, style.fillOpacity].join('|');
 }
 
-const DENSE_FEATURES = 150;
+// Divisa leve entre municípios: o mosaico de cores continua lendo como um todo.
+const MUNICIPAL_BORDER: PolylineOptions = { color: '#ffffff', weight: 0.4, opacity: 0.4 };
+const STATE_BORDER: PolylineOptions = { color: '#ffffff', weight: 0.85, opacity: 0.85 };
+// Estado já explorado vira mosaico por cima da malha; a divisa branca volta acima dele.
+const COVERED_STATE_BORDER: PolylineOptions = { ...STATE_BORDER, smoothFactor: 0, fill: false };
+const NO_FEATURES: MapFeatureCollection['features'] = [];
 
-function animateGeometryReveal(layer: Polygon) {
-  const element = layer.getElement();
-  if (!element?.classList.contains('territory-shape') || element.classList.contains('is-resolving'))
-    return;
-  if (
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-    return;
-  element.classList.add('is-resolving');
-  element.addEventListener('animationend', () => element.classList.remove('is-resolving'), {
-    once: true,
-  });
-}
-
-function vertexCount(geometry: MultiPolygon | GeoJSONPolygon): number {
-  const polygons = geometry.type === 'MultiPolygon' ? geometry.coordinates : [geometry.coordinates];
-  return polygons.reduce(
-    (total, polygon) => total + polygon.reduce((sum, ring) => sum + ring.length, 0),
-    0,
-  );
-}
-
-function preserveBoundary(feature: Feature, layer: Layer) {
-  if (!(layer instanceof Polygon)) return;
-  layer.options.smoothFactor = 0;
-  if (feature.properties?.level === 'municipality') {
-    layer.once('add', () => animateGeometryReveal(layer));
-  }
+function preserveBoundary(_feature: Feature, layer: Layer) {
+  if (layer instanceof Polygon) layer.options.smoothFactor = 0;
 }
 
 function Territories({
@@ -110,6 +91,7 @@ function Territories({
   fireHours = 48,
   rainMode,
   climateMode = true,
+  loading = false,
   discoveredStateCodes,
 }: Props) {
   const map = useMap();
@@ -132,12 +114,6 @@ function Territories({
       map.attributionControl?.removeAttribution(attribution);
     };
   }, [map, fireMode]);
-  const dense = collection.features.length > DENSE_FEATURES;
-  useEffect(() => {
-    const container = map.getContainer();
-    container.classList.toggle('map-dense', dense);
-    return () => container.classList.remove('map-dense');
-  }, [map, dense]);
   const featuresByCode = useMemo(
     () => new Map(collection.features.map((feature) => [feature.properties.ibgeCode, feature])),
     [collection.features],
@@ -189,6 +165,39 @@ function Territories({
     };
   }, [map, municipal]);
 
+  // Territórios que ainda esperam o dado da camada ativa ganham o skeleton.
+  const pendingFeatures = useMemo(() => {
+    if (!loading || !(fireMode || rainMode || climateMode)) return NO_FEATURES;
+    return collection.features.filter(({ properties: { ibgeCode: code } }) => {
+      if (!municipal && discoveredStateCodes?.has(code)) return false;
+      if (fireMode) return !fireByCode?.has(code);
+      if (rainMode) return !weatherByCode?.has(code);
+      return weatherByCode?.get(code)?.temperatureC == null;
+    });
+  }, [
+    loading,
+    collection.features,
+    municipal,
+    discoveredStateCodes,
+    fireMode,
+    fireByCode,
+    rainMode,
+    climateMode,
+    weatherByCode,
+  ]);
+
+  const coveredStates = useMemo<MapFeatureCollection>(
+    () => ({
+      ...collection,
+      features: municipal
+        ? NO_FEATURES
+        : collection.features.filter((feature) =>
+            discoveredStateCodes?.has(feature.properties.ibgeCode),
+          ),
+    }),
+    [municipal, collection, discoveredStateCodes],
+  );
+
   const selectedFeature = useMemo(
     () => collection.features.find((feature) => feature.properties.ibgeCode === selectedCode),
     [collection, selectedCode],
@@ -233,9 +242,7 @@ function Territories({
         const showDensity = fire?.density != null;
         return {
           smoothFactor: 0,
-          color: '#ffffff',
-          weight: municipal ? 0.45 : 0.85,
-          opacity: 0.65,
+          ...(municipal ? MUNICIPAL_BORDER : { color: '#ffffff', weight: 1, opacity: 0.65 }),
           fillColor: showDensity ? densityColor(fire?.density) : '#edf0ee',
           fillOpacity: covered ? 0 : showDensity
             ? hovered
@@ -257,9 +264,7 @@ function Territories({
         const fillOpacity = hasRain ? (hovered ? 0.88 : 0.72) : hovered ? 0.3 : 0.12;
         return {
           smoothFactor: 0,
-          color: '#ffffff',
-          weight: municipal ? 0.5 : 0.85,
-          opacity: municipal ? 0.7 : 0.85,
+          ...(municipal ? MUNICIPAL_BORDER : STATE_BORDER),
           fillOpacity: covered ? 0 : fillOpacity,
           fillColor,
           className: 'territory-shape',
@@ -273,9 +278,7 @@ function Territories({
         const fillOpacity = hasDirectTemp ? (hovered ? 0.85 : 0.68) : hovered ? 0.35 : 0.18;
         return {
           smoothFactor: 0,
-          color: '#ffffff',
-          weight: municipal ? 0.5 : 0.85,
-          opacity: municipal ? 0.7 : 0.85,
+          ...(municipal ? MUNICIPAL_BORDER : STATE_BORDER),
           fillOpacity: covered ? 0 : fillOpacity,
           fillColor,
           className: 'territory-shape',
@@ -283,9 +286,7 @@ function Territories({
       }
       return {
         smoothFactor: 0,
-        color: '#ffffff',
-        weight: municipal ? 0.5 : 0.85,
-        opacity: municipal ? 0.7 : 0.85,
+        ...(municipal ? MUNICIPAL_BORDER : STATE_BORDER),
         fillOpacity: covered ? 0 : hovered ? 0.25 : 0.08,
         fillColor: '#f1f5f9',
         className: 'territory-shape',
@@ -693,14 +694,7 @@ function Territories({
           const coords = (feature.geometry as MultiPolygon | GeoJSONPolygon).coordinates;
           if (coords) {
             layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(coords, isMulti ? 2 : 1));
-            if (
-              municipal &&
-              (previousFeature.geometry.type === 'MultiPolygon' ||
-                previousFeature.geometry.type === 'Polygon') &&
-              vertexCount(feature.geometry) > vertexCount(previousFeature.geometry) * 1.15
-            ) {
-              animateGeometryReveal(layer);
-            }
+            realignRenderer(layer);
           }
         } catch {} // eslint-disable-line no-empty
       }
@@ -754,6 +748,7 @@ function Territories({
             const coords = (selectedFeature.geometry as MultiPolygon | GeoJSONPolygon).coordinates;
             if (coords) {
               layer.setLatLngs(LeafletGeoJSON.coordsToLatLngs(coords, isMulti ? 2 : 1));
+              realignRenderer(layer);
             }
             layer.feature = selectedFeature;
           } catch {} // eslint-disable-line no-empty
@@ -770,6 +765,17 @@ function Territories({
         style={initialStyle}
         onEachFeature={preserveBoundary}
       />
+      <PendingTerritoriesLayer features={pendingFeatures} municipal={municipal} />
+      {coveredStates.features.length > 0 && (
+        <Pane name="covered-state-borders" style={{ zIndex: 421, pointerEvents: 'none' }}>
+          <GeoJSON
+            key={coveredStates.features.map((feature) => feature.properties.ibgeCode).join(',')}
+            data={coveredStates}
+            interactive={false}
+            style={COVERED_STATE_BORDER as PathOptions}
+          />
+        </Pane>
+      )}
       {selectedFeature && (
         <>
           <GeoJSON

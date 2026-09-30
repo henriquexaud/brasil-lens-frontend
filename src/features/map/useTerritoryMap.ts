@@ -43,8 +43,6 @@ export function useTerritoryMap({
   const viewportIsInState = isDrilledDown && viewport.scopeKey === stateViewportKey;
   const discoveredMosaicRef = useRef(new DiscoveredMosaic());
   const completeMapsRef = useRef(new Map<string, MapFeatureCollection>());
-  const lastExploredStateRef = useRef<string | null>(null);
-  if (isDrilledDown && scope.parent) lastExploredStateRef.current = scope.parent;
 
   const isCurrentStateMesh =
     mapLayer.data?.scope.level === 'municipality' &&
@@ -180,7 +178,6 @@ export function useTerritoryMap({
     discoveredMosaic,
     discoveredMosaicVersion,
     discoveredMosaicVersions,
-    revealMosaicState: !isDrilledDown ? lastExploredStateRef.current : null,
     completeMosaicStates,
   };
 }

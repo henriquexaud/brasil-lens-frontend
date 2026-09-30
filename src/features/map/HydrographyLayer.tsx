@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { GeoJSON, Pane } from 'react-leaflet';
 import type { HydroFeatureCollection, HydroFeatureProperties } from '@/api/types';
 import { formatDrainageArea, getHydroStyle } from './hydroStyles';
+import { realignRenderer } from './realignRenderer';
 
 type Coordinates = Position | Coordinates[];
 
@@ -114,6 +115,7 @@ export function HydrographyLayer({
       const nextLayer = LeafletGeoJSON.geometryToLayer(next);
       if (nextLayer instanceof Polyline) {
         layer.setLatLngs(nextLayer.getLatLngs());
+        realignRenderer(layer);
       } else {
         group.removeLayer(layer);
         remaining.set(String(next.id), next);

@@ -31,6 +31,7 @@ import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch'
 import { useTerritoryMap } from '@/features/map/useTerritoryMap';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
 import { FollowedMunicipalitiesPanel } from '@/features/follow/FollowedMunicipalitiesPanel';
+import { SyncStatus } from '@/features/weather/SyncStatus';
 import type { FollowTarget } from '@/features/follow/useFollowedMunicipalities';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
 import { usePageVisible } from '@/lib/usePageVisible';
@@ -174,7 +175,6 @@ export default function App() {
     discoveredMosaic,
     discoveredMosaicVersion,
     discoveredMosaicVersions,
-    revealMosaicState,
     completeMosaicStates,
   } = useTerritoryMap({
     scope,
@@ -442,21 +442,27 @@ export default function App() {
       ? 'Cobertura parcial'
       : undefined;
 
+  const scopeWeatherFetching = isDrilledDown
+    ? closeMunicipalView
+      ? nearbyWeather.isFetching
+      : stateWeather.isFetching ||
+        municipalities.isFetching ||
+        (municipalBatchingEnabled &&
+          !municipalities.isCoverageComplete &&
+          Boolean(municipalities.hasNextPage) &&
+          !municipalities.isError &&
+          !pauseMunicipalBatching)
+    : nationalWeather.isFetching || nationalWeather.isRefining;
+  // Territórios ainda sem dado da camada pulsam enquanto isto for verdadeiro.
+  const territoryDataLoading = weatherLayerActive
+    ? !climateBaseReady || scopeWeatherFetching
+    : showFireHotspots && (!fireSummary.data || fireSummary.isFetching);
+
   const isViewActivelyWorking = Boolean(
     selectedWeather.isFetching ||
     forecastBusy > 0 ||
     viewportWeatherBusy > 0 ||
-    (isDrilledDown
-      ? closeMunicipalView
-        ? nearbyWeather.isFetching
-        : stateWeather.isFetching ||
-          municipalities.isFetching ||
-          (municipalBatchingEnabled &&
-            !municipalities.isCoverageComplete &&
-            Boolean(municipalities.hasNextPage) &&
-            !municipalities.isError &&
-            !pauseMunicipalBatching)
-      : nationalWeather.isFetching || nationalWeather.isRefining) ||
+    scopeWeatherFetching ||
     (showFireHotspots && (fireHotspotsLayer.isFetching || fireSummary.isFetching)) ||
     (showHydrography && hydrographyLayer.isFetching) ||
     (showWeatherAlerts && alerts.isFetching) ||
@@ -570,7 +576,6 @@ export default function App() {
         discoveredMosaic={discoveredMosaic}
         discoveredMosaicVersion={discoveredMosaicVersion}
         discoveredMosaicVersions={discoveredMosaicVersions}
-        revealMosaicState={revealMosaicState}
         completeMosaicStates={completeMosaicStates}
         exploredWeatherByCode={exploredWeatherByCode}
         exploredFireByCode={exploredFireByCode}
@@ -581,6 +586,7 @@ export default function App() {
         fireByCode={fireByCode}
         fireHours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
         rainMode={showRainfall}
+        dataLoading={territoryDataLoading}
       >
         <Suspense fallback={null}>
           {showWeatherAlerts && (
@@ -737,32 +743,34 @@ export default function App() {
                 onToggleHydrography={setShowHydrography}
                 hydrographyPartial={hydroCollection?.metadata.status === 'partial'}
                 code={selectedCode ?? scope.parent}
-                current={currentWeather}
-                error={weatherError ?? fireError}
                 hydrographyError={showHydrography && hydrographyLayer.error != null}
-                loading={isViewUpdating}
                 alertsData={alerts.data}
                 alertsPending={alerts.isPending}
                 alertsError={alerts.error}
                 scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
-                onRefresh={() => {
-                  clearSourcePauses();
-                  requestForcedWeatherRefresh();
-                  void client.invalidateQueries({
-                    queryKey: ['weather', 'municipalities'],
-                    refetchType: 'none',
-                  });
-                  void client.invalidateQueries({
-                    queryKey: ['weather'],
-                    predicate: (query) => query.queryKey[1] !== 'municipalities',
-                  });
-                  void client.invalidateQueries({ queryKey: ['fire-hotspots'], exact: false });
-                  void client.invalidateQueries({ queryKey: ['hydrography'], exact: false });
-                }}
               />
             </>
           </Suspense>
           <FollowedMunicipalitiesPanel current={followTarget} onOpen={openFollowedMunicipality} />
+          <SyncStatus
+            current={currentWeather}
+            error={weatherError ?? fireError}
+            loading={isViewUpdating}
+            onRefresh={() => {
+              clearSourcePauses();
+              requestForcedWeatherRefresh();
+              void client.invalidateQueries({
+                queryKey: ['weather', 'municipalities'],
+                refetchType: 'none',
+              });
+              void client.invalidateQueries({
+                queryKey: ['weather'],
+                predicate: (query) => query.queryKey[1] !== 'municipalities',
+              });
+              void client.invalidateQueries({ queryKey: ['fire-hotspots'], exact: false });
+              void client.invalidateQueries({ queryKey: ['hydrography'], exact: false });
+            }}
+          />
         </aside>
       </div>
       {!failure && (

@@ -16,6 +16,8 @@ import type {
 import { TerritoryLayer } from './TerritoryLayer';
 import { DiscoveredMosaicLayer } from './DiscoveredMosaicLayer';
 import { ViewportObserver, type MapViewport } from './ViewportObserver';
+import { WheelGestures } from './WheelGestures';
+import { RendererSync } from './RendererSync';
 import type { FireMode } from '@/features/fire/fireDensity';
 import { scopeInsets } from './viewport';
 
@@ -52,12 +54,12 @@ interface Props {
   fireHours?: number;
   rainMode?: boolean;
   climateMode?: boolean;
+  dataLoading?: boolean;
   onViewportChange?: (viewport: MapViewport) => void;
   stateOutline?: MapFeature | null;
   discoveredMosaic?: MapFeature[];
   discoveredMosaicVersion?: number;
   discoveredMosaicVersions?: Map<string, number>;
-  revealMosaicState?: string | null;
   completeMosaicStates?: Set<string>;
   exploredWeatherByCode?: Map<string, WeatherCity>;
   exploredFireByCode?: Map<string, FireMunicipality>;
@@ -135,12 +137,12 @@ export function MapView({
   fireHours,
   rainMode,
   climateMode,
+  dataLoading = false,
   onViewportChange,
   stateOutline,
   discoveredMosaic = [],
   discoveredMosaicVersion = 0,
   discoveredMosaicVersions = new Map<string, number>(),
-  revealMosaicState,
   completeMosaicStates = new Set<string>(),
   exploredWeatherByCode,
   exploredFireByCode,
@@ -159,8 +161,7 @@ export function MapView({
       maxZoom={12}
       zoomSnap={0.25}
       zoomDelta={0.25}
-      wheelPxPerZoomLevel={120}
-      wheelDebounceTime={60}
+      scrollWheelZoom={false}
       inertia={true}
       inertiaDeceleration={3000}
       inertiaMaxSpeed={2000}
@@ -183,6 +184,8 @@ export function MapView({
           attribution='<a href="https://www.esri.com/">Esri</a>, USGS, NOAA'
         />
       </Pane>
+      <WheelGestures />
+      <RendererSync />
       {onViewportChange && <ViewportObserver onChange={onViewportChange} scopeKey={scopeKey} />}
       <Pane name="territory-hover" style={{ zIndex: 470, pointerEvents: 'none' }} />
       <Pane name="territory-selection" style={{ zIndex: 480, pointerEvents: 'none' }} />
@@ -199,13 +202,13 @@ export function MapView({
             fireHours={fireHours}
             rainMode={rainMode}
             climateMode={climateMode}
+            loading={dataLoading}
             discoveredStateCodes={completeMosaicStates}
           />
           <DiscoveredMosaicLayer
             features={discoveredMosaic}
             version={discoveredMosaicVersion}
             versions={discoveredMosaicVersions}
-            revealStateCode={revealMosaicState}
             visible={collection.scope.level === 'state'}
             completeStates={completeMosaicStates}
             weatherByCode={exploredWeatherByCode}

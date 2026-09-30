@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-import type { WeatherAlertCollection, WeatherCurrentResponse } from '@/api/types';
+import type { WeatherAlertCollection } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
-import { describeError, ErrorMessage } from '@/components/Feedback';
-import { formatRelativeTime } from '@/lib/format';
+import { ErrorMessage } from '@/components/Feedback';
 import { WeatherAlertCard } from './WeatherAlertCard';
 import { WeatherAlertGroupCard } from './WeatherAlertGroupCard';
 import { WeatherAlertsNationalSummary } from './WeatherAlertsNationalSummary';
@@ -16,10 +15,6 @@ export interface WeatherOptionsProps {
   hydrographyPartial?: boolean;
   hydrographyError?: boolean;
   code: string | null;
-  current: WeatherCurrentResponse | undefined;
-  error: unknown;
-  loading: boolean;
-  onRefresh: () => void;
   alertsData: WeatherAlertCollection | undefined;
   alertsPending: boolean;
   alertsError: unknown;
@@ -34,10 +29,6 @@ export function WeatherOptions({
   hydrographyPartial,
   hydrographyError = false,
   code,
-  current,
-  error,
-  loading,
-  onRefresh,
   alertsData,
   alertsPending,
   alertsError,
@@ -242,44 +233,7 @@ export function WeatherOptions({
           )}
         </div>
       )}
-
-      {}
-      <div className="weather-footer-bar">
-        <div className="weather-sync-status">
-          <span
-            className={`weather-sync-dot ${loading ? 'syncing' : error != null ? 'failed' : ''}`}
-            aria-hidden="true"
-          />
-          <span>
-            {loading
-              ? 'Sincronizando dados…'
-              : error != null
-                ? 'Sem atualização'
-                : current
-                  ? `Atualizado ${formatRelativeTime(current.fetchedAt)}`
-                  : 'Sincronizado'}
-          </span>
-        </div>
-        <button
-          className="weather-refresh-btn"
-          onClick={onRefresh}
-          disabled={loading}
-          title="Recarregar dados meteorológicos e de satélite"
-        >
-          {loading ? 'Atualizando…' : error != null ? 'Tentar novamente' : 'Atualizar dados'}
-        </button>
-      </div>
-      {error != null && <LayerErrorNote error={error} />}
     </section>
   );
 }
 
-function LayerErrorNote({ error }: { error: unknown }) {
-  const { message, hint } = describeError(error);
-  return (
-    <p className="weather-error-note" role="status">
-      {message}
-      {hint && <span className="weather-error-hint">{hint}</span>}
-    </p>
-  );
-}

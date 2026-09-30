@@ -13,7 +13,6 @@ interface Props {
   features: MapFeature[];
   version: number;
   versions: Map<string, number>;
-  revealStateCode?: string | null;
   visible: boolean;
   completeStates: Set<string>;
   weatherByCode?: Map<string, WeatherCity>;
@@ -28,7 +27,6 @@ export function DiscoveredMosaicLayer({
   features,
   version,
   versions,
-  revealStateCode,
   visible,
   completeStates,
   weatherByCode,
@@ -80,13 +78,10 @@ export function DiscoveredMosaicLayer({
         opacity: 1,
         fillColor: solid,
         fillOpacity: 1,
-        className:
-          revealStateCode === stateCode
-            ? 'discovered-mosaic-shape is-revealing'
-            : 'discovered-mosaic-shape',
+        className: 'discovered-mosaic-shape',
       };
     },
-    [weatherByCode, fireByCode, fireMode, rainMode, climateMode, completeStates, revealStateCode],
+    [weatherByCode, fireByCode, fireMode, rainMode, climateMode, completeStates],
   );
 
   if (!visible || features.length === 0) return null;

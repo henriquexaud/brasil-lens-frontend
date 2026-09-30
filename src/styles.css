@@ -28,6 +28,7 @@
   --motion-fast: 160ms;
   --motion-ui: 280ms;
   --motion-map: 420ms;
+  --motion-skeleton: 1600ms;
 
   --panel-width: 312px;
   --gutter: 16px;
@@ -73,42 +74,29 @@ body {
   background: #f5f5f5;
 }
 
-/* A geometria continua sob controle do Leaflet. Só tinta e contornos
-   transicionam, inclusive quando o indicador muda sem remontar o mapa. */
-.leaflet-overlay-pane .territory-shape {
-  transition:
-    fill var(--motion-map) var(--ease-in-out),
-    fill-opacity var(--motion-ui) var(--ease-out),
-    stroke var(--motion-fast) var(--ease-out),
-    stroke-opacity var(--motion-fast) var(--ease-out),
-    stroke-width var(--motion-fast) var(--ease-out);
+/* Paths SVG do mapa não têm transition nem animation. Cada SVG de pane é uma
+   camada do tamanho da tela; um path animado repinta a camada inteira a cada
+   quadro, e o Chrome passa a desenhar quadros com tiles faltando: a cor pisca e
+   o painel e a busca atrasam junto. Para movimento, anime a opacidade do pane
+   (o compositor faz sem repintar) ou elementos HTML. */
+
+/* Skeleton: territórios ainda sem dado da camada pulsam em cinza num pane
+   próprio (só a opacidade do pane anima) e saem quando o dado chega. */
+.leaflet-territory-pending-pane {
+  animation: territory-pending var(--motion-skeleton) var(--ease-in-out) infinite;
 }
 
-/* Com centenas de municípios, o cursor cruza vários polígonos por segundo: o
-   fade de cada hover vira um rastro piscando. Hover instantâneo; a troca de
-   cor pelos dados continua suave. */
-.map-dense .leaflet-overlay-pane .territory-shape {
-  transition: fill var(--motion-map) var(--ease-in-out);
+.leaflet-territory-pending-pane.is-idle {
+  animation-play-state: paused;
 }
 
-.discovered-mosaic-shape {
-  transition: fill var(--motion-map) var(--ease-in-out);
-}
-
-.territory-shape.is-resolving {
-  animation: map-detail-settle 320ms var(--ease-out) both;
-}
-
-.discovered-mosaic-shape.is-revealing {
-  animation: map-detail-settle 400ms var(--ease-out) both;
-}
-
-@keyframes map-detail-settle {
-  from {
-    opacity: 0.82;
-  }
-  to {
+@keyframes territory-pending {
+  0%,
+  100% {
     opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
   }
 }
 
@@ -136,11 +124,6 @@ body {
   stroke: var(--accent);
   stroke-width: 2px;
   stroke-opacity: 1;
-}
-
-.territory-selection-halo,
-.territory-selection-outline {
-  animation: ink-reveal var(--motion-ui) var(--ease-out);
 }
 
 .leaflet-control-attribution {
@@ -360,9 +343,6 @@ body {
 
 .hydro-shape {
   cursor: pointer;
-  transition:
-    stroke-width var(--motion-fast) var(--ease-out),
-    opacity var(--motion-fast) var(--ease-out);
 }
 
 .hydro-river:hover {
@@ -2057,13 +2037,12 @@ body {
   color: #dc2626;
 }
 
-/* Rodapé inteligente de sincronização e atualização */
+/* Rodapé do painel: sincronização e atualização, abaixo dos municípios seguidos */
 .weather-footer-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.06));
   font-size: 11px;
@@ -2141,24 +2120,6 @@ body {
 }
 
 /* Marcadores e camadas atmosféricas de clima */
-.weather-marker {
-  transition:
-    r var(--motion-map) var(--ease-out),
-    fill var(--motion-map) var(--ease-in-out),
-    fill-opacity var(--motion-ui) var(--ease-out),
-    stroke var(--motion-fast) var(--ease-out),
-    stroke-opacity var(--motion-fast) var(--ease-out);
-}
-
-.weather-marker.is-selected {
-  filter: drop-shadow(0 2px 8px rgb(38 55 61 / 18%));
-}
-
-.weather-marker-pulse {
-  transform-origin: center;
-  animation: ink-reveal var(--motion-ui) var(--ease-out);
-}
-
 .weather-marker-label {
   background: transparent !important;
   border: none !important;
@@ -2293,10 +2254,6 @@ body {
   pointer-events: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition:
-    fill-opacity var(--motion-ui) var(--ease-out),
-    fill var(--motion-map) var(--ease-in-out),
-    stroke-opacity var(--motion-fast) var(--ease-out);
 }
 
 .weather-station-popup .leaflet-popup-content-wrapper {
@@ -2318,13 +2275,6 @@ body {
   pointer-events: none;
   stroke-linejoin: round;
   stroke-linecap: round;
-  animation: ink-reveal var(--motion-map) var(--ease-out);
-}
-
-.state-selected-outline {
-  transition:
-    stroke var(--motion-map) var(--ease-in-out),
-    stroke-opacity var(--motion-ui) var(--ease-out);
 }
 @media (max-width: 900px) {
   /* Gaveta: o cabeçalho (alça, título, seletor e resumo da camada) fica fixo no
@@ -2464,9 +2414,6 @@ body {
   font-size: 10.5px;
 }
 
-.hydro-shape {
-  animation: ink-reveal var(--motion-map) var(--ease-out);
-}
 .fire-density-bar {
   height: 6px;
   border-radius: 6px;

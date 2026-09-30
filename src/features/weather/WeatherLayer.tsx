@@ -63,10 +63,11 @@ const CityPill = memo(
     const [entryDelay] = useState(stagger);
     const rainVal = rainAmount(city);
     const color = rain ? rainColor(rainVal) : colorForTemperature(city.temperatureC);
+    // A unidade (mm) fica na legenda; a pílula leva só o número.
     const formattedRain =
       rainVal >= 10
-        ? `${Math.round(rainVal)} mm`
-        : `${Number(rainVal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
+        ? String(Math.round(rainVal))
+        : rainVal.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     const reading = rain ? (
       <>
         <span
@@ -168,7 +169,7 @@ export const WeatherLayer = memo(function WeatherLayer({
   const sortedCities = useMemo(() => {
     const candidates = cities.filter((city) =>
       isRain
-        ? rainAmount(city) >= 0.1
+        ? !city.isInferred && rainAmount(city) >= 0.1
         : city.temperatureC != null && Number.isFinite(city.temperatureC),
     );
     if (municipal) {
@@ -186,7 +187,8 @@ export const WeatherLayer = memo(function WeatherLayer({
           )
         : STATE_LABELS;
       const measured = candidates.filter((city) => !city.isInferred || city.id === selectedId);
-      const pool = focused && measured.length > 0 ? measured : candidates;
+      // No estado, a temperatura mostra só leituras medidas; aproximações ficam na tinta do mapa.
+      const pool = !focused && !isRain ? measured : focused && measured.length > 0 ? measured : candidates;
       const shown = shownRef.current;
       const priority = [...pool].sort((a, b) => {
         if (a.id === selectedId) return -1;

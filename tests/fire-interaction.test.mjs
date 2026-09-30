@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget, WeatherLayer } from './src/features/weather/WeatherLayer'; export { HydrographyLayer } from './src/features/map/HydrographyLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { SyncStatus } from './src/features/weather/SyncStatus'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget, WeatherLayer } from './src/features/weather/WeatherLayer'; export { HydrographyLayer } from './src/features/map/HydrographyLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -58,6 +58,7 @@ const {
   WeatherPanel,
   FireOverview,
   WeatherOptions,
+  SyncStatus,
   WeatherThematicSwitch,
   focusLabelBudget,
   WeatherLayer,
@@ -859,9 +860,8 @@ test('rodapé informa a causa real e permite nova tentativa manual', async () =>
   rateLimited.retryAt = null;
   let retried = 0;
   const draw = (error) => act(async () => root.render(h(QueryClientProvider, { client },
-    h(WeatherOptions, {
-      showAlerts: false, onToggleAlerts: () => {},
-      code: '35', current: undefined, error, loading: false,
+    h(SyncStatus, {
+      current: undefined, error, loading: false,
       onRefresh: () => { retried += 1; },
     }))));
 
