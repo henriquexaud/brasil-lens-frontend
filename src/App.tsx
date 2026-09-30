@@ -117,13 +117,9 @@ export default function App() {
   const hydroDetail = hydroZoom(viewport.zoom);
   const [fireMapError, setFireMapError] = useState(false);
   const sheet = useMobileSheet();
-  const { setCollapsed: setSheetCollapsed } = sheet;
   useEffect(() => {
     setFireMapError(false);
   }, [scope.level, scope.parent, showFireHotspots]);
-  useEffect(() => {
-    if (selectedCode) setSheetCollapsed(false);
-  }, [selectedCode, setSheetCollapsed]);
   const pageVisible = usePageVisible();
   const client = useQueryClient();
 

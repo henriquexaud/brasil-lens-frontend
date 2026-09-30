@@ -154,7 +154,6 @@ export function useMobileSheet() {
 
   return {
     collapsed,
-    setCollapsed,
     toggle,
     slotRef,
     headerRef,
