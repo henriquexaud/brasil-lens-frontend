@@ -29,5 +29,5 @@ React 18 + TypeScript + Vite, react-leaflet 4 e TanStack Query 5: o mapa de clim
 ## Verificar
 
 ```sh
-npm run lint && node --test --test-timeout=60000 tests/*.test.mjs   # 2 falhas conhecidas no Node 22.17
+npm run lint && npm test
 ```

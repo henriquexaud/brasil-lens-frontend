@@ -51,7 +51,7 @@ Panes, de baixo para cima: `basemap` 200 (Esri, opacidade 0,32), território 400
 
 ## Testes
 
-- `npm run lint` roda eslint e tsc. `node --test --test-timeout=60000 tests/*.test.mjs` roda os testes. Os que usam React compilam `src/` com esbuild e montam num DOM do jsdom (modelo: `tests/map-data.test.mjs`).
+- `npm run lint` roda eslint e tsc. `npm test` roda os testes (`node --experimental-strip-types --test`: a flag deixa um teste importar `.ts` direto no Node 22.17; nas versões novas ela é o padrão). Os que usam React compilam `src/` com esbuild e montam num DOM do jsdom: o `tests/helpers/harness.mjs` faz isso (`installDom`, `loadModule`; modelo: `tests/app-state.test.mjs`). Os testes mais antigos ainda repetem o esbuild à mão.
 - Desmonte antes de `client.clear()`. Use `mutations: { gcTime: Infinity }` no QueryClient de teste. Sem isso, timers órfãos mantêm o processo vivo.
-- `hydrography.test.mjs` e `state-boundary.test.mjs` falham no Node 22.17 porque importam `.ts`. É pré-existente, não é regressão.
+- Sem teste dedicado: a composição de `App.tsx`, `MapView`, `TerritoryLayer`, `WheelGestures`, `SearchBox` e os painéis. Eles só são conferidos no navegador (`/browser-check`).
 - Mudança visível deve ser conferida no navegador com uma stack isolada (skill `/browser-check` do workspace), nunca na stack da porta 5173.
