@@ -23,6 +23,13 @@ A visão de sistema (API, fontes, fluxos entre repositórios) está em `../backe
 - **Mutações** de acompanhamento são otimistas (`onMutate`), com rollback no `onError`.
 - **Sessão:** `sessionStorage` na chave `brasil_lens_session_v3`. Se o formato mudar, a chave vira v4 e a v3 entra na lista de legadas, que são limpas.
 
+## Instalação (PWA)
+
+- O app é instalável no desktop e no celular só com `public/manifest.webmanifest` (`display: standalone`) e o `<link rel="manifest">` do `index.html`. Chrome e Edge não exigem service worker para instalar; no iOS e no Safari do macOS a instalação é manual (Compartilhar → Adicionar à Tela de Início / ao Dock).
+- **Sem service worker, de propósito.** Sem a API o mapa não tem o que mostrar, e um cache de shell ou de respostas serviria bundle e leituras velhas por fora das regras de frescor do TanStack Query. Quem instalou recebe a versão nova a cada abertura, como no navegador.
+- Ícones em `public/`: `icon-192.png` e `icon-512.png` (transparentes), `icon-maskable-512.png` (fundo branco, arte dentro da zona segura de 80%, para o Android recortar) e `apple-touch-icon.png` (fundo branco: o iOS pinta transparência de preto). Os dois últimos derivam do `icon-512.png`; se o logo mudar, gere-os de novo.
+- `theme_color`/`background_color` e o `<meta name="theme-color">` repetem `--surface-muted`. Mude os três juntos.
+
 ## Camadas do mapa
 
 Panes, de baixo para cima: `basemap` 200 (Esri, opacidade 0,32), território 400, `discovered-mosaic` 420, `hydrography` 425, `state-outline` 430, `fire-hotspots` 435 (WMS, zoom ≥ 9), `weather-alerts` 450, `territory-hover`/`territory-selection` 470/480, `weather-points` 490. Um pane novo precisa de nome único e deve respeitar essa ordem.
