@@ -350,7 +350,7 @@ test('lotes municipais preservam SVG e foco; sem dados não inventam temperatura
   assert.equal(document.activeElement, polygon);
   assert.equal(document.querySelectorAll('.territory-shape').length, 2);
   const other = document.querySelector('[aria-label="Município 5100002"]');
-  assert.equal(other.getAttribute('fill'), '#f1f5f9');
+  assert.equal(other.getAttribute('fill'), 'var(--map-neutral, #f1f5f9)');
   map.eachLayer((layer) => {
     if (layer.feature?.id === '5100001') {
       assert.equal(layer.options.smoothFactor, 0);
@@ -1064,6 +1064,7 @@ test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', as
     if (candidate.feature?.properties?.ibgeCode === '5103403' && candidate.setStyle) layer = candidate;
   });
   const opacity = () => Number(layer.options.fillOpacity);
+  assert.equal(layer.options.fillColor, '#f1f5f9', 'zero medido conserva a cor da escala de chuva');
   const resting = opacity();
   layer.fire('mouseover', { containerPoint: { x: 10, y: 10 } });
   assert.ok(opacity() > resting && opacity() <= 0.3, `hover leve, não opaco (${opacity()})`);

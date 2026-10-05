@@ -27,7 +27,7 @@ const BRAZIL_ZOOM = 4;
 const STATE_HALO_STYLE: PolylineOptions = {
   smoothFactor: 0,
   fill: false,
-  color: '#ffffff',
+  color: 'var(--map-selection-halo, #ffffff)',
   weight: 4.2,
   opacity: 0.75,
   className: 'state-selected-halo',
@@ -36,7 +36,7 @@ const STATE_HALO_STYLE: PolylineOptions = {
 const STATE_OUTLINE_STYLE: PolylineOptions = {
   smoothFactor: 0,
   fill: false,
-  color: 'rgba(71, 85, 105, 0.85)',
+  color: 'var(--map-state-outline, rgba(71, 85, 105, 0.85))',
   weight: 1.8,
   opacity: 0.95,
   className: 'state-selected-outline',

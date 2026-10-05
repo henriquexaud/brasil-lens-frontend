@@ -13,13 +13,17 @@ export function scopeInsets(map: Map) {
   const right = sideLayout
     ? Math.min(PANEL_WIDTH + EDGE_PADDING, width * MAX_INSET_RATIO)
     : EDGE_PADDING;
+  const panelRect = sideLayout
+    ? undefined
+    : document.querySelector('.panel-slot')?.getBoundingClientRect();
+  const bottomObstruction = panelRect
+    ? panelRect.height > 0
+      ? Math.max(0, map.getContainer().getBoundingClientRect().bottom - panelRect.top)
+      : 0
+    : BOTTOM_PANEL_HEIGHT;
   const bottom = sideLayout
     ? EDGE_PADDING
-    : Math.min(
-        (document.querySelector('.panel-slot')?.getBoundingClientRect().height ??
-          BOTTOM_PANEL_HEIGHT) + EDGE_PADDING,
-        height * MAX_INSET_RATIO,
-      );
+    : Math.min(bottomObstruction + EDGE_PADDING, height * MAX_INSET_RATIO);
 
   return {
     paddingTopLeft: [EDGE_PADDING, EDGE_PADDING] as [number, number],

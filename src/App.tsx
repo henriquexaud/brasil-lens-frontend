@@ -39,6 +39,7 @@ import { useDeferredReady } from '@/lib/useDeferredReady';
 import { useWeatherMapData } from '@/features/weather/useWeatherMapData';
 import { useAppPreferences } from '@/app/useAppPreferences';
 import { useMobileSheet } from '@/app/useMobileSheet';
+import { ThemeSwitch } from '@/components/ThemeSwitch';
 
 const HydrographyLayer = lazy(() =>
   import('@/features/map/HydrographyLayer').then((module) => ({
@@ -786,6 +787,7 @@ export default function App() {
           </Suspense>
         </div>
       )}
+      <ThemeSwitch />
     </div>
   );
 }

@@ -21,7 +21,7 @@ const compiled = await build({
     contents: `export { useWeatherMapData } from './src/features/weather/useWeatherMapData';
       export { ViewportObserver } from './src/features/map/ViewportObserver';
       export { DiscoveredMosaic } from './src/features/map/discoveredMosaic';
-      export { hydroArea } from './src/features/map/viewport';`,
+      export { hydroArea, scopeInsets } from './src/features/map/viewport';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -44,7 +44,7 @@ const compiled = await build({
 });
 const modulePath = join(scratch, 'harness.mjs');
 await writeFile(modulePath, compiled.outputFiles[0].text);
-const { useWeatherMapData, ViewportObserver, DiscoveredMosaic, hydroArea } = await import(pathToFileURL(modulePath).href);
+const { useWeatherMapData, ViewportObserver, DiscoveredMosaic, hydroArea, scopeInsets } = await import(pathToFileURL(modulePath).href);
 let root, result;
 const reading = (temperatureC, hour, extra = {}) => ({
   id: '3550308', observedAt: `2026-09-27T${hour}:00:00Z`, temperatureC,
@@ -56,6 +56,26 @@ const defaults = {
   selectedCode: null, stateWeather: {}, municipalities: {}, nearbyWeather: {},
   nationalWeather: {}, selectedWeather: {},
 };
+
+test('enquadramento reserva a gaveta móvel e o espaço abaixo, mantendo o desktop', () => {
+  const panel = document.createElement('div');
+  panel.className = 'panel-slot';
+  document.body.appendChild(panel);
+  const map = {
+    getSize: () => ({ x: 390, y: 800 }),
+    getContainer: () => ({ getBoundingClientRect: () => ({ bottom: 900 }) }),
+  };
+  try {
+    panel.getBoundingClientRect = () => ({ height: 120, top: 704 });
+    assert.deepEqual(scopeInsets(map).paddingBottomRight, [24, 220], 'inclui a faixa inferior de 76px');
+    panel.getBoundingClientRect = () => ({ height: 440, top: 384 });
+    assert.deepEqual(scopeInsets(map).paddingBottomRight, [24, 320], 'gaveta aberta mantém limite de 40%');
+    map.getSize = () => ({ x: 1200, y: 800 });
+    assert.deepEqual(scopeInsets(map).paddingBottomRight, [336, 24], 'painel lateral mantém o enquadramento');
+  } finally {
+    panel.remove();
+  }
+});
 
 test('mosaico conserva estados visitados e prefere a geometria mais detalhada ao voltar ao Brasil', () => {
   const mosaic = new DiscoveredMosaic();

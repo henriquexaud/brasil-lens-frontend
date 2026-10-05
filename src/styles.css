@@ -9,6 +9,7 @@
  */
 
 :root {
+  color-scheme: light;
   --surface: #ffffff;
   --surface-muted: #f5f7f7;
   --border: #e3e8e9;
@@ -18,6 +19,40 @@
   --text-faint: #74838a;
   --accent: #416f7b;
   --danger: #a4262c;
+  --text-muted: #7b858b;
+  --border-subtle: rgb(0 0 0 / 6%);
+  --surface-hover: #f5f7f7;
+  --focus-border: #9badb2;
+  --skeleton-highlight: #ebf0f1;
+  --skeleton-sheen: #eef0f3;
+  --tooltip-surface: rgb(255 255 255 / 97%);
+  --attribution-surface: rgb(255 255 255 / 78%);
+  --pill-surface: rgb(255 255 255 / 94%);
+  --pill-border: rgb(255 255 255 / 98%);
+  --map-background: #f5f5f5;
+  --map-basemap-filter: none;
+  --map-boundary: #ffffff;
+  --map-selection-halo: #ffffff;
+  --map-selection-outline: #334155;
+  --map-state-outline: rgb(71 85 105 / 85%);
+  --map-hover-outline: #52606d;
+  --map-neutral: #f1f5f9;
+  --map-fire-neutral: #edf0ee;
+  --map-pending: #cbd5e1;
+  --map-land: #f4f5f5;
+  --map-alert-halo: #d2deda;
+  --map-alert-halo-opacity: 0;
+  --theme-thumb: #ffffff;
+  --theme-icon-active: #416f7b;
+  --status-climate: #0f766e;
+  --status-fire: #c8462a;
+  --status-rain: #2563eb;
+  --status-alert: #b45309;
+  --status-hydro: #0e7490;
+  --status-warning: #ea580c;
+  --status-error: #dc2626;
+  --rain-note: #1d4ed8;
+  --neutral-badge: rgb(0 0 0 / 4%);
 
   --radius: 14px;
   --radius-sm: 8px;
@@ -35,6 +70,53 @@
 
   --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-numeric: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface: #1c2d35;
+  --surface-muted: #111d23;
+  --surface-hover: #263e47;
+  --border: #31464e;
+  --border-strong: #46606a;
+  --border-subtle: rgb(174 204 211 / 12%);
+  --text: #e1ebed;
+  --text-soft: #adbec4;
+  --text-faint: #91a8b0;
+  --text-muted: #91a8b0;
+  --accent: #91c3ce;
+  --danger: #f29b9e;
+  --focus-border: #759ba7;
+  --shadow: 0 2px 5px rgb(0 0 0 / 12%), 0 12px 32px -12px rgb(0 0 0 / 42%);
+  --skeleton-highlight: #2d454e;
+  --skeleton-sheen: #314952;
+  --tooltip-surface: rgb(28 45 53 / 97%);
+  --attribution-surface: rgb(17 29 35 / 88%);
+  --pill-surface: rgb(28 45 53 / 96%);
+  --pill-border: rgb(104 141 152 / 50%);
+  --map-background: #14262d;
+  --map-basemap-filter: grayscale(1) brightness(0.5) sepia(0.18) hue-rotate(145deg) saturate(0.75);
+  --map-boundary: #647b81;
+  --map-selection-halo: #182b31;
+  --map-selection-outline: #d8e8e8;
+  --map-state-outline: #c4d6d8;
+  --map-hover-outline: #e4efed;
+  --map-neutral: #344a50;
+  --map-fire-neutral: #2e4549;
+  --map-pending: #6b858b;
+  --map-land: #23383e;
+  --map-alert-halo-opacity: 0.5;
+  --theme-thumb: #3a535d;
+  --theme-icon-active: #e1ebed;
+  --status-climate: #8bd5c1;
+  --status-fire: #f09b81;
+  --status-rain: #9bc3fb;
+  --status-alert: #edc27d;
+  --status-hydro: #8bcbd9;
+  --status-warning: #f0b486;
+  --status-error: #f5a0a0;
+  --rain-note: #9bc3fb;
+  --neutral-badge: rgb(174 204 211 / 8%);
 }
 
 * {
@@ -56,12 +138,15 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color var(--motion-ui) var(--ease-in-out);
 }
 
 .app {
   position: relative;
   height: 100%;
   overflow: hidden;
+  color: var(--text);
+  transition: color var(--motion-ui) var(--ease-in-out);
 }
 
 /* ---------------------------------------------------------------- mapa -- */
@@ -71,7 +156,15 @@ body {
   inset: 0;
   /* Leaflet mantém panes com z-index próprio; o mapa fica atrás dos controles. */
   z-index: 0;
-  background: #f5f5f5;
+  background: var(--map-background);
+  transition: background-color var(--motion-ui) var(--ease-in-out);
+}
+
+/* Só o relevo do Esri recebe o tratamento noturno; dados e WMS ficam em
+   panes separados, com suas cores originais. */
+.leaflet-basemap-pane {
+  filter: var(--map-basemap-filter);
+  transition: filter var(--motion-ui) var(--ease-in-out);
 }
 
 /* Paths SVG do mapa não têm transition nem animation. Cada SVG de pane é uma
@@ -127,7 +220,7 @@ body {
 }
 
 .leaflet-control-attribution {
-  background: rgb(255 255 255 / 78%) !important;
+  background: var(--attribution-surface) !important;
   color: var(--text-faint) !important;
   font-size: 10px !important;
   padding: 1px 6px !important;
@@ -167,7 +260,7 @@ body {
 }
 
 .search-box:focus-within {
-  border-color: #9badb2;
+  border-color: var(--focus-border);
 }
 
 .search-icon {
@@ -367,7 +460,7 @@ body {
   right: var(--gutter);
   z-index: 600;
   width: var(--panel-width);
-  max-height: calc(100% - var(--gutter) * 2);
+  max-height: calc(100% - var(--gutter) - 84px);
   display: flex;
   pointer-events: none;
 }
@@ -636,7 +729,7 @@ body {
 }
 
 .ghost-button:hover:enabled {
-  border-color: #9badb2;
+  border-color: var(--focus-border);
   background: var(--surface-muted);
   color: var(--text);
 }
@@ -686,7 +779,7 @@ body {
 
 .drill-button:hover:enabled {
   background: var(--surface-muted);
-  border-color: #9badb2;
+  border-color: var(--focus-border);
 }
 
 .drill-button > span {
@@ -848,7 +941,7 @@ body {
   background: linear-gradient(
     90deg,
     var(--surface-muted) 25%,
-    #ebf0f1 50%,
+    var(--skeleton-highlight) 50%,
     var(--surface-muted) 75%
   );
   background-size: 200% 100%;
@@ -1199,7 +1292,7 @@ body {
   width: max-content;
   max-width: min(260px, 65vw);
   overflow-wrap: anywhere;
-  background: rgb(255 255 255 / 97%);
+  background: var(--tooltip-surface);
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
@@ -1285,7 +1378,12 @@ body {
 
 .skeleton {
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--surface-muted), #eef0f3, var(--surface-muted));
+  background: linear-gradient(
+    90deg,
+    var(--surface-muted),
+    var(--skeleton-sheen),
+    var(--surface-muted)
+  );
   background-size: 200% 100%;
   animation: shimmer 1.8s var(--ease-in-out) infinite;
 }
@@ -1359,10 +1457,8 @@ body {
 @media (max-width: 900px) {
   .panel-slot {
     top: auto;
-    /* A folga inferior deixa a atribuição do OpenStreetMap visível: os
-       controles do Leaflet ficam acima de qualquer overlay nosso, então sem
-       ela a atribuição aparecia impressa sobre o painel. */
-    bottom: max(24px, env(safe-area-inset-bottom));
+    /* Reserva o rodapé para o tema e a atribuição, sem cobrir a gaveta. */
+    bottom: calc(76px + env(safe-area-inset-bottom));
     left: 8px;
     right: 8px;
     width: auto;
@@ -1382,6 +1478,8 @@ body {
 /* A preferência do sistema vale também para o Leaflet e para pseudo-elementos
    de disclosures. Carregamento continua indicado, apenas sem movimento. */
 @media (prefers-reduced-motion: reduce) {
+  body,
+  .app,
   .app *,
   .app *::before,
   .app *::after,
@@ -1869,6 +1967,9 @@ body {
   border-radius: var(--radius-sm);
   padding: 3px;
   gap: 3px;
+  transition:
+    background-color var(--motion-ui) var(--ease-in-out),
+    border-color var(--motion-ui) var(--ease-in-out);
 }
 
 .weather-segment-indicator {
@@ -1879,7 +1980,10 @@ body {
   border-radius: 6px;
   background: var(--surface);
   box-shadow: 0 1px 3px rgb(38 55 61 / 12%);
-  transition: box-shadow var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out);
+  transition:
+    background-color var(--motion-ui) var(--ease-in-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    opacity var(--motion-fast) var(--ease-out);
   will-change: transform;
   pointer-events: none;
 }
@@ -1999,42 +2103,42 @@ body {
 
 .weather-layer-badge.badge-climate {
   background: rgba(13, 148, 136, 0.1);
-  color: #0f766e;
+  color: var(--status-climate);
 }
 
 .weather-layer-badge.badge-fire {
   background: rgba(200, 70, 42, 0.1);
-  color: #c8462a;
+  color: var(--status-fire);
 }
 
 .weather-layer-badge.badge-rain {
   background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
+  color: var(--status-rain);
 }
 
 .weather-layer-badge.badge-alert {
   background: rgba(217, 119, 6, 0.12);
-  color: #b45309;
+  color: var(--status-alert);
 }
 
 .weather-layer-badge.badge-hydro {
   background: rgba(14, 116, 144, 0.1);
-  color: #0e7490;
+  color: var(--status-hydro);
 }
 
 .weather-layer-badge.badge-neutral {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--neutral-badge);
   color: var(--text-soft);
 }
 
 .weather-layer-badge.badge-warning {
   background: rgba(234, 88, 12, 0.1);
-  color: #ea580c;
+  color: var(--status-warning);
 }
 
 .weather-layer-badge.badge-error {
   background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
+  color: var(--status-error);
 }
 
 /* Rodapé do painel: sincronização e atualização, abaixo dos municípios seguidos */
@@ -2103,7 +2207,7 @@ body {
 
 .weather-error-note {
   font-size: 10.5px;
-  color: #c8462a;
+  color: var(--status-fire);
   margin: 4px 0 0 0;
 }
 
@@ -2153,8 +2257,8 @@ body {
   align-items: center;
   gap: 5px;
   padding: 3px 8px 3px 6px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.98);
+  background: var(--pill-surface);
+  border: 1px solid var(--pill-border);
   border-radius: 999px;
   box-shadow:
     0 2px 6px -1px rgb(15 23 42 / 12%),
@@ -2165,6 +2269,8 @@ body {
   white-space: nowrap;
   pointer-events: none;
   transition:
+    background-color var(--motion-ui) var(--ease-in-out),
+    color var(--motion-ui) var(--ease-in-out),
     transform var(--motion-fast) var(--ease-out),
     box-shadow var(--motion-fast) var(--ease-out),
     border-color var(--motion-fast) var(--ease-out);
@@ -2192,7 +2298,7 @@ body {
 }
 
 .weather-pill.is-selected {
-  background: #ffffff;
+  background: var(--surface);
   box-shadow:
     0 4px 14px -2px rgb(15 23 42 / 22%),
     0 0 0 1.5px var(--pill-band-color, var(--accent));
@@ -2254,6 +2360,18 @@ body {
   pointer-events: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* O fio neutro dá contraste aos alertas escuros sem mudar sua severidade. */
+.weather-alert-halo {
+  pointer-events: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: var(--map-alert-halo-opacity);
+}
+
+.weather-alert-halo.is-muted {
+  stroke-opacity: calc(var(--map-alert-halo-opacity) * 0.35);
 }
 
 .weather-station-popup .leaflet-popup-content-wrapper {
@@ -2812,7 +2930,7 @@ body {
 
 .rain-forecast-prob {
   font-size: 10.5px;
-  color: #2563eb;
+  color: var(--status-rain);
   font-weight: 500;
 }
 
@@ -2852,10 +2970,10 @@ body {
 }
 .location-button:hover {
   color: var(--text);
-  border-color: #9badb2;
+  border-color: var(--focus-border);
 }
 .location-button:focus-visible {
-  outline: 2px solid #9badb2;
+  outline: 2px solid var(--focus-border);
   outline-offset: 2px;
 }
 .location-button.is-locating svg {
@@ -2893,7 +3011,7 @@ body {
 
 .tooltip-live-rain,
 .rain-live-note {
-  color: #1d4ed8;
+  color: var(--rain-note);
 }
 
 .rain-live-note {
@@ -2940,5 +3058,173 @@ body {
 
   .search-input {
     font-size: 16px;
+  }
+}
+
+/* O tema muda as superfícies HTML; paths do mapa continuam sem transições. */
+:where(
+  .app p,
+  .app span,
+  .app strong,
+  .app small,
+  .app dt,
+  .app dd,
+  .app label,
+  .app h1,
+  .app h2,
+  .app h3
+) {
+  transition: color var(--motion-ui) var(--ease-in-out);
+}
+
+.panel,
+.legend,
+.scope-section,
+.search-empty,
+.location-error,
+.weather-alerts-national-summary,
+.fire-detail-card,
+.rain-detail-card,
+.rain-forecast-card,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip,
+.leaflet-control-attribution {
+  transition:
+    background-color var(--motion-ui) var(--ease-in-out),
+    border-color var(--motion-ui) var(--ease-in-out),
+    color var(--motion-ui) var(--ease-in-out),
+    box-shadow var(--motion-ui) var(--ease-in-out);
+}
+
+.search-box,
+.search-results,
+.location-button {
+  transition:
+    background-color var(--motion-ui) var(--ease-in-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-ui) var(--ease-in-out),
+    box-shadow var(--motion-ui) var(--ease-in-out);
+}
+
+.map-tooltip {
+  color: var(--text);
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    background-color var(--motion-ui) var(--ease-in-out),
+    border-color var(--motion-ui) var(--ease-in-out),
+    color var(--motion-ui) var(--ease-in-out);
+}
+
+/* Inclui popups/tooltip nativos, além dos cartões próprios das features. */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip,
+.leaflet-tooltip {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.leaflet-popup-close-button {
+  color: var(--text-soft) !important;
+}
+
+.leaflet-tooltip {
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.leaflet-tooltip-top::before {
+  border-top-color: var(--border);
+}
+
+.leaflet-tooltip-bottom::before {
+  border-bottom-color: var(--border);
+}
+
+.leaflet-tooltip-left::before {
+  border-left-color: var(--border);
+}
+
+.leaflet-tooltip-right::before {
+  border-right-color: var(--border);
+}
+
+/* Switch compacto: os dois ícones permanecem visíveis e o disco indica o tema. */
+.theme-switch {
+  position: absolute;
+  right: max(var(--gutter), env(safe-area-inset-right));
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  z-index: 620;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  place-items: center;
+  width: 78px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-faint);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--motion-ui) var(--ease-in-out),
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-ui) var(--ease-in-out);
+}
+
+.theme-switch::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+}
+
+.theme-switch:hover {
+  border-color: var(--focus-border);
+}
+
+.theme-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.theme-switch__thumb {
+  position: absolute;
+  top: calc(50% - 16px);
+  left: 3px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--theme-thumb);
+  box-shadow: 0 1px 4px rgb(15 23 42 / 12%);
+  pointer-events: none;
+  transition:
+    transform var(--motion-ui) var(--ease-out),
+    background-color var(--motion-ui) var(--ease-in-out);
+}
+
+.theme-switch[aria-checked='true'] .theme-switch__thumb {
+  transform: translateX(38px);
+}
+
+.theme-switch__icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transition: color var(--motion-ui) var(--ease-in-out);
+}
+
+.theme-switch[aria-checked='false'] .theme-switch__icon--sun,
+.theme-switch[aria-checked='true'] .theme-switch__icon--moon {
+  color: var(--theme-icon-active);
+}
+
+@media (hover: none) {
+  .theme-switch {
+    height: 44px;
   }
 }

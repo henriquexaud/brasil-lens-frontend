@@ -34,10 +34,10 @@ export function PendingTerritoriesLayer({
         smoothFactor: 0,
         // No estado, sem divisas: o skeleton pulsa como uma peça só.
         stroke: !municipal,
-        color: '#ffffff',
+        color: 'var(--map-boundary, #ffffff)',
         weight: 0.85,
         opacity: 0.7,
-        fillColor: '#cbd5e1',
+        fillColor: 'var(--map-pending, #cbd5e1)',
         fillOpacity: 0.75,
         className: 'territory-pending-shape',
       } as PolylineOptions,

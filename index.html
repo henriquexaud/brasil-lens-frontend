@@ -23,6 +23,18 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#f5f7f7" />
+    <script>
+      (() => {
+        let theme = 'light';
+        try {
+          if (localStorage.getItem('brasil_lens_theme_v1') === 'dark') theme = 'dark';
+        } catch {}
+        document.documentElement.dataset.theme = theme;
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute('content', theme === 'dark' ? '#111d23' : '#f5f7f7');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

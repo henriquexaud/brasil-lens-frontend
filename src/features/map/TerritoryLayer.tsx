@@ -29,7 +29,7 @@ import { densityColor, type FireMode } from '@/features/fire/fireDensity';
 const SELECTION_HALO_STYLE: PolylineOptions = {
   smoothFactor: 0,
   fill: false,
-  color: '#ffffff',
+  color: 'var(--map-selection-halo, #ffffff)',
   weight: 4.5,
   opacity: 0.8,
   className: 'territory-selection-halo',
@@ -38,7 +38,7 @@ const SELECTION_HALO_STYLE: PolylineOptions = {
 const SELECTION_OUTLINE_STYLE: PolylineOptions = {
   smoothFactor: 0,
   fill: false,
-  color: SELECTED_COLOR,
+  color: `var(--map-selection-outline, ${SELECTED_COLOR})`,
   weight: 1.8,
   opacity: 0.95,
   className: 'territory-selection-outline',
@@ -70,8 +70,16 @@ function styleKey(style: PathOptions): string {
 }
 
 // Divisa leve entre municípios: o mosaico de cores continua lendo como um todo.
-const MUNICIPAL_BORDER: PolylineOptions = { color: '#ffffff', weight: 0.5, opacity: 0.7 };
-const STATE_BORDER: PolylineOptions = { color: '#ffffff', weight: 0.85, opacity: 0.85 };
+const MUNICIPAL_BORDER: PolylineOptions = {
+  color: 'var(--map-boundary, #ffffff)',
+  weight: 0.5,
+  opacity: 0.7,
+};
+const STATE_BORDER: PolylineOptions = {
+  color: 'var(--map-boundary, #ffffff)',
+  weight: 0.85,
+  opacity: 0.85,
+};
 // Estado já explorado vira mosaico por cima da malha; a divisa branca volta acima dele.
 const COVERED_STATE_BORDER: PolylineOptions = { ...STATE_BORDER, smoothFactor: 0, fill: false };
 const NO_FEATURES: MapFeatureCollection['features'] = [];
@@ -149,7 +157,7 @@ function Territories({
       style: () => ({
         smoothFactor: 0,
         fill: false,
-        color: HOVER_COLOR,
+        color: `var(--map-hover-outline, ${HOVER_COLOR})`,
         weight: municipal ? 1.5 : 1.8,
         opacity: 0.9,
         className: 'territory-hover-outline',
@@ -235,26 +243,32 @@ function Territories({
       const properties = feature && featuresByCode.get(feature.properties.ibgeCode)?.properties;
       const hovered =
         properties?.ibgeCode === hoveredCode.current && properties?.ibgeCode !== selectedCode;
-      const covered = !municipal && Boolean(properties && discoveredStateCodes?.has(properties.ibgeCode));
+      const covered =
+        !municipal && Boolean(properties && discoveredStateCodes?.has(properties.ibgeCode));
 
       if (fireMode) {
         const fire = properties ? fireByCode?.get(properties.ibgeCode) : undefined;
         const showDensity = fire?.density != null;
         return {
           smoothFactor: 0,
-          color: '#ffffff',
+          color: 'var(--map-boundary, #ffffff)',
           weight: municipal ? 0.45 : 0.85,
           opacity: 0.65,
-          fillColor: showDensity ? densityColor(fire?.density) : '#edf0ee',
-          fillOpacity: covered ? 0 : showDensity
-            ? hovered
-              ? 0.82
-              : fireMode === 'points'
+          fillColor:
+            showDensity && (fire?.density ?? 0) > 0
+              ? densityColor(fire?.density)
+              : 'var(--map-fire-neutral, #edf0ee)',
+          fillOpacity: covered
+            ? 0
+            : showDensity
+              ? hovered
+                ? 0.82
+                : fireMode === 'points'
+                  ? 0.45
+                  : 0.68
+              : hovered
                 ? 0.45
-                : 0.68
-            : hovered
-              ? 0.45
-              : 0.35,
+                : 0.35,
           className: 'territory-shape',
         };
       }
@@ -262,7 +276,12 @@ function Territories({
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
         const rainVal = weather ? rainAmount(weather) : 0;
         const hasRain = rainVal > 0;
-        const fillColor = rainColor(rainVal);
+        const hasReading =
+          weather &&
+          (weather.precipitation48hMm != null ||
+            weather.precipitationSumMm != null ||
+            weather.precipitationMm != null);
+        const fillColor = hasReading ? rainColor(rainVal) : 'var(--map-neutral, #f1f5f9)';
         const fillOpacity = hasRain ? (hovered ? 0.88 : 0.72) : hovered ? 0.3 : 0.12;
         return {
           smoothFactor: 0,
@@ -275,7 +294,9 @@ function Territories({
       if (climateMode) {
         const weather = properties ? weatherByCode?.get(properties.ibgeCode) : undefined;
         const hasDirectTemp = weather?.temperatureC !== null && weather?.temperatureC !== undefined;
-        const fillColor = hasDirectTemp ? colorForTemperature(weather.temperatureC) : '#f1f5f9';
+        const fillColor = hasDirectTemp
+          ? colorForTemperature(weather.temperatureC)
+          : 'var(--map-neutral, #f1f5f9)';
 
         const fillOpacity = hasDirectTemp ? (hovered ? 0.85 : 0.68) : hovered ? 0.35 : 0.18;
         return {
@@ -290,7 +311,7 @@ function Territories({
         smoothFactor: 0,
         ...(municipal ? MUNICIPAL_BORDER : STATE_BORDER),
         fillOpacity: covered ? 0 : hovered ? 0.25 : 0.08,
-        fillColor: '#f1f5f9',
+        fillColor: 'var(--map-neutral, #f1f5f9)',
         className: 'territory-shape',
       };
     },
@@ -737,7 +758,15 @@ function Territories({
     if (activeCode && hideFrameRef.current === null) {
       showTooltipFor(activeCode, fixedAnchorRef.current ?? undefined);
     }
-  }, [clearHover, style, selectedCode, featuresByCode, municipal, showTooltipFor, updateHoverOutline]);
+  }, [
+    clearHover,
+    style,
+    selectedCode,
+    featuresByCode,
+    municipal,
+    showTooltipFor,
+    updateHoverOutline,
+  ]);
 
   useEffect(() => {
     if (!selectedFeature) return;

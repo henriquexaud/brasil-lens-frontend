@@ -22,17 +22,20 @@ A visão de sistema (API, fontes, fluxos entre repositórios) está em `../backe
 - **Fusão (`useWeatherMapData.ts`):** dentro da UF, a leitura mais nova vence; se empatar, a medida vence a estimada. Trocar de UF limpa tudo.
 - **Mutações** de acompanhamento são otimistas (`onMutate`), com rollback no `onError`.
 - **Sessão:** `sessionStorage` na chave `brasil_lens_session_v3`. Se o formato mudar, a chave vira v4 e a v3 entra na lista de legadas, que são limpas.
+- **Tema:** `app/theme.ts` valida e persiste `light`/`dark` em `localStorage` (`brasil_lens_theme_v1`), separado da sessão do mapa; valor inválido ou armazenamento indisponível usa o claro. Um bootstrap no `index.html` aplica `data-theme` antes da primeira pintura para evitar flash ao reabrir no escuro. `ThemeSwitch` usa `useTheme`, atualiza os tokens da raiz e o `<meta name="theme-color">`, e sincroniza alterações de outras abas pelo evento `storage`. Só o controle renderiza ao alternar: Leaflet resolve os tokens nos atributos SVG sem reaplicar estilos por React nem animar paths.
 
 ## Instalação (PWA)
 
 - O app é instalável no desktop e no celular só com `public/manifest.webmanifest` (`display: standalone`) e o `<link rel="manifest">` do `index.html`. Chrome e Edge não exigem service worker para instalar; no iOS e no Safari do macOS a instalação é manual (Compartilhar → Adicionar à Tela de Início / ao Dock).
 - **Sem service worker, de propósito.** Sem a API o mapa não tem o que mostrar, e um cache de shell ou de respostas serviria bundle e leituras velhas por fora das regras de frescor do TanStack Query. Quem instalou recebe a versão nova a cada abertura, como no navegador.
 - Ícones em `public/`: `icon-192.png` e `icon-512.png` (transparentes), `icon-maskable-512.png` (fundo branco, arte dentro da zona segura de 80%, para o Android recortar) e `apple-touch-icon.png` (fundo branco: o iOS pinta transparência de preto). Os dois últimos derivam do `icon-512.png`; se o logo mudar, gere-os de novo.
-- `theme_color`/`background_color` e o `<meta name="theme-color">` repetem `--surface-muted`. Mude os três juntos.
+- `theme_color`/`background_color` do manifesto e o valor inicial do `<meta name="theme-color">` repetem `--surface-muted` do tema claro. Mude os três juntos. No escuro, o bootstrap e `app/theme.ts` atualizam a meta para a superfície do tema; o manifesto mantém os valores claros de instalação.
 
 ## Camadas do mapa
 
 Panes, de baixo para cima: `basemap` 200 (Esri, opacidade 0,32), território 400, `discovered-mosaic` 420, `hydrography` 425, `state-outline` 430, `fire-hotspots` 435 (WMS, zoom ≥ 9), `weather-alerts` 450, `territory-hover`/`territory-selection` 470/480, `weather-points` 490. Um pane novo precisa de nome único e deve respeitar essa ordem.
+
+O filtro noturno fica só no `basemap`, sem trocar provider ou URL. Contornos, neutros e skeleton usam tokens `--map-*`; escalas semânticas continuam nas features. O mosaico opaco mistura a cor original com `--map-land` do tema para evitar pintura dupla sobre a UF e manter sua aparência compatível com os territórios. No pane dos alertas, um segundo contorno neutro fica sob cada path original; sua opacidade CSS é zero no claro e discreta no escuro, sem alterar a severidade. No mobile, `scopeInsets` mede a distância entre a base do mapa e o topo real da gaveta, incluindo o espaço do switch e a área segura, com o mesmo limite de 40%.
 
 - `activeThematicLayer` (`climate`, `rainfall`, `fire`, `none`) define a pintura. Clima e chuva usam a mesma resposta. Focos aparecem como coroplética abaixo do zoom 9 e como pontos a partir dele (`fireMode`).
 - A malha chega em `overview` e é trocada por `detail`. Com zoom ≥ 8 dentro da UF, o clima vem do viewport e o contorno fino, da malha canônica.
