@@ -217,6 +217,10 @@ body {
   font-weight: 600;
 }
 
+.auth-brand img {
+  border-radius: var(--radius);
+}
+
 .auth-card {
   padding: 32px;
   border: 1px solid var(--border);
@@ -1161,6 +1165,16 @@ body {
 .followed-municipalities {
   padding-top: 8px;
   padding-bottom: 8px;
+}
+
+.follow-notifications {
+  color: var(--text-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.follow-notifications .follow-toggle-btn {
+  font-size: 11px;
 }
 
 .followed-municipalities > .disclosure-content {

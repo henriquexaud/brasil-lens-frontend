@@ -321,3 +321,6 @@ export interface FireSummary {
   unassignedCount: number;
   areaSource: string;
 }
+export interface PushConfig {
+  publicKey: string | null;
+}

@@ -9,6 +9,7 @@ import {
 } from './useFollowedMunicipalities';
 import type { FollowedMunicipality } from '@/api/types';
 import { ErrorMessage } from '@/components/Feedback';
+import { useDeviceNotifications } from '@/features/notifications/useDeviceNotifications';
 
 interface Props {
   current: FollowTarget | null;
@@ -71,6 +72,7 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
   const follow = useFollowMunicipality();
   const unfollow = useUnfollowMunicipality();
   const notifications = useSetMunicipalityNotifications();
+  const device = useDeviceNotifications();
 
   const municipalities = listQuery.data?.municipalities ?? [];
   const currentCode = current?.municipalityCode ?? null;
@@ -96,8 +98,15 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
     else follow.mutate(current);
   }
 
-  function toggleNotifications(item: FollowedMunicipality) {
+  async function toggleNotifications(item: FollowedMunicipality) {
     resetErrors();
+    if (!item.notificationsEnabled) {
+      try {
+        await device.enable();
+      } catch {
+        return;
+      }
+    }
     notifications.mutate({ code: item.municipalityCode, enabled: !item.notificationsEnabled });
   }
 
@@ -181,6 +190,39 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
 
         {listQuery.error && <ErrorMessage error={listQuery.error} />}
 
+        {device.error && (
+          <div className="follow-error">
+            <ErrorMessage error={device.error} />
+          </div>
+        )}
+
+        {municipalities.length > 0 && (
+          <div className="follow-notifications">
+            <p>Use o sino para escolher os municípios que podem enviar notificações do app.</p>
+            {device.supported && !device.checking && !device.available && !device.error && (
+              <p>As notificações ainda não estão disponíveis. Tente novamente mais tarde.</p>
+            )}
+            {device.supported ? (
+              <button
+                type="button"
+                className="follow-toggle-btn"
+                disabled={device.busy || device.checking || (!device.enabled && !device.available)}
+                onClick={() => {
+                  if (device.enabled) device.disable();
+                  else void device.enable().catch(() => {});
+                }}
+              >
+                {device.enabled ? 'Desativar neste dispositivo' : 'Ativar neste dispositivo'}
+              </button>
+            ) : (
+              <p>
+                Instale o Brasil Lens em um dispositivo compatível para receber avisos mesmo com o
+                app fechado.
+              </p>
+            )}
+          </div>
+        )}
+
         {listQuery.isPending && (
           <div
             className="follow-skeleton-list"
@@ -251,10 +293,16 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
                     }
                     title={
                       item.notificationsEnabled
-                        ? 'Notificações ativadas'
-                        : 'Notificações desativadas'
+                        ? 'Notificações do app ativadas. Clique para desativar.'
+                        : 'Receber notificações do app deste município.'
                     }
-                    onClick={() => toggleNotifications(item)}
+                    disabled={
+                      device.busy ||
+                      (!item.notificationsEnabled && (!device.supported || !device.available))
+                    }
+                    onClick={() => {
+                      void toggleNotifications(item);
+                    }}
                   >
                     <BellIcon muted={!item.notificationsEnabled} />
                   </button>

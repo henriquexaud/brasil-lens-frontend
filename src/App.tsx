@@ -31,6 +31,7 @@ import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch'
 import { useTerritoryMap } from '@/features/map/useTerritoryMap';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
 import { FollowedMunicipalitiesPanel } from '@/features/follow/FollowedMunicipalitiesPanel';
+import { useNotificationNavigation } from '@/features/notifications/useNotificationNavigation';
 import { SyncStatus } from '@/features/weather/SyncStatus';
 import type { FollowTarget } from '@/features/follow/useFollowedMunicipalities';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
@@ -514,6 +515,8 @@ export default function App() {
     },
     [handleSearchSelect],
   );
+
+  useNotificationNavigation(openFollowedMunicipality);
 
   const { backLabel, backAriaLabel, handleBack } = useMemo(() => {
     if (isMunicipalityActive) {

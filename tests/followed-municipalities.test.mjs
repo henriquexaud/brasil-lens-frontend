@@ -37,6 +37,28 @@ const compiled = await build({
   jsx: 'automatic',
   alias: { '@': join(frontend, 'src') },
   external: ['react', 'react-dom', '@tanstack/react-query'],
+  plugins: [
+    {
+      name: 'device-permission',
+      setup(builder) {
+        builder.onResolve({ filter: /\/useDeviceNotifications$/ }, () => ({
+          path: 'device',
+          namespace: 'test',
+        }));
+        builder.onLoad({ filter: /^device$/, namespace: 'test' }, () => ({
+          contents: `
+      export function useDeviceNotifications() { return {
+        supported: true, enabled: false, available: true, busy: false, checking: false,
+        enable: async () => {
+          globalThis.pushEnableCalls++;
+          if (globalThis.denyPush) throw new Error('Permissão negada');
+        }, disable: () => {}, error: null,
+      }; }
+    `,
+        }));
+      },
+    },
+  ],
   define: { 'import.meta.env.VITE_API_BASE_URL': '"http://api.test/api/v1"' },
 });
 
@@ -96,7 +118,7 @@ function fakeServer({ failWrites = false } = {}) {
           ...SAO_PAULO,
           municipalityCode: code,
           followedAt: '2026-09-23T12:00:00Z',
-          notificationsEnabled: true,
+          notificationsEnabled: false,
         };
         followed.set(code, item);
         return Response.json(item, { status: 201 });
@@ -111,6 +133,8 @@ function fakeServer({ failWrites = false } = {}) {
 }
 
 beforeEach(() => {
+  globalThis.pushEnableCalls = 0;
+  globalThis.denyPush = false;
   client = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
@@ -151,8 +175,11 @@ async function render(props) {
       h(
         QueryClientProvider,
         { client },
-        h(AuthContext.Provider, { value: { user: { id: 'test-user' } } },
-          h(FollowedMunicipalitiesPanel, { onOpen: () => {}, ...props })),
+        h(
+          AuthContext.Provider,
+          { value: { user: { id: 'test-user' } } },
+          h(FollowedMunicipalitiesPanel, { onOpen: () => {}, ...props }),
+        ),
       ),
     ),
   );
@@ -228,14 +255,14 @@ test('alternar rápido envia as escritas na ordem dos cliques', async () => {
   assert.equal(followButton().getAttribute('aria-pressed'), 'false');
 });
 
-test('seguir liga as notificações por padrão, com o sino discreto sempre visível', async () => {
+test('seguir mantém as notificações desativadas até a autorização pelo sino', async () => {
   await render({ current: SAO_PAULO });
   await until(() => followButton() && !followButton().disabled);
 
   await act(async () => followButton().click());
   await until(() => bellButton());
-  assert.equal(bellButton().getAttribute('aria-pressed'), 'true');
-  assert.ok(bellButton().classList.contains('is-enabled'));
+  assert.equal(bellButton().getAttribute('aria-pressed'), 'false');
+  assert.equal(bellButton().classList.contains('is-enabled'), false);
 });
 
 test('o sino alterna as notificações de um município seguido via POST otimista', async () => {
@@ -260,4 +287,21 @@ test('o sino alterna as notificações de um município seguido via POST otimist
   await act(async () => bellButton().click());
   await until(() => bellButton().getAttribute('aria-pressed') === 'true');
   await until(() => server.followed.get('3550308').notificationsEnabled === true);
+  assert.equal(globalThis.pushEnableCalls, 1, 'o dispositivo é autorizado antes de ativar o sino');
+});
+
+test('recusar a permissão do dispositivo mantém o município sem notificações', async () => {
+  server.followed.set('3550308', {
+    ...SAO_PAULO,
+    followedAt: '2026-09-20T12:00:00Z',
+    notificationsEnabled: false,
+  });
+  globalThis.denyPush = true;
+  await render({ current: SAO_PAULO });
+  await until(() => bellButton());
+  await act(async () => bellButton().click());
+  await tick();
+  assert.equal(globalThis.pushEnableCalls, 1);
+  assert.equal(server.followed.get('3550308').notificationsEnabled, false);
+  assert.equal(requests.filter((r) => r.startsWith('POST')).length, 0);
 });

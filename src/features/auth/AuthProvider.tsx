@@ -4,6 +4,7 @@ import { ApiError, apiGet, apiPost, apiPut, onAuthenticationRequired } from '@/a
 import type { LoginRequest, RegisterRequest, User } from '@/api/types';
 import { restoreTheme } from '@/app/theme';
 import { AuthContext } from './AuthContext';
+import { disableDevice } from '@/features/notifications/device';
 
 const AUTH_KEY = ['auth', 'me'] as const;
 
@@ -59,7 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
   const logout = useMutation({
-    mutationFn: () => apiPost<void>('/auth/logout', undefined),
+    mutationFn: async () => {
+      await disableDevice();
+      await apiPost<void>('/auth/logout', undefined);
+    },
     onSuccess: async () => {
       await client.cancelQueries({ queryKey: AUTH_KEY });
       client.setQueryData(AUTH_KEY, null);

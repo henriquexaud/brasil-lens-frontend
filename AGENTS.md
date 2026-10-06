@@ -14,7 +14,7 @@ React 18 + TypeScript + Vite, react-leaflet 4 e TanStack Query 5: o mapa de clim
 
 ## Invariantes
 
-1. Os dados passam só por `src/api` + TanStack Query, nunca por `fetch` em componente. Com terceiros, só tiles: Esri e o WMS do INPE, com URL e filtro vindos da API.
+1. Os dados passam só por `src/api` + TanStack Query, nunca por `fetch` em componente. Com terceiros, só tiles (Esri e o WMS do INPE, com URL e filtro vindos da API) e a inscrição Web Push nativa do navegador, autorizada pelo usuário (ADR-12 do backend). Notificações recebem o conteúdo enviado pelo backend, sem consultar fontes climáticas diretamente.
 2. As constantes de frescor em `features/weather/queries.ts` (15 min, 30 min, 2 min) são as do backend. Mude os dois lados juntos.
 3. Na fusão de leituras, a mais nova vence; no mesmo `observedAt`, a medida vence a estimada. Estimado sempre leva "≈". Teste: `tests/map-data.test.mjs`.
 4. `stale`/`partial` e fontes pausadas ficam visíveis, e uma fonte pausada não bloqueia as outras. Teste: `tests/api-client.test.mjs`.

@@ -31,7 +31,7 @@ export function AuthScreen() {
       <div className="auth-layout">
         <div className="auth-form-side">
           <div className="auth-brand">
-            <img src="/icon-192.png" width="48" height="48" alt="" />
+            <img src="/icon-192.png?v=2" width="48" height="48" alt="" />
             <span>
               Brasil <strong>Lens</strong>
             </span>
@@ -147,6 +147,13 @@ export function AuthScreen() {
               </button>
             </p>
           </section>
+          {registering && (
+            <p className="auth-hint">
+              Seu e-mail é usado para acessar a conta. As notificações do app são opcionais: você
+              escolhe os municípios pelo sino em Municípios seguidos e autoriza o recebimento neste
+              dispositivo. Pode desativar quando quiser.
+            </p>
+          )}
           <p className="auth-footer">Clima e meio ambiente, do país ao seu município.</p>
         </div>
         <aside className="auth-visual" aria-hidden="true">

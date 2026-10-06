@@ -62,7 +62,7 @@ export function useFollowMunicipality() {
       list.some((item) => item.municipalityCode === target.municipalityCode)
         ? list
         : [
-            { ...target, followedAt: new Date().toISOString(), notificationsEnabled: true },
+            { ...target, followedAt: new Date().toISOString(), notificationsEnabled: false },
             ...list,
           ],
   );
