@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { ApiError } from '@/api/client';
 import { loadTheme } from '@/app/theme';
+import { useTheme } from '@/app/useTheme';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
 import { useAuth } from './AuthContext';
 
 export function AuthScreen() {
   const auth = useAuth()!;
+  const { theme } = useTheme();
   const [registering, setRegistering] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -148,7 +150,12 @@ export function AuthScreen() {
           <p className="auth-footer">Clima e meio ambiente, do país ao seu município.</p>
         </div>
         <aside className="auth-visual" aria-hidden="true">
-          <img src="/auth-map.jpg" width="1540" height="1568" alt="" />
+          <img
+            src={theme === 'dark' ? '/auth-map-dark.png' : '/auth-map.jpg'}
+            width="1540"
+            height="1568"
+            alt=""
+          />
         </aside>
       </div>
       <ThemeSwitch />
