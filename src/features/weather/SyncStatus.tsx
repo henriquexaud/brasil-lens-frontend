@@ -12,7 +12,11 @@ export interface SyncStatusProps {
 // Estado da sincronização e atualização manual.
 export function SyncStatus({ current, error, loading, onRefresh }: SyncStatusProps) {
   return (
-    <section className="panel-section weather-sync-section" aria-label="Atualização dos dados">
+    <section
+      className="panel-section weather-sync-section"
+      aria-label="Atualização dos dados"
+      hidden={error == null}
+    >
       <div className="weather-footer-bar">
         <div className="weather-sync-status">
           <span
