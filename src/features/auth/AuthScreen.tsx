@@ -31,7 +31,7 @@ export function AuthScreen() {
       <div className="auth-layout">
         <div className="auth-form-side">
           <div className="auth-brand">
-            <img src="/icon-192.png?v=2" width="48" height="48" alt="" />
+            <img src="/logo-192.png?v=3" width="48" height="48" alt="" />
             <span>
               Brasil <strong>Lens</strong>
             </span>

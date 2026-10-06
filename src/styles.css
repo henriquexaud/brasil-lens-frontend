@@ -217,10 +217,6 @@ body {
   font-weight: 600;
 }
 
-.auth-brand img {
-  border-radius: var(--radius);
-}
-
 .auth-card {
   padding: 32px;
   border: 1px solid var(--border);

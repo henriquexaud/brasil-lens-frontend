@@ -12,8 +12,8 @@ self.addEventListener('push', (event) => {
       body: payload.body,
       tag: payload.tag,
       data: payload.data,
-      icon: '/icon-192.png?v=2',
-      badge: '/notification-badge.png?v=2',
+      icon: '/logo-192.png?v=3',
+      badge: '/notification-badge.png?v=3',
     }),
   );
 });
