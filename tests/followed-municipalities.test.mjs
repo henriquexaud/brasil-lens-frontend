@@ -25,7 +25,8 @@ const modulePath = join(scratch, 'harness.mjs');
 
 const compiled = await build({
   stdin: {
-    contents: `export { FollowedMunicipalitiesPanel } from './src/features/follow/FollowedMunicipalitiesPanel';`,
+    contents: `export { FollowedMunicipalitiesPanel } from './src/features/follow/FollowedMunicipalitiesPanel';
+      export { AuthContext } from './src/features/auth/AuthContext';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -40,7 +41,7 @@ const compiled = await build({
 });
 
 await writeFile(modulePath, compiled.outputFiles[0].text);
-const { FollowedMunicipalitiesPanel } = await import(pathToFileURL(modulePath).href);
+const { FollowedMunicipalitiesPanel, AuthContext } = await import(pathToFileURL(modulePath).href);
 
 after(async () => {
   dom.window.close();
@@ -150,7 +151,8 @@ async function render(props) {
       h(
         QueryClientProvider,
         { client },
-        h(FollowedMunicipalitiesPanel, { onOpen: () => {}, ...props }),
+        h(AuthContext.Provider, { value: { user: { id: 'test-user' } } },
+          h(FollowedMunicipalitiesPanel, { onOpen: () => {}, ...props })),
       ),
     ),
   );

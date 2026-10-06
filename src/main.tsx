@@ -3,7 +3,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { ApiError, isTransientError, onSourceRecovered } from './api/client';
-import App from './App';
+import { AuthProvider } from './features/auth/AuthProvider';
+import { AuthGate } from './features/auth/AuthGate';
 import './styles.css';
 
 const queryClient = new QueryClient({
@@ -31,7 +32,9 @@ if (!container) throw new Error('Elemento #root não encontrado.');
 createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

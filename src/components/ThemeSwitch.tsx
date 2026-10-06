@@ -1,7 +1,9 @@
 import { useTheme } from '@/app/useTheme';
+import { useAuth } from '@/features/auth/AuthContext';
 
 export function ThemeSwitch() {
   const { theme, toggleTheme } = useTheme();
+  const auth = useAuth();
   const dark = theme === 'dark';
 
   return (
@@ -12,7 +14,11 @@ export function ThemeSwitch() {
       aria-label="Tema escuro"
       aria-checked={dark}
       title={dark ? 'Ativar tema claro' : 'Ativar tema escuro'}
-      onClick={toggleTheme}
+      disabled={auth?.savingTheme || auth?.loggingOut}
+      onClick={() => {
+        const next = toggleTheme();
+        if (auth?.user) auth.saveTheme(next);
+      }}
     >
       <span className="theme-switch__thumb" aria-hidden="true" />
       <svg

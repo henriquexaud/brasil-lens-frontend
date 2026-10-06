@@ -1,6 +1,23 @@
 import type { Geometry, MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  theme: 'light' | 'dark';
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest extends LoginRequest {
+  name: string;
+  theme: User['theme'];
+}
 export type GeometryLod = 'canonical' | 'overview' | 'detail';
 
 export type BoundingBox = [number, number, number, number];

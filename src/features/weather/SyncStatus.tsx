@@ -9,7 +9,7 @@ export interface SyncStatusProps {
   onRefresh: () => void;
 }
 
-// Último bloco do painel: estado da sincronização e atualização manual.
+// Estado da sincronização e atualização manual.
 export function SyncStatus({ current, error, loading, onRefresh }: SyncStatusProps) {
   return (
     <section className="panel-section weather-sync-section" aria-label="Atualização dos dados">

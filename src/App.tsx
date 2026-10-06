@@ -40,6 +40,7 @@ import { useWeatherMapData } from '@/features/weather/useWeatherMapData';
 import { useAppPreferences } from '@/app/useAppPreferences';
 import { useMobileSheet } from '@/app/useMobileSheet';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
+import { AccountMenu } from '@/features/auth/AccountMenu';
 
 const HydrographyLayer = lazy(() =>
   import('@/features/map/HydrographyLayer').then((module) => ({
@@ -768,6 +769,7 @@ export default function App() {
               void client.invalidateQueries({ queryKey: ['hydrography'], exact: false });
             }}
           />
+          <AccountMenu />
         </aside>
       </div>
       {!failure && (

@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/api/v1/:path*", "destination": "https://brasil-lens-api.onrender.com/api/v1/:path*" }
+  ],
   "functions": {
     "api/open-meteo/v1/forecast.ts": { "maxDuration": 30 }
   },

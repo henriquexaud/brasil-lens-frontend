@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { applyTheme, loadTheme, saveTheme, THEME_STORAGE_KEY } from './theme';
+import {
+  applyTheme,
+  loadTheme,
+  restoreTheme,
+  THEME_STORAGE_KEY,
+  THEME_CHANGED_EVENT,
+  type Theme,
+} from './theme';
 
 export function useTheme() {
   const [theme, setTheme] = useState(loadTheme);
@@ -19,13 +26,19 @@ export function useTheme() {
       setTheme(loadTheme());
     };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    const handleTheme = (event: Event) => setTheme((event as CustomEvent<Theme>).detail);
+    window.addEventListener(THEME_CHANGED_EVENT, handleTheme);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(THEME_CHANGED_EVENT, handleTheme);
+    };
   }, []);
 
   const toggleTheme = useCallback(() => {
     const next = theme === 'light' ? 'dark' : 'light';
-    saveTheme(next);
+    restoreTheme(next);
     setTheme(next);
+    return next;
   }, [theme]);
 
   return { theme, toggleTheme };

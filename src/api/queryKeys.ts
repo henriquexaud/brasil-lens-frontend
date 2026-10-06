@@ -13,6 +13,7 @@ export const queryKeys = {
       query.parent ?? null,
       query.hours ?? FIRE_HOTSPOT_HOURS,
     ] as const,
-  followedMunicipalities: () => ['me', 'followed-municipalities'] as const,
+  followedMunicipalities: (userId: string | null) =>
+    ['me', userId, 'followed-municipalities'] as const,
   weatherAlerts: () => ['weather', 'alerts'] as const,
 };

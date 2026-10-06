@@ -82,34 +82,6 @@ export function WeatherOptions({
       {}
       <div className="weather-layers-panel">
         {}
-        <div className="weather-layer-card">
-          <label className="weather-layer-label weather-toggle">
-            <input
-              type="checkbox"
-              checked={showAlerts}
-              onChange={(event) => onToggleAlerts(event.target.checked)}
-            />
-            <div className="weather-layer-title">
-              <span>Alertas</span>
-              <span className="weather-layer-source">INMET · CEMADEN</span>
-            </div>
-          </label>
-          {showAlerts && (
-            <span
-              className={`weather-layer-badge ${
-                relevantCount > 0 ? 'badge-alert' : 'badge-neutral'
-              }`}
-            >
-              {alertsPending && !alertsData
-                ? 'Consultando…'
-                : relevantCount > 0
-                  ? `${relevantCount} ${relevantCount === 1 ? 'alerta ativo' : 'alertas ativos'}`
-                  : 'Sem alertas'}
-            </span>
-          )}
-        </div>
-
-        {}
         {onToggleHydrography && (
           <div className="weather-layer-card">
             <label className="weather-layer-label weather-toggle">
@@ -138,6 +110,34 @@ export function WeatherOptions({
             )}
           </div>
         )}
+
+        {}
+        <div className="weather-layer-card">
+          <label className="weather-layer-label weather-toggle">
+            <input
+              type="checkbox"
+              checked={showAlerts}
+              onChange={(event) => onToggleAlerts(event.target.checked)}
+            />
+            <div className="weather-layer-title">
+              <span>Alertas</span>
+              <span className="weather-layer-source">INMET · CEMADEN</span>
+            </div>
+          </label>
+          {showAlerts && (
+            <span
+              className={`weather-layer-badge ${
+                relevantCount > 0 ? 'badge-alert' : 'badge-neutral'
+              }`}
+            >
+              {alertsPending && !alertsData
+                ? 'Consultando…'
+                : relevantCount > 0
+                  ? `${relevantCount} ${relevantCount === 1 ? 'alerta ativo' : 'alertas ativos'}`
+                  : 'Sem alertas'}
+            </span>
+          )}
+        </div>
       </div>
 
       {}

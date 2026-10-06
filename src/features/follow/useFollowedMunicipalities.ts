@@ -2,16 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import type { FollowedMunicipality, FollowedMunicipalityListResponse } from '@/api/types';
+import { useAuth } from '@/features/auth/AuthContext';
 
 const FOLLOW_MUTATION_KEY = ['me', 'followed-municipalities', 'write'] as const;
 const FOLLOWED_PATH = '/me/followed-municipalities';
 
 export function useFollowedMunicipalities(enabled = true) {
+  const userId = useAuth()?.user?.id ?? null;
   return useQuery({
-    queryKey: queryKeys.followedMunicipalities(),
+    queryKey: queryKeys.followedMunicipalities(userId),
     queryFn: ({ signal }) =>
       apiGet<FollowedMunicipalityListResponse>(FOLLOWED_PATH, undefined, signal),
-    enabled,
+    enabled: enabled && userId !== null,
     staleTime: 60 * 1000,
   });
 }
@@ -23,10 +25,11 @@ function useOptimisticFollowMutation<TVariables>(
   update: (list: FollowedMunicipality[], variables: TVariables) => FollowedMunicipality[],
 ) {
   const queryClient = useQueryClient();
-  const key = queryKeys.followedMunicipalities();
+  const userId = useAuth()?.user?.id ?? null;
+  const key = queryKeys.followedMunicipalities(userId);
   return useMutation<unknown, Error, TVariables, FollowListSnapshot>({
-    mutationKey: FOLLOW_MUTATION_KEY,
-    scope: { id: FOLLOW_MUTATION_KEY.join('/') },
+    mutationKey: ['me', userId, ...FOLLOW_MUTATION_KEY.slice(1)],
+    scope: { id: `me/${userId}/followed-municipalities` },
     mutationFn,
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: key });
@@ -40,7 +43,9 @@ function useOptimisticFollowMutation<TVariables>(
       if (context) queryClient.setQueryData(key, context.previous);
     },
     onSettled: () => {
-      if (queryClient.isMutating({ mutationKey: FOLLOW_MUTATION_KEY }) === 1) {
+      if (
+        queryClient.isMutating({ mutationKey: ['me', userId, 'followed-municipalities'] }) === 1
+      ) {
         void queryClient.invalidateQueries({ queryKey: key });
       }
     },

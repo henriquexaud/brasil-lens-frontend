@@ -1,6 +1,13 @@
 export type Theme = 'light' | 'dark';
 
 export const THEME_STORAGE_KEY = 'brasil_lens_theme_v1';
+export const THEME_CHANGED_EVENT = 'brasil-lens-theme-changed';
+
+export function restoreTheme(theme: Theme): void {
+  saveTheme(theme);
+  applyTheme(theme);
+  window.dispatchEvent(new window.CustomEvent(THEME_CHANGED_EVENT, { detail: theme }));
+}
 
 export function loadTheme(): Theme {
   try {

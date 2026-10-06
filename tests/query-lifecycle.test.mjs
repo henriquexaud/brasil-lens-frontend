@@ -59,7 +59,8 @@ test('chaves de consulta incluem escopo, nível e LOD, e normalizam o que falta'
     queryKeys.fireHotspots({ level: 'country', hours: 24 }),
     queryKeys.fireHotspots({ level: 'country' }),
   );
-  assert.deepEqual(queryKeys.followedMunicipalities(), ['me', 'followed-municipalities']);
+  assert.deepEqual(queryKeys.followedMunicipalities('alice'), ['me', 'alice', 'followed-municipalities']);
+  assert.notDeepEqual(queryKeys.followedMunicipalities('alice'), queryKeys.followedMunicipalities('bob'));
   assert.deepEqual(queryKeys.weatherAlerts(), ['weather', 'alerts']);
 });
 

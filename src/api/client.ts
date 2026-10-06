@@ -43,6 +43,14 @@ interface SourcePause {
 const pauses = new Map<ExternalSource, SourcePause>();
 const consecutiveFailures = new Map<ExternalSource, number>();
 const recoveryListeners = new Set<(source: ExternalSource) => void>();
+const authenticationListeners = new Set<() => void>();
+
+export function onAuthenticationRequired(listener: () => void): () => void {
+  authenticationListeners.add(listener);
+  return () => {
+    authenticationListeners.delete(listener);
+  };
+}
 
 function sourceOf(path: string): ExternalSource | undefined {
   if (/^\/weather\/(current|municipalities|states?|viewport)\b/.test(path)) return 'weather';
@@ -152,10 +160,18 @@ async function request<T>(
 
   const response = await fetch(buildUrl(path, effectiveParams), {
     method,
+    credentials: 'include',
     headers:
       body === undefined
-        ? { Accept: 'application/json' }
-        : { Accept: 'application/json', 'Content-Type': 'application/json' },
+        ? {
+            Accept: 'application/json',
+            ...(method !== 'GET' ? { 'X-Brasil-Lens-Client': 'web' } : {}),
+          }
+        : {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Brasil-Lens-Client': 'web',
+          },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal,
   });
@@ -173,6 +189,9 @@ async function request<T>(
       }
     } catch {} // eslint-disable-line no-empty
     const error = new ApiError(response.status, code, message, details);
+    if (response.status === 401 && path.startsWith('/me/')) {
+      for (const listener of authenticationListeners) listener();
+    }
     if (source && (code === 'provider_error' || code === 'provider_rate_limited')) {
       pauseSource(source, error);
     }
