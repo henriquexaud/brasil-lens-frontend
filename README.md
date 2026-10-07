@@ -2,6 +2,8 @@
 
 Interface do Brasil Lens: um mapa de clima e meio ambiente do Brasil (condições e previsão, chuva, alertas, focos de calor, hidrografia e municípios acompanhados), feito com React, TypeScript, Leaflet e TanStack Query.
 
+O seletor de contexto também abre Socioeconômico: os 14 indicadores anteriores do IBGE, com menu População/Economia/Outros, paletas verde/jade, seleção de ano e detalhes do território. A API precisa da migration `0012_socioeconomic` e da carga `python -m app.jobs.import_indicators`.
+
 No ar em https://brasil-lens.vercel.app (plano grátis: se a API estiver dormindo, o primeiro carregamento leva ~1 min).
 
 ## Rodar

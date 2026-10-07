@@ -154,3 +154,17 @@ test('recortes antigos ou municipais sem UF não são restaurados', () => {
     assert.deepEqual(loadSessionState(), {});
   }
 });
+
+test('sessão v3 preserva preferências de clima na migração para v4', () => {
+  const previous = { activeThematicLayer: 'fire', showWeatherAlerts: false, selectedCode: '35' };
+  mockStorage.setItem('brasil_lens_session_v3', JSON.stringify(previous));
+  assert.deepEqual(loadSessionState(), previous);
+  assert.equal(mockStorage.getItem('brasil_lens_session_v3'), null);
+});
+
+test('contexto e seleção socioeconômica são validados e preservam clima', () => {
+  saveSessionState({ activeThematicLayer: 'rainfall', dataContext: 'socioeconomic', socioeconomic: { indicatorKey: 'gdp', year: '2022' } });
+  assert.deepEqual(loadSessionState(), { activeThematicLayer: 'rainfall', dataContext: 'socioeconomic', socioeconomic: { indicatorKey: 'gdp', year: '2022' } });
+  mockStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ dataContext: 'inválido', socioeconomic: { indicatorKey: 'gdp', year: '5000' }, activeThematicLayer: 'rainfall' }));
+  assert.deepEqual(loadSessionState(), { activeThematicLayer: 'rainfall' });
+});

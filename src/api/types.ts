@@ -2,6 +2,87 @@ import type { Geometry, MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 
+export type DataContext = 'climate_environmental' | 'socioeconomic';
+
+export interface Indicator {
+  key: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  origin: 'sourced' | 'derived';
+  decimalPlaces: number;
+  availableYears: number[];
+  latestYear: number | null;
+  supportedLevels: TerritoryLevel[];
+}
+
+export interface IndicatorListResponse {
+  indicators: Indicator[];
+  version: string;
+}
+
+export interface MapIndicatorMeta {
+  key: string;
+  name: string;
+  unit: string;
+  decimalPlaces: number;
+  year: number | null;
+  requestedYear: string;
+  availableYears: number[];
+}
+
+export interface MapStatistics {
+  min: number;
+  max: number;
+  mean: number;
+  median: number;
+  count: number;
+  missing: number;
+}
+
+export interface MapClassification {
+  method: 'quantile';
+  scope: 'national';
+  min: number;
+  max: number;
+  classes: number;
+  breaks: number[];
+}
+
+export interface MapValue {
+  ibgeCode: string;
+  value: number | null;
+  classIndex: number | null;
+}
+
+export interface MapValuesResponse {
+  level: TerritoryLevel;
+  parent: string | null;
+  indicator: MapIndicatorMeta;
+  statistics: MapStatistics | null;
+  classification: MapClassification | null;
+  values: MapValue[];
+  version: string;
+}
+
+export interface IndicatorValue {
+  key: string;
+  name: string;
+  unit: string;
+  decimalPlaces: number;
+  origin: 'sourced' | 'derived';
+  value: number | null;
+  year: number | null;
+  source: string | null;
+}
+
+export interface TerritoryOverview extends TerritoryDetail {
+  capital: TerritoryRef | null;
+  childrenCount: number;
+  childrenLevel: TerritoryLevel | null;
+  indicators: IndicatorValue[];
+}
+
 export interface User {
   id: string;
   name: string;

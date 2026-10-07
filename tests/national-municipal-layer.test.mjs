@@ -50,6 +50,19 @@ async function step() {
 async function drain() { for (let i = 0; i < 100 && globalThis.idle.size; i++) await step(); }
 const svgs = () => [...document.querySelectorAll('svg')];
 const visible = () => svgs().filter((svg) => svg.style.opacity === '1');
+
+test('indicador e ano socioeconômicos publicam apenas a paleta do snapshot ativo', async () => {
+  const codes = [...data.weatherByCode.keys()];
+  const themed = (year, color) => ({ mesh:data.mesh, presentation:{key:`socioeconomic:population:${year}`,colors:new Map(codes.map(code=>[code,color])),values:new Set(codes),tooltips:new Map()} });
+  await render({data:themed(2022,'#7BC48B'),climateMode:false}); await drain();
+  assert.equal(visible()[0].dataset.nationalMosaic,'socioeconomic:population:2022');
+  assert.match(visible()[0].children[0].getAttribute('fill'),/#7BC48B/);
+  await render({data:themed(2024,'#0B6B33'),climateMode:false});
+  assert.equal(visible().length,0);
+  await drain();
+  assert.equal(visible().length,1);
+  assert.match(visible()[0].children[0].getAttribute('fill'),/#0B6B33/);
+});
 beforeEach(() => {
   globalThis.idle = new Map(); globalThis.nextIdle = 0;
   handlers = new Map();

@@ -43,6 +43,11 @@ import { useAppPreferences } from '@/app/useAppPreferences';
 import { useMobileSheet } from '@/app/useMobileSheet';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
 import { AccountMenu } from '@/features/auth/AccountMenu';
+import type { ReactNode } from 'react';
+import { useDataContext } from '@/app/useDataContext';
+import '@/features/socioeconomic/socioeconomic.css';
+
+const SocioeconomicApp = lazy(() => import('@/features/socioeconomic/SocioeconomicApp'));
 
 const HydrographyLayer = lazy(() =>
   import('@/features/map/HydrographyLayer').then((module) => ({
@@ -87,6 +92,17 @@ const AlertsLayer = lazy(() =>
   import('@/features/weather/AlertsLayer').then((module) => ({ default: module.AlertsLayer })),
 );
 export default function App() {
+  const { context, control } = useDataContext();
+  return context === 'socioeconomic' ? (
+    <Suspense fallback={<TopProgress />}>
+      <SocioeconomicApp contextControl={control} />
+    </Suspense>
+  ) : (
+    <ClimateApp contextControl={control} />
+  );
+}
+
+function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
   const { scope, selectedCode, setSelectedCode, drillIntoState, resetScope, isDrilledDown } =
     useMapScope();
   const {
@@ -691,6 +707,7 @@ export default function App() {
             >
               <span className="mobile-sheet-bar" />
             </button>
+            {contextControl}
             <ScopeHeader
               name={scope.parentName ?? 'Brasil'}
               onBack={handleBack}

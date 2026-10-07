@@ -6,14 +6,17 @@ import type { FireMode } from '@/features/fire/fireDensity';
 import { scheduleIdle } from '@/lib/idle';
 import { mosaicColor } from './mosaicColor';
 import type { NationalMesh } from './useNationalMunicipalData';
+import type { TerritoryPresentation } from './TerritoryPresentation';
 
 export interface NationalMosaic {
+  presentation?: TerritoryPresentation;
   mesh: NationalMesh;
   weatherByCode?: Map<string, WeatherCity>;
   fireByCode?: Map<string, FireMunicipality>;
 }
 
 interface Props {
+  onPublished?: (presentation: TerritoryPresentation | undefined) => void;
   data?: NationalMosaic;
   visible: boolean;
   paused: boolean;
@@ -67,6 +70,7 @@ interface Build {
 }
 
 export function NationalMunicipalLayer({
+  onPublished,
   data,
   visible,
   paused,
@@ -79,13 +83,9 @@ export function NationalMunicipalLayer({
   const displayed = useRef<{ overlay: SVGOverlay; mode: string }>();
   const prepared = useRef(new Map<string, { data: NationalMosaic; build: Build }>());
   const [build, setBuild] = useState<Build>();
-  const mode = fireMode
-    ? `fire:${fireMode}`
-    : rainMode
-      ? 'rainfall'
-      : climateMode
-        ? 'climate'
-        : 'none';
+  const mode =
+    data?.presentation?.key ??
+    (fireMode ? `fire:${fireMode}` : rainMode ? 'rainfall' : climateMode ? 'climate' : 'none');
 
   useLayoutEffect(() => {
     if (!visible || displayed.current?.mode !== mode) {
@@ -104,6 +104,7 @@ export function NationalMunicipalLayer({
     if (
       cached &&
       cached.data.mesh === data.mesh &&
+      cached.data.presentation === data.presentation &&
       cached.data.weatherByCode === data.weatherByCode &&
       cached.data.fireByCode === data.fireByCode
     ) {
@@ -111,6 +112,7 @@ export function NationalMunicipalLayer({
       cached.build.overlay.addTo(map);
       displayed.current = { overlay: cached.build.overlay, mode };
       setBuild(cached.build);
+      onPublished?.(data.presentation);
       return;
     }
     const [west, south, east, north] = bbox;
@@ -139,7 +141,7 @@ export function NationalMunicipalLayer({
     return () => {
       if (!next.complete) overlay.remove();
     };
-  }, [map, data, visible, mode]);
+  }, [map, data, visible, mode, onPublished]);
 
   useEffect(() => {
     if (!build || build.complete || !data || !visible || paused) return;
@@ -169,13 +171,15 @@ export function NationalMunicipalLayer({
         const collection = data.mesh.municipalities[build.state]!;
         const feature = collection.features[build.feature]!;
         const code = feature.properties.ibgeCode;
-        const color = mosaicColor({
-          weather: data.weatherByCode?.get(code),
-          fire: data.fireByCode?.get(code),
-          fireMode,
-          rainMode,
-          climateMode,
-        });
+        const color = data.presentation
+          ? `color-mix(in srgb, ${data.presentation.colors.get(code) ?? 'var(--map-neutral, #e2e5ea)'} ${data.presentation.values.has(code) ? 68 : 35}%, var(--map-land, #ffffff))`
+          : mosaicColor({
+              weather: data.weatherByCode?.get(code),
+              fire: data.fireByCode?.get(code),
+              fireMode,
+              rainMode,
+              climateMode,
+            });
         const group = build.colors.get(color) ?? [];
         group.push(pathFor(feature));
         build.colors.set(color, group);
@@ -197,6 +201,12 @@ export function NationalMunicipalLayer({
         displayed.current = { overlay: build.overlay, mode };
         build.complete = true;
         prepared.current.set(mode, { data, build });
+        onPublished?.(data.presentation);
+        if (data.presentation) {
+          for (const key of prepared.current.keys()) {
+            if (key.startsWith('socioeconomic:') && key !== mode) prepared.current.delete(key);
+          }
+        }
       } else schedule();
     };
     const pause = () => {
@@ -217,7 +227,7 @@ export function NationalMunicipalLayer({
       map.off('movestart zoomstart', pause);
       map.off('moveend zoomend', resume);
     };
-  }, [build, data, map, visible, paused, mode, fireMode, rainMode, climateMode]);
+  }, [build, data, map, visible, paused, mode, fireMode, rainMode, climateMode, onPublished]);
 
   useEffect(
     () => () => {

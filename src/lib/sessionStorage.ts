@@ -1,9 +1,16 @@
 import type { MapScopeState } from '@/features/map/useMapScope';
+import type { DataContext } from '@/api/types';
 
-export const SESSION_STORAGE_KEY = 'brasil_lens_session_v3';
-const LEGACY_STORAGE_KEYS = ['brasil_lens_session_v2', 'brasil_lens_session_v1'];
+export const SESSION_STORAGE_KEY = 'brasil_lens_session_v4';
+const LEGACY_STORAGE_KEYS = [
+  'brasil_lens_session_v3',
+  'brasil_lens_session_v2',
+  'brasil_lens_session_v1',
+];
 
 export interface AppSessionState {
+  dataContext?: DataContext;
+  socioeconomic?: { indicatorKey: string; year: string };
   scope?: MapScopeState;
   selectedCode?: string | null;
   showWeatherAlerts?: boolean;
@@ -23,6 +30,7 @@ function getStorage(): Storage | null {
 function climateState(value: unknown): AppSessionState {
   if (typeof value !== 'object' || value === null) return {};
   const source = value as Record<string, unknown>;
+  const socioeconomic = source.socioeconomic as Record<string, unknown> | undefined;
   const rawScope = source.scope as Partial<MapScopeState> | undefined;
   let scope: MapScopeState | undefined;
   if (rawScope?.level === 'state' && rawScope.parent == null) {
@@ -39,6 +47,18 @@ function climateState(value: unknown): AppSessionState {
     };
   }
   return {
+    ...(source.dataContext === 'socioeconomic' || source.dataContext === 'climate_environmental'
+      ? { dataContext: source.dataContext }
+      : {}),
+    ...(socioeconomic &&
+    typeof socioeconomic.indicatorKey === 'string' &&
+    /^[a-z][a-z0-9_]{0,63}$/.test(socioeconomic.indicatorKey) &&
+    typeof socioeconomic.year === 'string' &&
+    (socioeconomic.year === 'latest' ||
+      /^(19|20)\d{2}$/.test(socioeconomic.year) ||
+      socioeconomic.year === '2100')
+      ? { socioeconomic: { indicatorKey: socioeconomic.indicatorKey, year: socioeconomic.year } }
+      : {}),
     ...(scope ? { scope } : {}),
     ...((typeof source.selectedCode === 'string' && /^(\d{2}|\d{7})$/.test(source.selectedCode)) ||
     source.selectedCode === null

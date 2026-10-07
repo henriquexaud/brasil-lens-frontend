@@ -25,6 +25,7 @@ import { fillTooltipContent } from './territoryTooltip';
 import { PendingTerritoriesLayer } from './PendingTerritoriesLayer';
 import { realignRenderer } from './realignRenderer';
 import { densityColor, type FireMode } from '@/features/fire/fireDensity';
+import type { TerritoryPresentation } from './TerritoryPresentation';
 
 const SELECTION_HALO_STYLE: PolylineOptions = {
   smoothFactor: 0,
@@ -45,6 +46,7 @@ const SELECTION_OUTLINE_STYLE: PolylineOptions = {
 };
 
 interface Props {
+  presentation?: TerritoryPresentation;
   collection: MapFeatureCollection;
   onSelect: (ibgeCode: string) => void;
   onDrillDown?: (ibgeCode: string, name: string) => void;
@@ -89,6 +91,7 @@ function preserveBoundary(_feature: Feature, layer: Layer) {
 }
 
 function Territories({
+  presentation,
   collection,
   onSelect,
   onDrillDown,
@@ -175,14 +178,16 @@ function Territories({
 
   // Territórios que ainda esperam o dado da camada ativa ganham o skeleton.
   const pendingFeatures = useMemo(() => {
-    if (!loading || !(fireMode || rainMode || climateMode)) return NO_FEATURES;
+    if (!loading || !(presentation || fireMode || rainMode || climateMode)) return NO_FEATURES;
     return collection.features.filter(({ properties: { ibgeCode: code } }) => {
+      if (presentation) return !presentation.colors.has(code);
       if (!municipal && discoveredStateCodes?.has(code)) return false;
       if (fireMode) return !fireByCode?.has(code);
       if (rainMode) return !weatherByCode?.has(code);
       return weatherByCode?.get(code)?.temperatureC == null;
     });
   }, [
+    presentation,
     loading,
     collection.features,
     municipal,
@@ -245,6 +250,18 @@ function Territories({
         properties?.ibgeCode === hoveredCode.current && properties?.ibgeCode !== selectedCode;
       const covered =
         !municipal && Boolean(properties && discoveredStateCodes?.has(properties.ibgeCode));
+
+      if (presentation) {
+        const code = properties?.ibgeCode ?? '';
+        const hasValue = presentation.values.has(code);
+        return {
+          smoothFactor: 0,
+          ...(municipal ? MUNICIPAL_BORDER : STATE_BORDER),
+          fillColor: presentation.colors.get(code) ?? 'var(--map-neutral, #e2e5ea)',
+          fillOpacity: hasValue ? (hovered ? 0.85 : 0.68) : hovered ? 0.45 : 0.35,
+          className: 'territory-shape',
+        };
+      }
 
       if (fireMode) {
         const fire = properties ? fireByCode?.get(properties.ibgeCode) : undefined;
@@ -316,6 +333,7 @@ function Territories({
       };
     },
     [
+      presentation,
       featuresByCode,
       municipal,
       selectedCode,
@@ -329,6 +347,7 @@ function Territories({
   );
 
   const propsRef = useRef({
+    presentation,
     onSelect,
     onDrillDown,
     canDrillDown,
@@ -343,6 +362,7 @@ function Territories({
     style,
   });
   propsRef.current = {
+    presentation,
     onSelect,
     onDrillDown,
     canDrillDown,
@@ -487,6 +507,7 @@ function Territories({
       const el = tooltipElRef.current;
       if (!el) return;
       const {
+        presentation: thematic,
         weatherByCode: wb,
         fireByCode: fb,
         fireMode: fm,
@@ -500,6 +521,8 @@ function Territories({
 
       const weather = wb?.get(code);
       const content = JSON.stringify([
+        thematic?.key,
+        thematic?.tooltips.get(code),
         properties.name,
         properties.parentName,
         fb?.get(code),
@@ -528,6 +551,18 @@ function Territories({
           Boolean(rm),
           Boolean(cm),
         );
+        const tooltip = thematic?.tooltips.get(code);
+        if (tooltip) {
+          for (const [className, value] of [
+            ['tooltip-value', tooltip.value],
+            ['tooltip-meta', tooltip.meta],
+          ]) {
+            const span = document.createElement('span');
+            span.className = className!;
+            span.textContent = value!;
+            el.appendChild(span);
+          }
+        }
         activeTooltipContentRef.current = content;
         needsMeasureRef.current = true;
         activeTooltipCodeRef.current = code;

@@ -21,6 +21,7 @@ import { WheelGestures } from './WheelGestures';
 import { RendererSync } from './RendererSync';
 import type { FireMode } from '@/features/fire/fireDensity';
 import { scopeInsets } from './viewport';
+import type { TerritoryPresentation } from './TerritoryPresentation';
 
 const BRAZIL_CENTER: [number, number] = [-14.5, -52];
 const BRAZIL_ZOOM = 4;
@@ -44,6 +45,8 @@ const STATE_OUTLINE_STYLE: PolylineOptions = {
 };
 
 interface Props {
+  onNationalMosaicPublished?: (presentation: TerritoryPresentation | undefined) => void;
+  presentation?: TerritoryPresentation;
   collection?: MapFeatureCollection;
   selectedCode?: string | null;
   onSelect?: (ibgeCode: string) => void;
@@ -129,6 +132,8 @@ function FitToScope({
 }
 
 export function MapView({
+  onNationalMosaicPublished,
+  presentation,
   collection,
   selectedCode = null,
   onSelect = () => {},
@@ -197,6 +202,7 @@ export function MapView({
       {collection && (
         <>
           <TerritoryLayer
+            presentation={presentation}
             collection={collection}
             onSelect={onSelect}
             onDrillDown={onDrillDown}
@@ -223,9 +229,11 @@ export function MapView({
             climateMode={climateMode}
           />
           <NationalMunicipalLayer
+            onPublished={onNationalMosaicPublished}
             data={nationalMosaic}
             visible={
-              collection.scope.level === 'state' && Boolean(fireMode || rainMode || climateMode)
+              collection.scope.level === 'state' &&
+              Boolean(presentation || fireMode || rainMode || climateMode)
             }
             paused={nationalMosaicPaused}
             fireMode={fireMode}
