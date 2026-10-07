@@ -1164,9 +1164,16 @@ body {
 }
 
 .follow-notifications {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
   color: var(--text-soft);
   font-size: 11px;
   line-height: 1.5;
+}
+
+.follow-notifications p {
+  margin: 0;
 }
 
 .follow-notifications .follow-toggle-btn {
@@ -1174,6 +1181,7 @@ body {
 }
 
 .followed-municipalities > .disclosure-content {
+  padding-top: 8px;
   padding-bottom: 8px;
 }
 
@@ -1280,7 +1288,7 @@ body {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
 .follow-item {
