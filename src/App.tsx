@@ -29,6 +29,7 @@ import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
 import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
 import { useTerritoryMap } from '@/features/map/useTerritoryMap';
+import { useNationalMunicipalData } from '@/features/map/useNationalMunicipalData';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
 import { FollowedMunicipalitiesPanel } from '@/features/follow/FollowedMunicipalitiesPanel';
 import { useNotificationNavigation } from '@/features/notifications/useNotificationNavigation';
@@ -412,6 +413,57 @@ export default function App() {
       (selectedCode.length === 7 ? weatherByCode.get(selectedCode) : undefined))
     : undefined;
 
+  const nationalMunicipalData = useNationalMunicipalData({
+    states: statesOutlineLayer.data,
+    enabled:
+      !isDrilledDown &&
+      pageVisible &&
+      territoryReady &&
+      !viewport.moving &&
+      !mapLayer.isFetching &&
+      !selectedBoundary.isFetching &&
+      !selectedWeather.isFetching &&
+      forecastBusy === 0 &&
+      viewportWeatherBusy === 0 &&
+      !nationalWeather.isFetching &&
+      !nationalWeather.isRefining &&
+      !alerts.isFetching &&
+      !hydrographyLayer.isFetching &&
+      !fireHotspotsLayer.isFetching &&
+      !fireSummary.isFetching &&
+      Boolean(weatherLayerActive ? nationalWeather.data : showFireHotspots && fireSummary.data),
+    weatherEnabled: weatherLayerActive,
+    weatherRevision: nationalWeather.data?.fetchedAt,
+  });
+  const nationalMosaic = useMemo(() => {
+    if (weatherLayerActive && nationalMunicipalData.weather) {
+      return {
+        mesh: nationalMunicipalData.weather.mesh,
+        weatherByCode: nationalMunicipalData.weather.byCode,
+      };
+    }
+    if (
+      showFireHotspots &&
+      nationalMunicipalData.mesh &&
+      !isDrilledDown &&
+      fireSummary.data &&
+      nationalMunicipalData.mesh.municipalities.every((collection) =>
+        collection.features.every((feature) => fireByCode.has(feature.properties.ibgeCode)),
+      )
+    ) {
+      return { mesh: nationalMunicipalData.mesh, fireByCode };
+    }
+    return undefined;
+  }, [
+    weatherLayerActive,
+    showFireHotspots,
+    isDrilledDown,
+    nationalMunicipalData.weather,
+    nationalMunicipalData.mesh,
+    fireSummary.data,
+    fireByCode,
+  ]);
+
   const failure = isDrilledDown ? visibleMunicipalities.error : mapLayer.error;
   const weatherError = !weatherLayerActive
     ? null
@@ -421,7 +473,7 @@ export default function App() {
         : stateWeather.data
           ? null
           : (municipalities.error ?? (municipalities.data ? null : stateWeather.error))
-      : nationalWeather.error;
+      : (nationalWeather.error ?? nationalMunicipalData.weatherError);
   const fireError = !showFireHotspots
     ? null
     : (fireHotspotsLayer.error ??
@@ -434,7 +486,7 @@ export default function App() {
       ? nearbyWeather.data?.status === 'stale'
       : stateWeather.data?.status === 'stale' ||
         municipalities.data?.pages.some((page) => page.status === 'stale')
-    : nationalWeather.data?.status === 'stale';
+    : nationalWeather.data?.status === 'stale' || nationalMunicipalData.weather?.stale;
   const weatherNotice = weatherOutdated
     ? 'Dados anteriores'
     : weatherError && weatherCities.length > 0
@@ -580,6 +632,8 @@ export default function App() {
         completeMosaicStates={completeMosaicStates}
         exploredWeatherByCode={exploredWeatherByCode}
         exploredFireByCode={exploredFireByCode}
+        nationalMosaic={nationalMosaic}
+        nationalMosaicPaused={!pageVisible || Boolean(viewport.moving) || isViewActivelyWorking}
         onViewportChange={setViewport}
         locationTarget={activeLocationTarget}
         climateMode={showClimate}
@@ -755,7 +809,9 @@ export default function App() {
           <FollowedMunicipalitiesPanel current={followTarget} onOpen={openFollowedMunicipality} />
           <SyncStatus
             current={currentWeather}
-            error={weatherError ?? fireError}
+            error={
+              weatherError ?? fireError ?? (!isDrilledDown ? nationalMunicipalData.meshError : null)
+            }
             loading={isViewUpdating}
             onRefresh={() => {
               clearSourcePauses();
@@ -770,6 +826,10 @@ export default function App() {
               });
               void client.invalidateQueries({ queryKey: ['fire-hotspots'], exact: false });
               void client.invalidateQueries({ queryKey: ['hydrography'], exact: false });
+              void client.invalidateQueries({
+                queryKey: ['map', 'municipality'],
+                refetchType: 'none',
+              });
             }}
           />
           <AccountMenu />

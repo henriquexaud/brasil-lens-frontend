@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react';
 import type { InfiniteData } from '@tanstack/react-query';
 import type { MapFeatureCollection, WeatherCity, WeatherCurrentResponse } from '@/api/types';
 import { rainAmount } from '@/features/rainfall/rainScale';
+import { mergeWeatherCities } from './mergeWeatherCities';
 
 interface WeatherMapDataInput {
   scope: { parent: string | null };
@@ -44,20 +45,10 @@ export function useWeatherMapData({
       ...(closeMunicipalView ? (nearbyWeather.data?.cities ?? []) : []),
       ...(selectedCode?.length === 7 ? (selectedWeather.data?.cities ?? []) : []),
     ];
-    for (const city of incoming) {
-      if (scope.parent && !city.id.startsWith(scope.parent)) continue;
-      const known = byId.get(city.id);
-      if (known) {
-        const knownAt = Date.parse(known.observedAt);
-        const incomingAt = Date.parse(city.observedAt);
-        if (
-          knownAt > incomingAt ||
-          (knownAt === incomingAt && !known.isInferred && city.isInferred)
-        )
-          continue;
-      }
-      byId.set(city.id, city);
-    }
+    mergeWeatherCities(
+      byId,
+      incoming.filter((city) => !scope.parent || city.id.startsWith(scope.parent)),
+    );
     return [...byId.values()];
   }, [
     isDrilledDown,

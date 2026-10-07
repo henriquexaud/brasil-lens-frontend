@@ -19,8 +19,9 @@ import type {
 } from '@/api/types';
 import { snapBbox } from '@/features/map/viewport';
 import { useDeferredReady } from '@/lib/useDeferredReady';
+import { mergeWeatherCities } from './mergeWeatherCities';
 
-function seedCityWeather(
+export function seedCityWeather(
   client: QueryClient,
   response: WeatherCurrentResponse,
   cities: WeatherCity[] = response.cities,
@@ -28,6 +29,12 @@ function seedCityWeather(
   const updatedAt = Date.parse(response.fetchedAt);
   for (const city of cities) {
     const key = weatherCurrentOptions(city.id).queryKey;
+    const known = client.getQueryData<WeatherCurrentResponse>(key)?.cities[0];
+    if (known) {
+      const merged = new Map([[known.id, known]]);
+      mergeWeatherCities(merged, [city]);
+      if (merged.get(city.id) === known) continue;
+    }
     if ((client.getQueryState(key)?.dataUpdatedAt ?? 0) >= updatedAt) continue;
     client.setQueryData(key, { ...response, cities: [city], nextOffset: null }, { updatedAt });
   }
@@ -120,14 +127,11 @@ export function useMunicipalityWeather(parent: string | null, enabled: boolean, 
 
 export function useUserStateWeather(parent: string | null, enabled: boolean) {
   const client = useQueryClient();
-  const queryKey = ['weather', 'state', parent];
-  useCancelWhenDisabled(queryKey, enabled);
+  const options = stateWeatherOptions(parent);
+  useCancelWhenDisabled(options.queryKey, enabled);
   const query = useQuery({
-    queryKey,
-    queryFn: ({ signal }) => apiGet<WeatherCurrentResponse>('/weather/state', { parent }, signal),
+    ...options,
     enabled: enabled && Boolean(parent),
-    staleTime: staleUntilExpiry(MAP_FRESHNESS_MS),
-    gcTime: 60 * 60 * 1000,
     refetchInterval: enabled ? refreshAtExpiry(MAP_FRESHNESS_MS) : false,
     refetchOnWindowFocus: false,
   });
@@ -142,6 +146,16 @@ export function useUserStateWeather(parent: string | null, enabled: boolean) {
   }, [client, query.data]);
 
   return query;
+}
+
+export function stateWeatherOptions(parent: string | null) {
+  return {
+    queryKey: ['weather', 'state', parent],
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      apiGet<WeatherCurrentResponse>('/weather/state', { parent }, signal),
+    staleTime: staleUntilExpiry(MAP_FRESHNESS_MS),
+    gcTime: 60 * 60 * 1000,
+  };
 }
 
 export function useWeatherAlerts(enabled = true) {

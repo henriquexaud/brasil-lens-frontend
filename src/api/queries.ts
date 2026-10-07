@@ -27,7 +27,7 @@ import type {
 
 export { FIRE_HOTSPOT_HOURS } from './queryKeys';
 
-function geometryOptions(
+export function geometryOptions(
   level: MapQuery['level'],
   parent: string | null,
   lod: 'overview' | 'detail',

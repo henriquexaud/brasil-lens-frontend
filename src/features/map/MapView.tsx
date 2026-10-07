@@ -15,6 +15,7 @@ import type {
 
 import { TerritoryLayer } from './TerritoryLayer';
 import { DiscoveredMosaicLayer } from './DiscoveredMosaicLayer';
+import { NationalMunicipalLayer, type NationalMosaic } from './NationalMunicipalLayer';
 import { ViewportObserver, type MapViewport } from './ViewportObserver';
 import { WheelGestures } from './WheelGestures';
 import { RendererSync } from './RendererSync';
@@ -63,6 +64,8 @@ interface Props {
   completeMosaicStates?: Set<string>;
   exploredWeatherByCode?: Map<string, WeatherCity>;
   exploredFireByCode?: Map<string, FireMunicipality>;
+  nationalMosaic?: NationalMosaic;
+  nationalMosaicPaused?: boolean;
   locationTarget?: {
     code: string;
     latitude: number;
@@ -146,6 +149,8 @@ export function MapView({
   completeMosaicStates = new Set<string>(),
   exploredWeatherByCode,
   exploredFireByCode,
+  nationalMosaic,
+  nationalMosaicPaused = false,
   locationTarget,
 }: Props) {
   const scopeKey = collection
@@ -213,6 +218,16 @@ export function MapView({
             completeStates={completeMosaicStates}
             weatherByCode={exploredWeatherByCode}
             fireByCode={exploredFireByCode}
+            fireMode={fireMode}
+            rainMode={rainMode}
+            climateMode={climateMode}
+          />
+          <NationalMunicipalLayer
+            data={nationalMosaic}
+            visible={
+              collection.scope.level === 'state' && Boolean(fireMode || rainMode || climateMode)
+            }
+            paused={nationalMosaicPaused}
             fireMode={fireMode}
             rainMode={rainMode}
             climateMode={climateMode}
