@@ -1788,8 +1788,8 @@ body {
 @media (max-width: 900px) {
   .panel-slot {
     top: auto;
-    /* Reserva o rodapé para o tema e a atribuição, sem cobrir a gaveta. */
-    bottom: calc(76px + env(safe-area-inset-bottom));
+    /* O tema fica no topo; só a atribuição precisa de folga no rodapé. */
+    bottom: calc(28px + env(safe-area-inset-bottom));
     left: 8px;
     right: 8px;
     width: auto;
@@ -3384,7 +3384,11 @@ body {
 @media (max-width: 900px) {
   .search-slot {
     z-index: 610;
-    width: min(340px, calc(100% - 2 * var(--gutter)));
+    top: max(var(--gutter), env(safe-area-inset-top));
+    width: min(
+      340px,
+      calc(100% - var(--gutter) - max(var(--gutter), env(safe-area-inset-right)) - 86px)
+    );
   }
 
   .search-input {
@@ -3552,6 +3556,13 @@ body {
 .theme-switch[aria-checked='false'] .theme-switch__icon--sun,
 .theme-switch[aria-checked='true'] .theme-switch__icon--moon {
   color: var(--theme-icon-active);
+}
+
+@media (max-width: 900px) {
+  .app:not(.auth-page) .theme-switch {
+    top: max(var(--gutter), env(safe-area-inset-top));
+    bottom: auto;
+  }
 }
 
 @media (hover: none) {
