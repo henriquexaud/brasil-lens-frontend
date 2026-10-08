@@ -132,49 +132,20 @@
 }
 
 .socioeconomic-app .indicator-controls {
-  padding-top: 6px;
-  padding-bottom: 10px;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
 }
 
 .socioeconomic-app .indicator-segmented-control {
-  display: flex;
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 3px;
-  gap: 3px;
   margin-bottom: 8px;
 }
 
-.socioeconomic-app .indicator-segment-btn {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text-soft);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 500;
-  padding: 5px 6px;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: center;
-  white-space: nowrap;
+.socioeconomic-app .weather-segment-indicator {
   transition:
-    background-color var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out),
+    transform var(--motion-ui) var(--ease-out),
+    background-color var(--motion-ui) var(--ease-in-out),
     box-shadow var(--motion-fast) var(--ease-out);
-}
-
-.socioeconomic-app .indicator-segment-btn:hover {
-  color: var(--text);
-  background: rgb(255 255 255 / 60%);
-}
-
-.socioeconomic-app .indicator-segment-btn.is-active {
-  background: var(--surface);
-  color: var(--indicator-accent);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgb(38 55 61 / 8%);
 }
 
 .socioeconomic-app .indicator-pills-row {
@@ -289,10 +260,6 @@
 .context-select {
   margin-bottom: 12px;
 }
-.socioeconomic-app .indicator-controls {
-  padding: 0;
-  border: 0;
-}
 .socioeconomic-app .source-note {
   margin: 10px 0 0;
 }
@@ -303,10 +270,6 @@
   background: color-mix(in srgb, var(--indicator-tone) 22%, var(--surface));
   color: var(--text);
   border-color: var(--indicator-tone);
-}
-:root[data-theme='dark'] .socioeconomic-app .indicator-segment-btn.is-active {
-  background: var(--surface);
-  color: var(--indicator-tint);
 }
 @media (max-width: 900px) {
   .context-select select,

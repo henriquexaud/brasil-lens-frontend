@@ -18,7 +18,6 @@ function categoryStyle(key: string): CSSProperties {
   return {
     '--indicator-accent': palette[palette.length - 1],
     '--indicator-tone': palette[3],
-    '--indicator-tint': palette[1],
   } as CSSProperties;
 }
 
@@ -64,6 +63,11 @@ export function ControlPanel({
     () => getCategoryForIndicatorKey(selectedIndicatorKey, categories),
     [selectedIndicatorKey, categories],
   );
+  const activeIndex = Math.max(
+    0,
+    categories.findIndex((category) => category.id === activeCategoryId),
+  );
+  const segmentCount = Math.max(1, categories.length);
 
   const activeCategory = useMemo(
     () => categories.find((c) => c.id === activeCategoryId) ?? categories[0],
@@ -99,10 +103,18 @@ export function ControlPanel({
     >
       {categories.length > 1 && (
         <div
-          className="indicator-segmented-control"
+          className="weather-segmented-control indicator-segmented-control"
           role="tablist"
           aria-label="Dimensões socioeconômicas"
         >
+          <span
+            className="weather-segment-indicator"
+            aria-hidden="true"
+            style={{
+              width: `calc((100% - ${6 + (segmentCount - 1) * 3}px) / ${segmentCount})`,
+              transform: `translateX(calc(${activeIndex * 100}% + ${3 + activeIndex * 3}px))`,
+            }}
+          />
           {categories.map((cat) => {
             const isActive = cat.id === activeCategoryId;
             return (
@@ -111,8 +123,7 @@ export function ControlPanel({
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                className={`indicator-segment-btn ${isActive ? 'is-active' : ''}`}
-                style={categoryStyle(cat.defaultKey)}
+                className={`weather-segment-btn ${isActive ? 'is-active' : ''}`}
                 onMouseEnter={() => prefetchIndicator(cat.defaultKey)}
                 onFocus={() => prefetchIndicator(cat.defaultKey)}
                 onClick={() => {
