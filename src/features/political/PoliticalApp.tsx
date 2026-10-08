@@ -20,7 +20,7 @@ import { useMobileSheet } from '@/app/useMobileSheet';
 import { ControlPanel } from './ControlPanel';
 import { Legend } from './Legend';
 import { TerritoryPanel } from './TerritoryPanel';
-import { useCatalog, useValues } from './queries';
+import { useCatalog, useValues, useDetail } from './queries';
 import { presentationFor } from './presentation';
 import { DEFAULT_SELECTION, latestSelection, normalizeSelection } from './selection';
 import './political.css';
@@ -196,6 +196,7 @@ export default function PoliticalApp({ contextControl }: { contextControl: React
       ? publishedLegend
       : values.data;
   const detailCode = selectedCode ?? scope.parent ?? 'BR';
+  const detail = useDetail(detailCode, resolvedSelection, 0, false);
 
   return (
     <div className="app socioeconomic-app political-app">
@@ -285,6 +286,8 @@ export default function PoliticalApp({ contextControl }: { contextControl: React
         <div className="legend-slot">
           <Legend
             data={legendData}
+            detail={detail.error ? undefined : detail.data}
+            selection={resolvedSelection}
             metric={resolvedSelection.metric}
             loading={catalog.isPending || (Boolean(current) && values.isPending)}
           />

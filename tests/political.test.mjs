@@ -10,6 +10,7 @@ const {
   PoliticalApp,
   TerritoryPanel,
   summaryMetric,
+  voteShares,
   presentationFor,
   candidateName,
   numericBands,
@@ -21,7 +22,7 @@ const {
 } = await loadModule(
   `
   export { TerritoryPanel } from './src/features/political/TerritoryPanel';
-  export { summaryMetric } from './src/features/political/summary';
+  export { summaryMetric, voteShares } from './src/features/political/summary';
   export { default as PoliticalApp } from './src/features/political/PoliticalApp';
   export { presentationFor, candidateName, numericBands, numericColor } from './src/features/political/presentation';
   export { DEFAULT_SELECTION, normalizeSelection, latestSelection } from './src/features/political/selection';
@@ -259,7 +260,8 @@ test('menu abre no pleito mais recente, mantém categorias e não consulta clima
     [...year.options].map((o) => o.value),
     ['2026', '2022'],
   );
-  assert.match(document.body.textContent, /Parcial · em andamento/);
+  assert.doesNotMatch(document.body.textContent, /Parcial · em andamento/);
+  assert.match(document.querySelector('.source-tag').title, /Resultado parcial/);
   const round = document.querySelector('[aria-label="Turno"]');
   assert.deepEqual(
     [...round.options].map((o) => o.value),
@@ -380,24 +382,186 @@ test('detalhes priorizam a categoria e deixam contagens secundárias sob demanda
     await settle();
     await settle();
     const section = document.querySelector('.territory-detail');
-    assert.equal(section.querySelector('.detail-header + .source-note').textContent, 'Presidência');
-    assert.equal(section.querySelectorAll('.featured-value').length, 1);
+    assert.equal(section.querySelector('.detail-header'), null);
+    assert.equal(
+      section.querySelectorAll('.featured-value').length,
+      selection.category === 'elections' ? 0 : 1,
+    );
+    if (selection.category === 'elections') {
+      assert.equal((section.textContent.match(/Candidato A/g) ?? []).length, 1);
+      assert.equal((section.textContent.match(/PL/g) ?? []).length, 1);
+      assert.equal(section.querySelectorAll('.indicator-row.is-emphasized').length, 1);
+    }
     assert.ok(!section.textContent.includes('Eleitorado'));
+    assert.ok(!section.textContent.includes('Sobre estes dados'));
+    assert.equal(section.querySelector('.political-vote-share'), null);
+    assert.equal(
+      section.querySelectorAll('.political-candidate-votes .indicator-row').length,
+      selection.category === 'elections' ? 3 : 0,
+    );
     if (selection.category === 'representation') {
       assert.equal(section.querySelector('.featured-value').textContent, '10');
       assert.match(section.textContent, /Ver eleitos/);
     } else {
-      assert.equal(
-        section.querySelector('.featured-value').textContent,
-        selection.category === 'participation' ? '80%' : 'Candidato A',
-      );
+      if (selection.category === 'participation') {
+        assert.equal(section.querySelector('.featured-value').textContent, '80%');
+        assert.equal(section.querySelector('.source-note').textContent, 'Presidência');
+      }
       await act(async () => section.querySelector('summary').click());
       await settle();
       assert.match(section.textContent, /Eleitorado/);
-      assert.equal(
-        section.textContent.includes('Dois mais votados'),
-        selection.category === 'elections',
-      );
+      assert.equal(section.textContent.includes('Dois mais votados'), false);
     }
   }
+});
+
+test('legenda balanceia os dois líderes em 100%, mas preserva percentuais e restante reais', () => {
+  const data = { ...detailFixture, summary: { ...detailFixture.summary, validVotes: 1000 } };
+  const shares = voteShares(data, DEFAULT_SELECTION);
+  assert.deepEqual(
+    shares.leaders.map((c) => c.percent),
+    [40, 30],
+  );
+  assert.equal(shares.others, 30);
+  assert.equal(shares.otherVotes, 300);
+  assert.ok(Math.abs(shares.leaders[0].balancePercent - (400 / 700) * 100) < 0.001);
+  assert.equal(
+    shares.leaders.reduce((sum, item) => sum + item.balancePercent, 0),
+    100,
+  );
+  for (const office of ['president', 'governor', 'mayor']) {
+    assert.ok(voteShares(data, { ...DEFAULT_SELECTION, office }));
+  }
+  for (const office of ['senator', 'federal_deputy', 'state_deputy', 'councillor']) {
+    assert.equal(voteShares(data, { ...DEFAULT_SELECTION, office }), null);
+  }
+  assert.equal(voteShares(data, { ...DEFAULT_SELECTION, category: 'representation' }), null);
+  assert.equal(
+    voteShares(data, { ...DEFAULT_SELECTION, category: 'participation', metric: 'turnout' }),
+    null,
+  );
+  assert.equal(voteShares(data, { ...DEFAULT_SELECTION, metric: 'leading_party' }), null);
+  for (const validVotes of [null, undefined, 0, -1, 600, NaN]) {
+    assert.equal(
+      voteShares({ ...data, summary: { ...data.summary, validVotes } }, DEFAULT_SELECTION),
+      null,
+    );
+  }
+  for (const votes of [null, undefined, -1, NaN]) {
+    assert.equal(
+      voteShares(
+        { ...data, leaders: [{ ...data.leaders[0], votes }, data.leaders[1]] },
+        DEFAULT_SELECTION,
+      ),
+      null,
+    );
+  }
+  assert.equal(voteShares({ ...data, leaders: [data.leaders[0]] }, DEFAULT_SELECTION), null);
+  assert.equal(
+    voteShares({ ...data, leaders: [data.leaders[0], data.leaders[0]] }, DEFAULT_SELECTION),
+    null,
+  );
+  const zero = voteShares(
+    { ...data, leaders: [{ ...data.leaders[0], votes: 0 }, data.leaders[1]] },
+    DEFAULT_SELECTION,
+  );
+  assert.equal(zero.leaders[0].percent, 0);
+});
+
+test('menu mostra os votos dos dois líderes e do restante, acompanhando a renovação sem barra', async () => {
+  let response = { ...detailFixture, summary: { ...detailFixture.summary, validVotes: 1000 } };
+  globalThis.fetch = async () => new Response(JSON.stringify(response), { status: 200 });
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(TerritoryPanel, {
+          code: 'BR',
+          selection: DEFAULT_SELECTION,
+          enabled: true,
+          onDrillDown() {},
+        }),
+      ),
+    ),
+  );
+  await settle();
+  await settle();
+  const counts = () =>
+    [...document.querySelectorAll('.political-candidate-votes dd')].map((item) => item.textContent);
+  assert.deepEqual(counts(), ['400', '300', '300']);
+  assert.equal(document.querySelector('.political-vote-share'), null);
+  response = {
+    ...response,
+    leaders: [{ ...response.leaders[0], votes: 500, party: 'PT' }, response.leaders[1]],
+  };
+  await act(async () => client.invalidateQueries({ queryKey: ['political', 'detail'] }));
+  await settle();
+  assert.deepEqual(counts(), ['500', '300', '200']);
+  response = { ...response, summary: { ...response.summary, validVotes: null } };
+  await act(async () => client.invalidateQueries({ queryKey: ['political', 'detail'] }));
+  await settle();
+  assert.deepEqual(counts(), ['500', '300', 'Sem dados']);
+});
+
+test('legenda acompanha o detalhe do recorte com a mesma consulta do menu', async () => {
+  const originalFetch = globalThis.fetch;
+  let response = { ...detailFixture, summary: { ...detailFixture.summary, validVotes: 1000 } };
+  globalThis.fetch = async (url, ...args) => {
+    if (new URL(url).pathname.includes('/territories/')) {
+      calls.push(new URL(url));
+      return new Response(JSON.stringify(response), { status: 200 });
+    }
+    return originalFetch(url, ...args);
+  };
+  await render();
+  const labels = () =>
+    [...document.querySelectorAll('.scale-legend-labels > span')].map((item) => item.textContent);
+  assert.deepEqual(labels(), ['PL 40%', 'PT 30%']);
+  assert.equal(calls.filter((p) => p.pathname.includes('/territories/')).length, 1);
+  response = {
+    ...response,
+    leaders: [{ ...response.leaders[0], votes: 500 }, response.leaders[1]],
+  };
+  await act(async () => client.invalidateQueries({ queryKey: ['political', 'detail'] }));
+  await settle();
+  assert.deepEqual(labels(), ['PL 50%', 'PT 30%']);
+});
+
+test('território selecionado mantém identificação e empate não destaca um vencedor', async () => {
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        ...detailFixture,
+        ibgeCode: '35',
+        name: 'São Paulo',
+        level: 'state',
+        summary: { ...detailFixture.summary, candidateTie: true },
+      }),
+      { status: 200 },
+    );
+  await act(async () =>
+    root.render(
+      h(
+        QueryClientProvider,
+        { client },
+        h(TerritoryPanel, {
+          code: '35',
+          selection: DEFAULT_SELECTION,
+          enabled: true,
+          onClose() {},
+          onDrillDown() {},
+        }),
+      ),
+    ),
+  );
+  await settle();
+  await settle();
+  assert.equal(document.querySelector('.detail-title').textContent, 'São Paulo');
+  assert.equal(document.querySelector('.featured-value').textContent, 'Empate');
+  assert.equal(document.querySelector('.indicator-row.is-emphasized'), null);
+  assert.equal(
+    (document.querySelector('.territory-detail').textContent.match(/Candidato A/g) ?? []).length,
+    1,
+  );
 });

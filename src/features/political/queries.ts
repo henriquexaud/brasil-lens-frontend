@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/api/client';
 import type {
@@ -8,6 +9,8 @@ import type {
   TerritoryLevel,
 } from '@/api/types';
 import { parameters } from './selection';
+import { electionRefreshInterval } from './liveElection';
+import { useElectionWindow } from './useElectionWindow';
 
 const FRESHNESS = 5 * 60 * 1000;
 export function useCatalog() {
@@ -36,7 +39,8 @@ export function useValues(
 }
 export function useDetail(code: string, selection: PoliticalSelection, offset = 0, enabled = true) {
   const { year, office, round } = parameters(selection);
-  return useQuery({
+  const window = useElectionWindow();
+  const query = useQuery({
     queryKey: ['political', 'detail', code, year, office, round, offset],
     queryFn: ({ signal }) =>
       apiGet<PoliticalDetail>(
@@ -45,6 +49,15 @@ export function useDetail(code: string, selection: PoliticalSelection, offset = 
         signal,
       ),
     staleTime: FRESHNESS,
+    refetchInterval: (query) =>
+      electionRefreshInterval(window, selection, query.state.data?.status),
+    refetchIntervalInBackground: false,
     enabled,
   });
+  const live = enabled && Boolean(electionRefreshInterval(window, selection, query.data?.status));
+  const { refetch } = query;
+  useEffect(() => {
+    if (live) void refetch({ cancelRefetch: false });
+  }, [live, refetch]);
+  return query;
 }

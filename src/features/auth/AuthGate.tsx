@@ -2,6 +2,7 @@ import { lazy, memo, Suspense } from 'react';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
 import { useAuth } from './AuthContext';
 import { AuthScreen } from './AuthScreen';
+import './auth-lens.css';
 
 const MapApp = memo(lazy(() => import('@/App')));
 

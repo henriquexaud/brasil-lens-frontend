@@ -17,11 +17,15 @@ export function PartyDot({ party }: { party: string }) {
   );
 }
 
-export function PoliticalStats({ rows }: { rows: { label: string; value: ReactNode }[] }) {
+export function PoliticalStats({
+  rows,
+}: {
+  rows: { label: string; value: ReactNode; emphasized?: boolean }[];
+}) {
   return (
     <dl className="indicator-list">
-      {rows.map(({ label, value }) => (
-        <div className="indicator-row" key={label}>
+      {rows.map(({ label, value, emphasized }) => (
+        <div className={`indicator-row${emphasized ? ' is-emphasized' : ''}`} key={label}>
           <dt className="indicator-label">{label}</dt>
           <dd className="indicator-value">{value}</dd>
         </div>
@@ -108,7 +112,8 @@ export function PoliticalSummary({
               : `${formatCount(metric.count)} ${['turnout', 'abstention'].includes(selection.metric) ? 'eleitores' : 'votos'}`
             : summary.candidateTie
               ? 'Empate entre os mais votados'
-              : leader && (
+              : data.leaders.length < 2 &&
+                leader && (
                   <>
                     <PartyDot party={leader.party} />
                     {candidateName(leader.name)} · {leader.party}
@@ -141,7 +146,8 @@ export function PoliticalSummary({
         ) : leader && !tie ? (
           <>
             <PartyDot party={leader.party} />
-            {leader.party} · {formatCount(leader.votes)} votos
+            {leader.party}
+            {data.leaders.length < 2 && ` · ${formatCount(leader.votes)} votos`}
           </>
         ) : !tie ? (
           'Consulte um município para ver os candidatos.'

@@ -122,3 +122,80 @@ test('avisos de erro, carga e janela de 48 horas passam pelo componente comum', 
   await render(WeatherLegend, {notice:'Dados estimados'});
   assert.equal(document.querySelector('[role=status]').textContent,'Dados estimados');
 });
+
+const electionSelection = {
+  category: 'elections',
+  office: 'president',
+  year: 2026,
+  round: 1,
+  metric: 'leading_candidate',
+};
+const voteDetail = {
+  ibgeCode: 'BR',
+  year: 2026,
+  office: 'president',
+  round: 1,
+  status: 'partial',
+  summary: { validVotes: 1000 },
+  leaders: [
+    { id: '1', name: 'CANDIDATO A', party: 'PL', votes: 400 },
+    { id: '2', name: 'CANDIDATO B', party: 'PT', votes: 300 },
+  ],
+};
+test('legenda flutuante normaliza larguras dos líderes e rotula os percentuais dos votos válidos', async () => {
+  await render(PoliticalLegend, {
+    data: politicalData,
+    metric: 'leading_candidate',
+    loading: false,
+    detail: voteDetail,
+    selection: electionSelection,
+  });
+  assert.equal(segments().length, 2);
+  const weights = segments().map((item) => Number(item.style.flexGrow));
+  assert.ok(Math.abs(weights[0] - (400 / 700) * 100) < 0.001);
+  assert.ok(Math.abs(weights[1] - (300 / 700) * 100) < 0.001);
+  assert.deepEqual(
+    [...document.querySelectorAll('.scale-legend-labels > span')].map((item) => item.textContent),
+    ['PL 40%', 'PT 30%'],
+  );
+  assert.match(segments()[0].title, /Candidato A.*40% dos votos válidos/);
+  await act(async () => segments()[1].focus());
+  assert.match(
+    document.querySelector('.scale-legend-active-text').textContent,
+    /30% dos votos válidos/,
+  );
+  await render(PoliticalLegend, {
+    data: politicalData,
+    metric: 'leading_candidate',
+    loading: false,
+    detail: {
+      ...voteDetail,
+      leaders: voteDetail.leaders.map((item) => ({ ...item, party: 'PT' })),
+    },
+    selection: electionSelection,
+  });
+  assert.deepEqual(
+    [...document.querySelectorAll('.scale-legend-labels > span')].map((item) => item.textContent),
+    ['Candidato A 40%', 'Candidato B 30%'],
+  );
+});
+test('detalhe ausente não fabrica percentuais; legenda numérica mantém a escala do mapa', async () => {
+  await render(PoliticalLegend, {
+    data: politicalData,
+    metric: 'leading_candidate',
+    loading: false,
+    detail: { ...voteDetail, summary: { validVotes: null } },
+    selection: electionSelection,
+  });
+  assert.equal(document.querySelector('.scale-legend-labels'), null);
+  assert.ok(segments().every((item) => item.style.flexGrow === ''));
+  await render(PoliticalLegend, {
+    data: { ...politicalData, metric: 'leader_share' },
+    metric: 'leader_share',
+    loading: false,
+    detail: voteDetail,
+    selection: { ...electionSelection, metric: 'leader_share' },
+  });
+  assert.equal(segments().length, 10);
+  assert.equal(document.querySelector('.scale-legend-labels'), null);
+});

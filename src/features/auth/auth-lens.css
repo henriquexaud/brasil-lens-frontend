@@ -1,0 +1,875 @@
+/* Lente animada da tela de acesso.
+
+   Uma só malha de territórios, três leituras: clima, socioeconômico e política.
+   Um satélite dá uma volta na lente a cada 8 s; ao fechar a volta, o componente
+   troca `data-context` e marca a cena ativa com `.is-active`. Todo o resto são
+   transições entre o estado ativo e o inativo, nesta ordem:
+
+     0 ms     etiquetas e seleção do contexto anterior saem
+     120 ms   a torre de contextos gira e a lente se desloca até o novo foco
+     350 ms   as cores mudam em onda, a partir do foco
+     550 ms   rios, rodovias ou divisas se desenham; a seleção se fecha
+     1100 ms  a linha, o cartão e as pílulas entram
+
+   Tema: claro e escuro são a mesma peça, com as cores trocadas por variáveis.
+   A troca de tema usa `--lens-retint`, em propriedades que a coreografia não
+   anima, então ela nunca reinicia nem atrasa o que está em andamento.
+
+   As medidas vêm da arte de 1540 × 1568: --u é um pixel dela. */
+
+.auth-lens {
+  --lens-fade: var(--motion-ui) var(--ease-in-out);
+  --lens-retint:
+    background-color var(--lens-fade), border-color var(--lens-fade), color var(--lens-fade),
+    box-shadow var(--lens-fade), fill var(--lens-fade), stroke var(--lens-fade);
+  --lens-ground: #f2f5f4;
+  --lens-orbit: #d6e1df;
+  --lens-track: #a7b3b4;
+  --lens-rim: #3b434d;
+  --lens-tick: #3b434d;
+  --lens-disc: #e9eeed;
+  --lens-disc-shade: rgb(38 55 61 / 20%);
+  --lens-shade: rgb(38 55 61 / 16%);
+  --lens-surface: #ffffff;
+  --lens-surface-edge: transparent;
+  --lens-card: #fdfdfb;
+  --lens-text: #1f2933;
+  --lens-muted: #6b7680;
+  --lens-source: #eef0f0;
+  --lens-source-edge: transparent;
+  --lens-source-text: #5b6672;
+  --lens-glow: 1;
+  --lens-river: #9db2b8;
+  --lens-road: #9fb1b5;
+  --lens-road-core: #ffffff;
+  --lens-border: #8796a0;
+  --lens-town: #ffffff;
+  --lens-town-edge: #6f8388;
+  --lens-inner: #ffffff;
+  container-type: inline-size;
+  width: 100%;
+}
+
+:root[data-theme='dark'] .auth-lens {
+  --lens-ground: #111d23;
+  --lens-orbit: #263b43;
+  --lens-track: #5a727a;
+  --lens-rim: #d6e3e4;
+  --lens-tick: #ffffff;
+  --lens-disc: #2b4047;
+  --lens-disc-shade: rgb(0 0 0 / 40%);
+  --lens-shade: rgb(0 0 0 / 38%);
+  --lens-surface: #1c2d35;
+  --lens-surface-edge: #3d5761;
+  --lens-card: #1c2d35;
+  --lens-text: #f3f7f8;
+  --lens-muted: #a9bcc2;
+  --lens-source: transparent;
+  --lens-source-edge: #4a646e;
+  --lens-source-text: #a9bcc2;
+  --lens-glow: 0.12;
+  --lens-river: #86d3df;
+  --lens-road: #b9cdd1;
+  --lens-road-core: #1c2d35;
+  --lens-border: #dbe6e8;
+  --lens-town: #16272d;
+  --lens-town-edge: #d6e3e4;
+  --lens-inner: #9fb4ba;
+}
+
+/* Cores de cada contexto. `--lens-label` é o texto do nó na torre. */
+.auth-lens[data-context='climate'],
+.auth-lens [data-scene='climate'] {
+  --lens-accent: #c2933f;
+  --lens-wash: #fbefc0;
+  --lens-deep: #6b4a12;
+  --lens-edge: #ead9a8;
+  --lens-label: #6b4a12;
+  --lens-selection: rgb(221 214 200 / 86%);
+  --lens-dot: #4a6fd8;
+}
+
+.auth-lens[data-context='socioeconomic'],
+.auth-lens [data-scene='socioeconomic'] {
+  --lens-accent: #2f8f7a;
+  --lens-wash: #dff2ec;
+  --lens-deep: #17594b;
+  --lens-edge: #a9d8cb;
+  --lens-label: #17594b;
+  --lens-selection: rgb(211 222 219 / 86%);
+  --lens-dot: #2a9753;
+}
+
+.auth-lens[data-context='political'],
+.auth-lens [data-scene='political'] {
+  --lens-accent: #3267ae;
+  --lens-wash: #e3ebf7;
+  --lens-deep: #213f6e;
+  --lens-edge: #b4c6e2;
+  --lens-label: #213f6e;
+  --lens-selection: rgb(214 219 228 / 86%);
+  --lens-dot: #8d8595;
+}
+
+:root[data-theme='dark'] .auth-lens[data-context='climate'],
+:root[data-theme='dark'] .auth-lens [data-scene='climate'] {
+  --lens-accent: #e6a82e;
+  --lens-edge: #3d5761;
+  --lens-label: #f3f7f8;
+  --lens-selection: rgb(42 47 43 / 62%);
+  --lens-dot: #6f9cff;
+}
+
+:root[data-theme='dark'] .auth-lens[data-context='socioeconomic'],
+:root[data-theme='dark'] .auth-lens [data-scene='socioeconomic'] {
+  --lens-accent: #5fdcba;
+  --lens-edge: #3d5761;
+  --lens-label: #f3f7f8;
+  --lens-selection: rgb(22 39 45 / 62%);
+  --lens-dot: #58c27a;
+}
+
+:root[data-theme='dark'] .auth-lens[data-context='political'],
+:root[data-theme='dark'] .auth-lens [data-scene='political'] {
+  --lens-accent: #7fb2ff;
+  --lens-edge: #3d5761;
+  --lens-label: #f3f7f8;
+  --lens-selection: rgb(22 36 45 / 62%);
+  --lens-dot: #a3acb8;
+}
+
+.auth-lens-stage {
+  --u: calc(100cqw / 1540);
+  /* Entra e sai devagar: para o que gira ou se desloca por inteiro. */
+  --lens-swing: cubic-bezier(0.65, 0, 0.35, 1);
+  --lens-shadow: 0 calc(14 * var(--u)) calc(40 * var(--u)) var(--lens-shade);
+  position: relative;
+  aspect-ratio: 1540 / 1568;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--lens-ground);
+  color: var(--lens-text);
+  font-family: var(--font);
+  pointer-events: none;
+  /* Só o fundo: a cor do texto é herdada e já tem transição em quem a usa. */
+  transition: background-color var(--lens-fade);
+  user-select: none;
+}
+
+/* ------------------------------------------------------------- órbitas -- */
+
+.auth-lens-ring,
+.auth-lens-turret {
+  position: absolute;
+  top: calc(109 * var(--u));
+  left: calc(82 * var(--u));
+  width: calc(1356 * var(--u));
+  height: calc(1356 * var(--u));
+  border-radius: 50%;
+}
+
+.auth-lens-ring {
+  border: calc(2.5 * var(--u)) solid var(--lens-orbit);
+  transition: var(--lens-retint);
+}
+
+.auth-lens-dots {
+  position: absolute;
+  top: calc(147 * var(--u));
+  left: calc(120 * var(--u));
+  width: calc(1280 * var(--u));
+  height: calc(1280 * var(--u));
+  animation: auth-lens-spin 300s linear infinite reverse;
+}
+
+.auth-lens-dots circle {
+  fill: none;
+  stroke: var(--lens-track);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 13.1;
+  transition: var(--lens-retint);
+}
+
+/* O relógio da peça: uma volta por contexto, na trilha pontilhada. A cor muda
+   com o contexto e com o tema, sempre pela mesma transição curta. */
+.auth-lens-satellite {
+  position: absolute;
+  top: calc(155 * var(--u));
+  left: calc(128 * var(--u));
+  width: calc(1264 * var(--u));
+  height: calc(1264 * var(--u));
+  color: var(--lens-accent);
+  transition: color 500ms var(--ease-in-out);
+}
+
+.auth-lens-satellite span {
+  position: absolute;
+  inset: 0;
+  animation: auth-lens-spin 8s linear;
+}
+
+.auth-lens-satellite span::before {
+  position: absolute;
+  inset: calc(-2 * var(--u));
+  border-radius: 50%;
+  background: conic-gradient(transparent 292deg, currentColor 360deg);
+  content: '';
+  -webkit-mask-image: radial-gradient(closest-side, transparent calc(100% - 4 * var(--u)), #000 0);
+  mask-image: radial-gradient(closest-side, transparent calc(100% - 4 * var(--u)), #000 0);
+}
+
+.auth-lens-satellite i {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+  margin: calc(-9 * var(--u));
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 calc(5 * var(--u)) var(--lens-ground);
+  transition: box-shadow var(--lens-fade);
+}
+
+/* Torre de contextos: os três orbitam o anel externo e o que para na marca do
+   topo é o que a lente mostra. O nó gira ao contrário para ficar em pé. */
+.auth-lens-turret {
+  transform: rotate(calc(var(--turn) * 120deg));
+  transition: transform 1100ms var(--lens-swing) 120ms;
+}
+
+.auth-lens-node {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: rotate(calc(var(--turn) * -120deg));
+  transition: transform 1100ms var(--lens-swing) 120ms;
+}
+
+.auth-lens-node[data-scene='socioeconomic'] {
+  top: 75%;
+  left: 6.7%;
+}
+
+.auth-lens-node[data-scene='political'] {
+  top: 75%;
+  left: 93.3%;
+}
+
+/* Fora da vez, o nó é só um ponto na cor do contexto. Na vez, uma superfície
+   se abre por cima dele (::before): é ela que aparece e some, para a cor de
+   fundo ficar livre para a troca de tema. */
+.auth-lens-node-body {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  height: calc(66 * var(--u));
+  padding: 0 calc(14 * var(--u));
+  border: calc(2.5 * var(--u)) solid var(--lens-accent);
+  border-radius: calc(33 * var(--u));
+  background: var(--lens-accent);
+  color: var(--lens-label);
+  font-size: calc(31 * var(--u));
+  font-weight: 650;
+  letter-spacing: calc(-0.2 * var(--u));
+  white-space: nowrap;
+  transform: translate(-50%, -50%) scale(0.3);
+  transition:
+    transform 320ms var(--ease-in-out) 80ms,
+    var(--lens-retint);
+}
+
+.auth-lens-node-body::before {
+  position: absolute;
+  inset: calc(-2.5 * var(--u));
+  border: calc(2.5 * var(--u)) solid var(--lens-accent);
+  border-radius: inherit;
+  background: var(--lens-surface);
+  box-shadow: var(--lens-shadow);
+  content: '';
+  opacity: 0;
+  transition:
+    opacity 260ms var(--ease-in-out) 80ms,
+    var(--lens-retint);
+}
+
+.auth-lens-node-body svg {
+  position: relative;
+  flex: none;
+  width: calc(33 * var(--u));
+  height: calc(33 * var(--u));
+  color: var(--lens-accent);
+  opacity: 0;
+  transition:
+    opacity 160ms var(--ease-in-out),
+    var(--lens-retint);
+}
+
+/* O rótulo abre pela largura máxima: ~0,62em por letra, com folga. */
+.auth-lens-node-label {
+  position: relative;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-width 260ms var(--ease-in-out),
+    opacity 140ms var(--ease-in-out);
+}
+
+.auth-lens-node-label span {
+  display: block;
+  padding: 0 calc(8 * var(--u)) 0 calc(12 * var(--u));
+}
+
+.auth-lens-node.is-active .auth-lens-node-body {
+  transform: translate(-50%, -50%) scale(1);
+  transition:
+    transform 460ms var(--ease-out) 880ms,
+    var(--lens-retint);
+}
+
+.auth-lens-node.is-active .auth-lens-node-body::before {
+  opacity: 1;
+  transition:
+    opacity 300ms var(--ease-out) 880ms,
+    var(--lens-retint);
+}
+
+.auth-lens-node.is-active svg {
+  opacity: 1;
+  transition:
+    opacity 260ms var(--ease-out) 980ms,
+    var(--lens-retint);
+}
+
+.auth-lens-node.is-active .auth-lens-node-label {
+  max-width: calc(var(--letters) * 0.62em + 20 * var(--u));
+  opacity: 1;
+  transition:
+    max-width 480ms var(--ease-out) 1040ms,
+    opacity 360ms var(--ease-out) 1140ms;
+}
+
+/* ---------------------------------------------------------------- lente -- */
+
+.auth-lens-disc,
+.auth-lens-rim {
+  position: absolute;
+  top: calc(209 * var(--u));
+  left: calc(182 * var(--u));
+  width: calc(1156 * var(--u));
+  height: calc(1156 * var(--u));
+  border-radius: 50%;
+}
+
+.auth-lens-disc {
+  overflow: hidden;
+  background: var(--lens-disc);
+  box-shadow: 0 calc(26 * var(--u)) calc(60 * var(--u)) var(--lens-disc-shade);
+  transition: var(--lens-retint);
+}
+
+.auth-lens-rim {
+  border: calc(3.6 * var(--u)) solid var(--lens-rim);
+  transition: var(--lens-retint);
+}
+
+/* A lente se desloca um pouco na direção do território em foco. */
+.auth-lens-pan {
+  position: absolute;
+  inset: 0;
+  transform: translate(calc(var(--pan-x) * var(--u)), calc(var(--pan-y) * var(--u)));
+  transition: transform 1500ms var(--lens-swing) 120ms;
+}
+
+.auth-lens .auth-lens-map {
+  position: absolute;
+  top: calc(-70 * var(--u));
+  left: calc(-70 * var(--u));
+  width: calc(1296 * var(--u));
+  height: calc(1296 * var(--u));
+}
+
+/* A onda: cada território muda de cor com um atraso proporcional à distância
+   até o foco do contexto que entra. As divisas não se mexem. */
+.auth-lens-cell {
+  fill: var(--c0);
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  transition: fill 640ms var(--ease-in-out) calc(var(--w0) * 1ms + 350ms);
+}
+
+.auth-lens[data-context='socioeconomic'] .auth-lens-cell {
+  fill: var(--c1);
+  transition-delay: calc(var(--w1) * 1ms + 350ms);
+}
+
+.auth-lens[data-context='political'] .auth-lens-cell {
+  fill: var(--c2);
+  transition-delay: calc(var(--w2) * 1ms + 350ms);
+}
+
+/* O mosaico existe duas vezes, um por tema, e os dois fazem a mesma onda ao
+   mesmo tempo. Trocar de tema só esmaece um sobre o outro: a cor de cada
+   território continua livre para a onda, mesmo no meio de uma troca. O que
+   não aparece fica sem pintura. */
+.auth-lens-cells {
+  transition: visibility 0s;
+}
+
+.auth-lens-cells.is-dark {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--lens-fade),
+    visibility 0s linear var(--motion-ui);
+}
+
+.auth-lens-cells.is-dark .auth-lens-cell {
+  stroke: #647b81;
+  stroke-width: 2.4;
+}
+
+:root[data-theme='dark'] .auth-lens-cells {
+  visibility: hidden;
+  transition: visibility 0s linear var(--motion-ui);
+}
+
+:root[data-theme='dark'] .auth-lens-cells.is-dark {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity var(--lens-fade),
+    visibility 0s;
+}
+
+.auth-lens-glow {
+  opacity: var(--lens-glow);
+  transition: opacity var(--lens-fade);
+}
+
+/* Pulso do território selecionado: nasce no anel desenhado no mapa. */
+.auth-lens-ping {
+  position: absolute;
+  width: calc(256 * var(--u));
+  height: calc(256 * var(--u));
+  margin: calc(-128 * var(--u));
+  border: calc(2.4 * var(--u)) solid var(--lens-accent);
+  border-radius: 50%;
+  opacity: 0;
+  transition: var(--lens-retint);
+}
+
+.auth-lens-ping.is-active {
+  animation: auth-lens-ping 4s var(--ease-out) 2400ms infinite;
+}
+
+/* Rios, rodovias e divisas: desenham-se na entrada e só esmaecem na saída
+   (o traço volta ao início depois de sumir). */
+.auth-lens-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  transition:
+    opacity 360ms var(--ease-in-out),
+    stroke-dashoffset 0s linear 380ms,
+    var(--lens-retint);
+}
+
+.auth-lens-layer.is-active .auth-lens-line {
+  stroke-dashoffset: 0;
+  opacity: 1;
+  transition:
+    stroke-dashoffset calc(var(--duration) * 1ms) var(--ease-in-out)
+      calc(var(--delay) * 1ms + 550ms),
+    opacity 120ms linear calc(var(--delay) * 1ms + 550ms),
+    var(--lens-retint);
+}
+
+[data-scene='climate'] .auth-lens-line {
+  stroke: var(--lens-river);
+  stroke-opacity: 0.88;
+  stroke-width: 3;
+}
+
+[data-scene='climate'] .auth-lens-line.is-main {
+  stroke-width: 5.5;
+}
+
+[data-scene='socioeconomic'] .auth-lens-line {
+  stroke: var(--lens-road);
+  stroke-opacity: 0.85;
+  stroke-width: 3.2;
+}
+
+[data-scene='socioeconomic'] .auth-lens-line.is-main {
+  stroke-opacity: 1;
+  stroke-width: 8;
+}
+
+[data-scene='socioeconomic'] .auth-lens-line.is-core {
+  stroke: var(--lens-road-core);
+  stroke-width: 2.4;
+}
+
+[data-scene='political'] .auth-lens-line {
+  stroke: var(--lens-border);
+  stroke-opacity: 0.8;
+  stroke-width: 4.2;
+}
+
+.auth-lens-layer .auth-lens-line.is-outline {
+  stroke: var(--lens-accent);
+  stroke-opacity: 1;
+  stroke-width: 6.5;
+}
+
+.auth-lens-town {
+  fill: var(--lens-town);
+  stroke: var(--lens-town-edge);
+  stroke-width: 2.8;
+  opacity: 0;
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 300ms var(--ease-in-out),
+    transform 0s linear 320ms,
+    var(--lens-retint);
+}
+
+.auth-lens-layer.is-active .auth-lens-town {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    transform 420ms var(--ease-out) calc(var(--delay) * 1ms + 620ms),
+    opacity 160ms linear calc(var(--delay) * 1ms + 620ms),
+    var(--lens-retint);
+}
+
+.auth-lens-halo,
+.auth-lens-selection,
+.auth-lens-selection-inner {
+  opacity: 0;
+  transition:
+    opacity 300ms var(--ease-in-out),
+    var(--lens-retint);
+}
+
+.auth-lens-halo {
+  fill: none;
+  stroke: var(--lens-accent);
+  stroke-width: 2.2;
+}
+
+.auth-lens-halo circle:first-child {
+  opacity: 0.5;
+}
+
+.auth-lens-halo circle:last-child {
+  opacity: 0.26;
+}
+
+.auth-lens-selection {
+  fill: var(--lens-selection);
+}
+
+.auth-lens-selection-inner {
+  fill: none;
+  stroke: var(--lens-inner);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.auth-lens-layer.is-active .auth-lens-selection {
+  opacity: 1;
+  transition:
+    opacity 520ms var(--ease-out) 700ms,
+    var(--lens-retint);
+}
+
+.auth-lens-layer.is-active .auth-lens-selection-inner {
+  opacity: 0.45;
+  transition:
+    opacity 520ms var(--ease-out) 700ms,
+    var(--lens-retint);
+}
+
+.auth-lens-layer.is-active .auth-lens-halo {
+  opacity: 1;
+  transition:
+    opacity 700ms var(--ease-out) 1300ms,
+    var(--lens-retint);
+}
+
+.auth-lens-ticks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--lens-tick);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  transition: var(--lens-retint);
+}
+
+/* ------------------------------------------------------ pílulas e cartão -- */
+
+.auth-lens-leader {
+  position: absolute;
+  height: calc(3 * var(--u));
+  margin-top: calc(-1.5 * var(--u));
+  border-radius: calc(2 * var(--u));
+  background: var(--lens-accent);
+  opacity: 0;
+  transform: rotate(var(--angle)) scaleX(0);
+  transform-origin: 0 50%;
+  transition:
+    opacity 160ms var(--ease-in-out),
+    transform 0s linear 180ms,
+    var(--lens-retint);
+}
+
+/* Ponto de partida da linha, junto ao território. */
+.auth-lens-leader::before {
+  position: absolute;
+  top: calc(-4 * var(--u));
+  left: calc(-5.5 * var(--u));
+  width: calc(11 * var(--u));
+  height: calc(11 * var(--u));
+  border-radius: 50%;
+  background: inherit;
+  content: '';
+}
+
+.auth-lens-scene.is-active .auth-lens-leader {
+  opacity: 1;
+  transform: rotate(var(--angle)) scaleX(1);
+  transition:
+    transform 320ms var(--ease-out) 1100ms,
+    opacity 80ms linear 1100ms,
+    var(--lens-retint);
+}
+
+.auth-lens-chip,
+.auth-lens-card {
+  position: absolute;
+  opacity: 0;
+  transition:
+    opacity 200ms var(--ease-in-out),
+    transform 200ms var(--ease-in-out),
+    var(--lens-retint);
+}
+
+/* No escuro a pílula ganha um fio de contorno; ele vai na sombra para não
+   mexer no tamanho. */
+.auth-lens-chip {
+  display: inline-flex;
+  gap: calc(16 * var(--u));
+  align-items: center;
+  height: calc(92 * var(--u));
+  padding: 0 calc(36 * var(--u)) 0 calc(32 * var(--u));
+  border-radius: calc(46 * var(--u));
+  background: var(--lens-surface);
+  box-shadow:
+    var(--lens-shadow),
+    inset 0 0 0 calc(2.5 * var(--u)) var(--lens-surface-edge);
+  font-size: calc(42 * var(--u));
+  font-weight: 650;
+  letter-spacing: calc(-0.5 * var(--u));
+  white-space: nowrap;
+  transform: translateY(calc(14 * var(--u))) scale(0.94);
+}
+
+.auth-lens-chip small {
+  margin-left: calc(-4 * var(--u));
+  color: var(--lens-muted);
+  font-size: calc(31 * var(--u));
+  font-weight: 500;
+  letter-spacing: 0;
+  transition: var(--lens-retint);
+}
+
+.auth-lens-scene.is-active .auth-lens-chip {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 380ms var(--ease-out) calc(1250ms + var(--order) * 150ms),
+    transform 560ms var(--ease-out) calc(1250ms + var(--order) * 150ms),
+    var(--lens-retint);
+}
+
+.auth-lens-dot {
+  flex: none;
+  width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
+  border-radius: 50%;
+  background: var(--lens-accent);
+  transition: var(--lens-retint);
+}
+
+.auth-lens-dot.is-tone {
+  background: var(--lens-dot);
+}
+
+/* Barra dos dois líderes, com as cores de partido usadas no mapa. O intervalo
+   é transparente: mostra a superfície de baixo nos dois temas. */
+.auth-lens-split,
+.auth-lens-bar {
+  flex: none;
+  width: calc(72 * var(--u));
+  height: calc(20 * var(--u));
+  border-radius: calc(10 * var(--u));
+  background: linear-gradient(to right, #3267ae 52%, transparent 0 56%, #cf4b56 0);
+}
+
+/* O cartão se abre a partir do ponto onde a linha do território chega. */
+.auth-lens-card {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: calc(16 * var(--u));
+  align-content: start;
+  width: calc(577 * var(--u));
+  padding: calc(38 * var(--u)) calc(44 * var(--u)) calc(42 * var(--u));
+  border: calc(2.5 * var(--u)) solid var(--lens-edge);
+  border-radius: calc(30 * var(--u));
+  background: var(--lens-card);
+  box-shadow: var(--lens-shadow);
+  transform: scale(0.9);
+  transform-origin: var(--origin-x) var(--origin-y);
+}
+
+.auth-lens-scene.is-active .auth-lens-card {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 360ms var(--ease-out) 1340ms,
+    transform 600ms var(--ease-out) 1340ms,
+    var(--lens-retint);
+}
+
+.auth-lens-card strong {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: calc(19 * var(--u));
+  align-items: center;
+  height: calc(48 * var(--u));
+  margin-bottom: calc(6 * var(--u));
+  font-size: calc(38 * var(--u));
+  font-weight: 700;
+  letter-spacing: calc(-0.4 * var(--u));
+  white-space: nowrap;
+}
+
+.auth-lens-bar {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: calc(16 * var(--u));
+  margin-bottom: calc(8 * var(--u));
+  background: linear-gradient(to right, #3267ae 54.2%, transparent 0 55.4%, #cf4b56 0);
+}
+
+/* A etiqueta de valor mantém o fundo claro nos dois temas. */
+.auth-lens-pill {
+  display: inline-flex;
+  align-items: center;
+  height: calc(60 * var(--u));
+  padding: 0 calc(22 * var(--u));
+  border: calc(2.5 * var(--u)) solid var(--lens-accent);
+  border-radius: calc(30 * var(--u));
+  background: var(--lens-wash);
+  color: var(--lens-deep);
+  font-size: calc(35 * var(--u));
+  font-weight: 600;
+  white-space: nowrap;
+  transition: var(--lens-retint);
+}
+
+.auth-lens-pill.is-source {
+  border-color: var(--lens-source-edge);
+  background: var(--lens-source);
+  color: var(--lens-source-text);
+}
+
+/* -------------------------------------------------------------- entrada -- */
+
+/* Ao abrir a tela, o clima entra com a mesma coreografia de uma troca: parte
+   de um mapa sem dados e sem anotações. */
+@starting-style {
+  .auth-lens-cell {
+    fill: #e9eeed;
+  }
+
+  .auth-lens-cells.is-dark .auth-lens-cell {
+    fill: #2b4047;
+  }
+
+  .auth-lens-layer.is-active .auth-lens-line {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+
+  .auth-lens-layer.is-active .auth-lens-town {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  .auth-lens-layer.is-active .auth-lens-halo,
+  .auth-lens-layer.is-active .auth-lens-selection,
+  .auth-lens-layer.is-active .auth-lens-selection-inner,
+  .auth-lens-node.is-active .auth-lens-node-body::before,
+  .auth-lens-node.is-active svg {
+    opacity: 0;
+  }
+
+  .auth-lens-node.is-active .auth-lens-node-body {
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+
+  .auth-lens-node.is-active .auth-lens-node-label {
+    max-width: 0;
+    opacity: 0;
+  }
+
+  .auth-lens-scene.is-active .auth-lens-leader {
+    opacity: 0;
+    transform: rotate(var(--angle)) scaleX(0);
+  }
+
+  .auth-lens-scene.is-active .auth-lens-chip {
+    opacity: 0;
+    transform: translateY(calc(14 * var(--u))) scale(0.94);
+  }
+
+  .auth-lens-scene.is-active .auth-lens-card {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* ------------------------------------------------------------ keyframes -- */
+
+@keyframes auth-lens-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes auth-lens-ping {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}

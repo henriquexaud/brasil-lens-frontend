@@ -7,6 +7,8 @@ import type {
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { LayerMetadata } from '@/components/LayerMetadata';
 import { Select } from '@/components/Select';
+import { electionRefreshInterval } from './liveElection';
+import { useElectionWindow } from './useElectionWindow';
 import { isExecutive, latestSelection, METRICS, OFFICES, normalizeSelection } from './selection';
 
 export function ControlPanel({
@@ -27,6 +29,7 @@ export function ControlPanel({
       ),
     );
   };
+  const window = useElectionWindow();
   const release = releases.find((r) => r.year === selection.year);
   const rounds = release?.contests.find((c) => c.office === selection.office)?.rounds ?? [];
   const years = releases
@@ -151,7 +154,7 @@ export function ControlPanel({
         sources={[
           {
             label: 'TSE',
-            description: release?.note ?? 'Dados oficiais do Tribunal Superior Eleitoral.',
+            description: `${release?.note ?? 'Dados oficiais do Tribunal Superior Eleitoral.'}${release?.status === 'partial' ? ' Resultado parcial.' : ''}${release?.updatedAt ? ` Publicação: ${new Date(release.updatedAt).toLocaleString('pt-BR')}.` : ''}`,
           },
         ]}
         unit={
@@ -159,9 +162,7 @@ export function ControlPanel({
             ? ['turnout', 'abstention'].includes(selection.metric)
               ? '% do eleitorado'
               : '% dos votos'
-            : selection.category === 'representation'
-              ? 'Eleitos no pleito'
-              : undefined
+            : undefined
         }
       >
         <div className="political-period">
@@ -194,7 +195,7 @@ export function ControlPanel({
           )}
         </div>
       </LayerMetadata>
-      {release?.status === 'partial' && (
+      {electionRefreshInterval(window, selection, release?.status) && release && (
         <p className="source-note" role="status">
           Parcial · em andamento
           {release.updatedAt &&

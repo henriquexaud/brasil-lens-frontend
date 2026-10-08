@@ -63,3 +63,20 @@
 .political-app .political-options:empty {
   display: none;
 }
+
+.political-app .political-candidate-votes {
+  margin-top: 12px;
+}
+
+.political-app .political-candidate-votes .indicator-row.is-emphasized {
+  padding-bottom: 10px;
+}
+.political-app .political-candidate-votes .indicator-row.is-emphasized .indicator-label {
+  color: var(--text);
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.political-app .political-candidate-votes .indicator-row.is-emphasized .indicator-value {
+  font-size: 15.5px;
+}

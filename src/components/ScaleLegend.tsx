@@ -4,6 +4,7 @@ export interface LegendBand {
   color: string;
   label: string;
   name: string;
+  weight?: number;
 }
 
 export interface LegendTick {
@@ -16,6 +17,7 @@ interface Props {
   unit: string;
   bands: readonly LegendBand[];
   ticks: readonly LegendTick[];
+  labels?: readonly { label: string; name: string; color: string }[];
   notice?: string;
   loading?: boolean;
   unavailable?: boolean;
@@ -27,6 +29,7 @@ export function ScaleLegend({
   bands,
   ticks,
   notice,
+  labels,
   loading = false,
   unavailable = false,
 }: Props) {
@@ -63,7 +66,10 @@ export function ScaleLegend({
             key={index}
             type="button"
             className={`scale-legend-segment${activeIndex === index ? ' is-active' : ''}`}
-            style={{ backgroundColor: loading || unavailable ? 'var(--map-neutral)' : band.color }}
+            style={{
+              backgroundColor: loading || unavailable ? 'var(--map-neutral)' : band.color,
+              flex: band.weight === undefined ? undefined : `${band.weight} 1 0%`,
+            }}
             title={band.name}
             aria-label={band.name}
             aria-pressed={activeIndex === index}
@@ -75,6 +81,16 @@ export function ScaleLegend({
           />
         ))}
       </div>
+      {labels && (
+        <div className="scale-legend-labels">
+          {labels.map((label, index) => (
+            <span key={index} title={label.name}>
+              <span className="scale-legend-active-dot" style={{ backgroundColor: label.color }} />
+              <span>{label.label}</span>
+            </span>
+          ))}
+        </div>
+      )}
       {ticks.length > 0 && (
         <div className="scale-legend-bounds">
           {ticks.map((tick, index) => (

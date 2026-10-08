@@ -6,6 +6,7 @@ import { DrillDownButton } from '@/components/DrillDownButton';
 import { useDetail } from './queries';
 import { officeLabel } from './selection';
 import { candidateName } from './presentation';
+import { CandidateVotes } from './CandidateVotes';
 import {
   formatCount as count,
   PartyDot,
@@ -75,22 +76,28 @@ export function TerritoryPanel({
   const data = query.data;
   const representative = selection.category === 'representation';
   const summary = data?.summary;
+  const showCandidateVotes =
+    selection.category === 'elections' &&
+    selection.metric !== 'leading_party' &&
+    (data?.leaders.length ?? 0) > 1;
+  const emphasizeLeader =
+    showCandidateVotes && selection.metric === 'leading_candidate' && !summary?.candidateTie;
   return (
     <section className="panel-section territory-detail" aria-label="Resumo político do território">
-      <header className="detail-header">
-        <div>
-          <p className="detail-kicker">
-            {(data?.level ??
-              (code.length === 7 ? 'municipality' : code === 'BR' ? 'country' : 'state')) ===
-            'municipality'
-              ? 'Município'
-              : (data?.level ?? (code === 'BR' ? 'country' : 'state')) === 'state'
-                ? 'Estado'
-                : 'País'}
-          </p>
-          <h2 className="detail-title">{data?.name ?? 'Carregando…'}</h2>
-        </div>
-        {onClose && (
+      {onClose && (
+        <header className="detail-header">
+          <div>
+            <p className="detail-kicker">
+              {(data?.level ??
+                (code.length === 7 ? 'municipality' : code === 'BR' ? 'country' : 'state')) ===
+              'municipality'
+                ? 'Município'
+                : (data?.level ?? (code === 'BR' ? 'country' : 'state')) === 'state'
+                  ? 'Estado'
+                  : 'País'}
+            </p>
+            <h2 className="detail-title">{data?.name ?? 'Carregando…'}</h2>
+          </div>
           <button
             type="button"
             className="icon-button"
@@ -99,8 +106,8 @@ export function TerritoryPanel({
           >
             ×
           </button>
-        )}
-      </header>
+        </header>
+      )}
       {query.error ? (
         <>
           <ErrorMessage error={query.error} />
@@ -110,14 +117,19 @@ export function TerritoryPanel({
         </>
       ) : (
         <>
-          <p className="source-note">{officeLabel(selection.office)}</p>
+          {selection.category === 'participation' && (
+            <p className="source-note">{officeLabel(selection.office)}</p>
+          )}
           {!data ? (
             <p role="status">Carregando dados…</p>
           ) : !summary ? (
             <p className="featured-value is-missing">Sem dados para este território</p>
           ) : (
             <>
-              <PoliticalSummary data={data} selection={selection} />
+              {!emphasizeLeader && <PoliticalSummary data={data} selection={selection} />}
+              {showCandidateVotes && (
+                <CandidateVotes data={data} emphasizeLeader={emphasizeLeader} />
+              )}
               {!representative && (
                 <Disclosure title="Mais detalhes" className="territory-details">
                   <PoliticalStats
@@ -130,22 +142,24 @@ export function TerritoryPanel({
                       { label: 'Nulos', value: count(summary.nullVotes) },
                     ]}
                   />
-                  {selection.category === 'elections' && data.leaders.length > 1 && (
-                    <>
-                      <p className="political-detail-label">Dois mais votados</p>
-                      <PoliticalStats
-                        rows={data.leaders.map((candidate) => ({
-                          label: candidateName(candidate.name),
-                          value: (
-                            <>
-                              <PartyDot party={candidate.party} />
-                              {candidate.party} · {count(candidate.votes)}
-                            </>
-                          ),
-                        }))}
-                      />
-                    </>
-                  )}
+                  {selection.category === 'elections' &&
+                    selection.metric === 'leading_party' &&
+                    data.leaders.length > 1 && (
+                      <>
+                        <p className="political-detail-label">Dois mais votados</p>
+                        <PoliticalStats
+                          rows={data.leaders.map((candidate) => ({
+                            label: candidateName(candidate.name),
+                            value: (
+                              <>
+                                <PartyDot party={candidate.party} />
+                                {candidate.party} · {count(candidate.votes)}
+                              </>
+                            ),
+                          }))}
+                        />
+                      </>
+                    )}
                 </Disclosure>
               )}
               {representative && (
@@ -155,29 +169,6 @@ export function TerritoryPanel({
               )}
             </>
           )}
-          <Disclosure title="Sobre estes dados">
-            <p className="source-note">{data?.note}</p>
-            <p className="source-note">
-              {representative
-                ? 'Eleitos neste pleito na circunscrição do território. Presidência representa o país; cargos estaduais representam a UF. Senado inclui somente as vagas disputadas.'
-                : selection.category === 'participation'
-                  ? ['turnout', 'abstention'].includes(selection.metric)
-                    ? 'Percentual calculado sobre o eleitorado.'
-                    : 'Percentual calculado sobre o total de votos do cargo.'
-                  : 'Percentual do líder e margem calculados sobre os votos válidos. São mostrados os dois candidatos mais votados do recorte.'}
-            </p>
-            {selection.office === 'senator' && selection.year === 2026 && !representative && (
-              <p className="source-note">
-                Cada eleitor pode dar dois votos para o Senado neste pleito.
-              </p>
-            )}
-            <p className="source-note">Divisas da malha atual do IBGE.</p>
-            {data?.updatedAt && (
-              <p className="source-note">
-                Publicação do TSE: {new Date(data.updatedAt).toLocaleString('pt-BR')}
-              </p>
-            )}
-          </Disclosure>
           {data?.level === 'state' && (
             <DrillDownButton onClick={() => onDrillDown(code, data.name)} />
           )}
