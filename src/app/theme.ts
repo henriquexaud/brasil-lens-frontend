@@ -1,3 +1,5 @@
+import { crossfade } from './crossfade';
+
 export type Theme = 'light' | 'dark';
 
 export const THEME_STORAGE_KEY = 'brasil_lens_theme_v1';
@@ -30,4 +32,14 @@ export function applyTheme(theme: Theme): void {
   document
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute('content', surface || (theme === 'dark' ? '#111d23' : '#f5f7f7'));
+}
+
+// Troca pedida pelo usuário. A tela inteira faz um único cross-fade em vez de
+// cada elemento animar a própria cor no seu ritmo; enquanto dura, o CSS desliga
+// as transições dos componentes (`data-crossfade='theme'` em styles.css).
+export function switchTheme(theme: Theme, commit?: () => void): void {
+  void crossfade('theme', () => {
+    restoreTheme(theme);
+    commit?.();
+  });
 }

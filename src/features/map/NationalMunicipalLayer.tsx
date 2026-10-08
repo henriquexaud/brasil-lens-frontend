@@ -4,6 +4,7 @@ import { Pane, useMap } from 'react-leaflet';
 import type { FireMunicipality, MapFeature, WeatherCity } from '@/api/types';
 import type { FireMode } from '@/features/fire/fireDensity';
 import { scheduleIdle } from '@/lib/idle';
+import { mosaicFill } from './dataFill';
 import { mosaicColor } from './mosaicColor';
 import type { NationalMesh } from './useNationalMunicipalData';
 import type { TerritoryPresentation } from './TerritoryPresentation';
@@ -172,7 +173,11 @@ export function NationalMunicipalLayer({
         const feature = collection.features[build.feature]!;
         const code = feature.properties.ibgeCode;
         const color = data.presentation
-          ? `color-mix(in srgb, ${data.presentation.colors.get(code) ?? 'var(--map-neutral, #e2e5ea)'} ${data.presentation.values.has(code) ? 68 : 35}%, var(--map-land, #ffffff))`
+          ? mosaicFill(
+              data.presentation.colors.get(code) ?? 'var(--map-neutral, #e2e5ea)',
+              data.presentation.values.has(code) ? 0.68 : 0.35,
+              data.presentation.values.has(code),
+            )
           : mosaicColor({
               weather: data.weatherByCode?.get(code),
               fire: data.fireByCode?.get(code),
@@ -194,7 +199,7 @@ export function NationalMunicipalLayer({
       }
       if (build.state === data.mesh.municipalities.length) {
         for (const feature of data.mesh.states.features)
-          addPath(build.svg, pathFor(feature), 'var(--map-boundary, #ffffff)', true);
+          addPath(build.svg, pathFor(feature), 'var(--map-data-boundary, #ffffff)', true);
         // Publish only after both the data and every hidden path are ready.
         build.svg.style.opacity = '1';
         displayed.current?.overlay.remove();

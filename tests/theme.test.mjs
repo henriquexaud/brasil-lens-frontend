@@ -11,9 +11,10 @@ installDom(`<!doctype html><html><head><meta name="theme-color" content="#f5f7f7
   </style></head><body><div id="root"></div></body></html>`);
 const { createElement: h, act, StrictMode } = await import('react');
 const { createRoot } = await import('react-dom/client');
-const { ThemeSwitch, THEME_STORAGE_KEY, applyTheme } = await loadModule(`
+const { ThemeSwitch, THEME_STORAGE_KEY, applyTheme, crossfade } = await loadModule(`
   export { ThemeSwitch } from './src/components/ThemeSwitch';
   export { THEME_STORAGE_KEY, applyTheme } from './src/app/theme';
+  export { crossfade } from './src/app/crossfade';
 `);
 const storageDescriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
 const originalAddEventListener = window.addEventListener;
@@ -186,6 +187,66 @@ test('eventos de sessionStorage não alteram o tema, mesmo com a mesma chave ou 
     );
   });
   assert.equal(button.getAttribute('aria-checked'), 'false');
+});
+
+test('a troca pelo switch é um único cross-fade da página, com as transições desligadas enquanto dura', async (t) => {
+  const root = document.documentElement;
+  let finish;
+  const calls = [];
+  document.startViewTransition = (update) => {
+    // O navegador chama `update` depois de fotografar a tela anterior.
+    calls.push(root.dataset.theme);
+    const updated = Promise.resolve().then(update);
+    return {
+      ready: updated,
+      updateCallbackDone: updated,
+      finished: new Promise((resolve) => (finish = resolve)),
+    };
+  };
+  t.after(() => delete document.startViewTransition);
+  const button = await renderSwitch();
+  await click(button);
+  assert.deepEqual(calls, ['light'], 'o tema só muda dentro da transição');
+  assert.equal(root.dataset.theme, 'dark');
+  assert.equal(button.getAttribute('aria-checked'), 'true');
+  assert.equal(root.dataset.crossfade, 'theme');
+  await act(async () => finish());
+  assert.equal(root.dataset.crossfade, undefined);
+});
+
+test('movimento reduzido troca o tema sem cross-fade', async (t) => {
+  let transitions = 0;
+  document.startViewTransition = () => {
+    transitions += 1;
+    throw new Error('não deveria animar');
+  };
+  window.matchMedia = () => ({ matches: true });
+  t.after(() => {
+    delete document.startViewTransition;
+    delete window.matchMedia;
+  });
+  const button = await renderSwitch();
+  await click(button);
+  assert.equal(transitions, 0);
+  assert.equal(document.documentElement.dataset.theme, 'dark');
+  assert.equal(button.getAttribute('aria-checked'), 'true');
+});
+
+test('o cross-fade avisa quando a mudança foi aplicada e limpa o marcador mesmo se ela falhar', async () => {
+  const root = document.documentElement;
+  let applied = false;
+  await crossfade('screen', () => {
+    applied = true;
+  });
+  assert.equal(applied, true);
+  await assert.rejects(
+    crossfade('screen', () => {
+      throw new Error('falhou');
+    }),
+    /falhou/,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(root.dataset.crossfade, undefined);
 });
 
 test('a cor do navegador acompanha o token de superfície do tema', () => {

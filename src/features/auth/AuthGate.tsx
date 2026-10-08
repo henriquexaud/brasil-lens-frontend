@@ -1,10 +1,13 @@
-import { lazy, memo, Suspense } from 'react';
+import { memo, Suspense, useEffect } from 'react';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
+import { scheduleIdle } from '@/lib/idle';
+import { lazyPreload } from '@/lib/lazyPreload';
 import { useAuth } from './AuthContext';
 import { AuthScreen } from './AuthScreen';
 import './auth-lens.css';
 
-const MapApp = memo(lazy(() => import('@/App')));
+const loadableMapApp = lazyPreload(() => import('@/App'));
+const MapApp = memo(loadableMapApp);
 
 function LoadingAccount() {
   return (
@@ -16,6 +19,8 @@ function LoadingAccount() {
 
 export function AuthGate() {
   const auth = useAuth()!;
+  // O mapa chega enquanto a pessoa ainda está na tela de acesso.
+  useEffect(() => scheduleIdle(() => void loadableMapApp.preload(), 1200), []);
   if (auth.loading) return <LoadingAccount />;
   if (auth.user)
     return (

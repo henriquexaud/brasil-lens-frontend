@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, apiGet, apiPost, apiPut, onAuthenticationRequired } from '@/api/client';
 import type { LoginRequest, RegisterRequest, User } from '@/api/types';
+import { crossfade, finishEntryAnimations, waitFor } from '@/app/crossfade';
 import { restoreTheme } from '@/app/theme';
 import { AuthContext } from './AuthContext';
 import { disableDevice } from '@/features/notifications/device';
@@ -53,8 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: async (next) => {
       await client.cancelQueries({ queryKey: AUTH_KEY });
       await clearPrivateData();
-      restoreTheme(next.theme);
-      client.setQueryData(AUTH_KEY, next);
+      // A tela de acesso se dissolve no mapa, já com o tema da conta.
+      await crossfade('screen', async () => {
+        restoreTheme(next.theme);
+        client.setQueryData(AUTH_KEY, next);
+        await waitFor(() => document.querySelector('.leaflet-container') !== null, 300);
+        finishEntryAnimations();
+      });
       theme.reset();
       logout.reset();
     },
@@ -66,7 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: async () => {
       await client.cancelQueries({ queryKey: AUTH_KEY });
-      client.setQueryData(AUTH_KEY, null);
+      await crossfade('screen', () => {
+        client.setQueryData(AUTH_KEY, null);
+      });
       await clearPrivateData();
       credentials.reset();
       theme.reset();

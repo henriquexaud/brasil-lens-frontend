@@ -19,6 +19,7 @@ import type {
 } from '@/api/types';
 
 import { HOVER_COLOR, SELECTED_COLOR, colorForTemperature } from './colors';
+import { dataFill, isDataFill } from './dataFill';
 import { scopeInsets } from './viewport';
 import { rainAmount, rainColor } from '@/features/rainfall/rainScale';
 import { fillTooltipContent } from './territoryTooltip';
@@ -83,7 +84,12 @@ const STATE_BORDER: PolylineOptions = {
   opacity: 0.85,
 };
 // Estado já explorado vira mosaico por cima da malha; a divisa branca volta acima dele.
-const COVERED_STATE_BORDER: PolylineOptions = { ...STATE_BORDER, smoothFactor: 0, fill: false };
+const COVERED_STATE_BORDER: PolylineOptions = {
+  ...STATE_BORDER,
+  color: 'var(--map-data-boundary, #ffffff)',
+  smoothFactor: 0,
+  fill: false,
+};
 const NO_FEATURES: MapFeatureCollection['features'] = [];
 
 function preserveBoundary(_feature: Feature, layer: Layer) {
@@ -112,6 +118,8 @@ function Territories({
   const hoverLayerRef = useRef<LeafletGeoJSON | null>(null);
   const appliedStyleRef = useRef(new WeakMap<Path, string>());
   const hoveredCode = useRef<string | null>(null);
+  // Território com dado é claro nos dois temas: o contorno de hover acompanha.
+  const hoverOnData = useRef(false);
   const activeHoveredLayerRef = useRef<Path | null>(null);
   const isMapMovingRef = useRef(false);
   const municipal = collection.scope.level === 'municipality';
@@ -139,6 +147,7 @@ function Territories({
     if (!code || code === propsRef.current.selectedCode) return;
     const feature = featuresByCodeRef.current.get(code);
     if (feature) {
+      hoverOnData.current = isDataFill(propsRef.current.style(feature));
       layer.addData(feature);
       if (typeof layer.bringToFront === 'function') {
         layer.bringToFront();
@@ -160,7 +169,9 @@ function Territories({
       style: () => ({
         smoothFactor: 0,
         fill: false,
-        color: `var(--map-hover-outline, ${HOVER_COLOR})`,
+        color: hoverOnData.current
+          ? `var(--map-data-hover-outline, ${HOVER_COLOR})`
+          : `var(--map-hover-outline, ${HOVER_COLOR})`,
         weight: municipal ? 1.5 : 1.8,
         opacity: 0.9,
         className: 'territory-hover-outline',
@@ -254,11 +265,13 @@ function Territories({
       if (presentation) {
         const code = properties?.ibgeCode ?? '';
         const hasValue = presentation.values.has(code);
+        const fillColor = presentation.colors.get(code) ?? 'var(--map-neutral, #e2e5ea)';
         return {
           smoothFactor: 0,
           ...(municipal ? MUNICIPAL_BORDER : STATE_BORDER),
-          fillColor: presentation.colors.get(code) ?? 'var(--map-neutral, #e2e5ea)',
-          fillOpacity: hasValue ? (hovered ? 0.85 : 0.68) : hovered ? 0.45 : 0.35,
+          ...(hasValue
+            ? dataFill(fillColor, hovered ? 0.85 : 0.68)
+            : { fillColor, fillOpacity: hovered ? 0.45 : 0.35 }),
           className: 'territory-shape',
         };
       }
@@ -266,26 +279,22 @@ function Territories({
       if (fireMode) {
         const fire = properties ? fireByCode?.get(properties.ibgeCode) : undefined;
         const showDensity = fire?.density != null;
+        const neutral = {
+          color: 'var(--map-boundary, #ffffff)',
+          fillColor: 'var(--map-fire-neutral, #edf0ee)',
+        };
         return {
           smoothFactor: 0,
-          color: 'var(--map-boundary, #ffffff)',
           weight: municipal ? 0.45 : 0.85,
           opacity: 0.65,
-          fillColor:
-            showDensity && (fire?.density ?? 0) > 0
-              ? densityColor(fire?.density)
-              : 'var(--map-fire-neutral, #edf0ee)',
-          fillOpacity: covered
-            ? 0
+          ...(covered
+            ? { ...neutral, fillOpacity: 0 }
             : showDensity
-              ? hovered
-                ? 0.82
-                : fireMode === 'points'
-                  ? 0.45
-                  : 0.68
-              : hovered
-                ? 0.45
-                : 0.35,
+              ? dataFill(
+                  densityColor(fire?.density),
+                  hovered ? 0.82 : fireMode === 'points' ? 0.45 : 0.68,
+                )
+              : { ...neutral, fillOpacity: hovered ? 0.45 : 0.35 }),
           className: 'territory-shape',
         };
       }
@@ -303,8 +312,11 @@ function Territories({
         return {
           smoothFactor: 0,
           ...(municipal ? MUNICIPAL_BORDER : STATE_BORDER),
-          fillOpacity: covered ? 0 : fillOpacity,
-          fillColor,
+          ...(covered
+            ? { fillColor, fillOpacity: 0 }
+            : hasReading
+              ? dataFill(fillColor, fillOpacity)
+              : { fillColor, fillOpacity }),
           className: 'territory-shape',
         };
       }
@@ -319,8 +331,11 @@ function Territories({
         return {
           smoothFactor: 0,
           ...(municipal ? MUNICIPAL_BORDER : STATE_BORDER),
-          fillOpacity: covered ? 0 : fillOpacity,
-          fillColor,
+          ...(covered
+            ? { fillColor, fillOpacity: 0 }
+            : hasDirectTemp
+              ? dataFill(fillColor, fillOpacity)
+              : { fillColor, fillOpacity }),
           className: 'territory-shape',
         };
       }

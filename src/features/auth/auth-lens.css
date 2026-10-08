@@ -13,12 +13,16 @@
 
    Tema: claro e escuro são a mesma peça, com as cores trocadas por variáveis.
    A troca de tema usa `--lens-retint`, em propriedades que a coreografia não
-   anima, então ela nunca reinicia nem atrasa o que está em andamento.
+   anima, então ela nunca reinicia nem atrasa o que está em andamento. Quando a
+   troca vem do switch, a tela inteira já faz um cross-fade (`app/crossfade.ts`) e
+   `--lens-fade-time` zera: a lente troca de cor dentro dele, no mesmo tempo
+   do resto.
 
    As medidas vêm da arte de 1540 × 1568: --u é um pixel dela. */
 
 .auth-lens {
-  --lens-fade: var(--motion-ui) var(--ease-in-out);
+  --lens-fade-time: var(--motion-ui);
+  --lens-fade: var(--lens-fade-time) var(--ease-in-out);
   --lens-retint:
     background-color var(--lens-fade), border-color var(--lens-fade), color var(--lens-fade),
     box-shadow var(--lens-fade), fill var(--lens-fade), stroke var(--lens-fade);
@@ -48,6 +52,10 @@
   --lens-inner: #ffffff;
   container-type: inline-size;
   width: 100%;
+}
+
+:root[data-crossfade='theme'] .auth-lens {
+  --lens-fade-time: 0s;
 }
 
 :root[data-theme='dark'] .auth-lens {
@@ -424,7 +432,7 @@
   visibility: hidden;
   transition:
     opacity var(--lens-fade),
-    visibility 0s linear var(--motion-ui);
+    visibility 0s linear var(--lens-fade-time);
 }
 
 .auth-lens-cells.is-dark .auth-lens-cell {
@@ -434,7 +442,7 @@
 
 :root[data-theme='dark'] .auth-lens-cells {
   visibility: hidden;
-  transition: visibility 0s linear var(--motion-ui);
+  transition: visibility 0s linear var(--lens-fade-time);
 }
 
 :root[data-theme='dark'] .auth-lens-cells.is-dark {

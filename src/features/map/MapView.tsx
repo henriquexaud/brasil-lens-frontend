@@ -2,7 +2,7 @@ import 'leaflet/dist/leaflet.css';
 
 import { latLngBounds, geoJSON, type PathOptions, type PolylineOptions } from 'leaflet';
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { GeoJSON, MapContainer, Pane, TileLayer, useMap } from 'react-leaflet';
 
 import type {
@@ -25,6 +25,33 @@ import type { TerritoryPresentation } from './TerritoryPresentation';
 
 const BRAZIL_CENTER: [number, number] = [-14.5, -52];
 const BRAZIL_ZOOM = 4;
+
+interface MapViewMemory {
+  scopeKey: string;
+  center: [number, number];
+  zoom: number;
+}
+
+// Cada contexto monta o próprio MapView. A última vista fica guardada para o
+// mapa seguinte nascer no mesmo lugar: sem isso, toda troca de contexto
+// recomeçava do Brasil inteiro e voava de novo até o recorte.
+let lastView: MapViewMemory | null = null;
+
+function RememberView({ scopeKey }: { scopeKey: string }) {
+  const map = useMap();
+  useEffect(() => {
+    if (scopeKey === 'initial') return;
+    const remember = () => {
+      const center = map.getCenter();
+      lastView = { scopeKey, center: [center.lat, center.lng], zoom: map.getZoom() };
+    };
+    map.on('moveend', remember);
+    return () => {
+      map.off('moveend', remember);
+    };
+  }, [map, scopeKey]);
+  return null;
+}
 
 const STATE_HALO_STYLE: PolylineOptions = {
   smoothFactor: 0,
@@ -82,13 +109,18 @@ function FitToScope({
   scopeKey,
   selectedFeature,
   locationTarget,
+  restored,
 }: {
   bbox: BoundingBox | undefined;
   scopeKey: string;
   selectedFeature?: MapFeature;
   locationTarget?: Props['locationTarget'];
+  restored: MapViewMemory | null;
 }) {
   const map = useMap();
+  // O que estava selecionado quando o mapa montou: distingue o primeiro
+  // enquadramento dos seguintes sem depender de quantas vezes o efeito rodou.
+  const mounted = useRef({ selectedId: selectedFeature?.id, located: locationTarget?.requestedAt });
 
   useEffect(() => {
     if (!bbox) return;
@@ -119,7 +151,18 @@ function FitToScope({
       map.flyToBounds(bounds, { ...insets, maxZoom: 10, duration: 0.6, easeLinearity: 0.15 });
     };
 
-    fit(true);
+    // Vista restaurada do contexto anterior, no mesmo recorte e com a mesma
+    // seleção: o mapa já está onde o usuário deixou.
+    const center = map.getCenter();
+    const keepsRestoredView =
+      restored !== null &&
+      restored.scopeKey === scopeKey &&
+      mounted.current.selectedId === selectedFeature?.id &&
+      mounted.current.located === locationTarget?.requestedAt &&
+      Math.abs(map.getZoom() - restored.zoom) <= 0.25 &&
+      Math.abs(center.lat - restored.center[0]) < 1e-6 &&
+      Math.abs(center.lng - restored.center[1]) < 1e-6;
+    if (!keepsRestoredView) fit(true);
     const onResize = () => fit(false);
     map.on('resize', onResize);
     return () => {
@@ -161,11 +204,12 @@ export function MapView({
   const scopeKey = collection
     ? `${collection.scope.level}:${collection.scope.parent ?? 'root'}`
     : 'initial';
+  const restored = useRef(lastView).current;
 
   return (
     <MapContainer
-      center={BRAZIL_CENTER}
-      zoom={BRAZIL_ZOOM}
+      center={restored?.center ?? BRAZIL_CENTER}
+      zoom={restored?.zoom ?? BRAZIL_ZOOM}
       className="map-container"
       minZoom={3}
       maxZoom={12}
@@ -196,6 +240,7 @@ export function MapView({
       </Pane>
       <WheelGestures />
       <RendererSync />
+      <RememberView scopeKey={scopeKey} />
       {onViewportChange && <ViewportObserver onChange={onViewportChange} scopeKey={scopeKey} />}
       <Pane name="territory-hover" style={{ zIndex: 470, pointerEvents: 'none' }} />
       <Pane name="territory-selection" style={{ zIndex: 480, pointerEvents: 'none' }} />
@@ -249,6 +294,7 @@ export function MapView({
                 : undefined
             }
             locationTarget={locationTarget}
+            restored={restored}
           />
         </>
       )}

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import {
   applyTheme,
   loadTheme,
-  restoreTheme,
+  switchTheme,
   THEME_STORAGE_KEY,
   THEME_CHANGED_EVENT,
   type Theme,
@@ -36,8 +37,8 @@ export function useTheme() {
 
   const toggleTheme = useCallback(() => {
     const next = theme === 'light' ? 'dark' : 'light';
-    restoreTheme(next);
-    setTheme(next);
+    // O estado do React entra no mesmo quadro que os tokens do tema.
+    switchTheme(next, () => flushSync(() => setTheme(next)));
     return next;
   }, [theme]);
 

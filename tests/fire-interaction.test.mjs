@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { SyncStatus } from './src/features/weather/SyncStatus'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget, WeatherLayer } from './src/features/weather/WeatherLayer'; export { HydrographyLayer } from './src/features/map/HydrographyLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { dataFill } from './src/features/map/dataFill'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { SyncStatus } from './src/features/weather/SyncStatus'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget, WeatherLayer } from './src/features/weather/WeatherLayer'; export { HydrographyLayer } from './src/features/map/HydrographyLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -55,6 +55,7 @@ const {
   TerritoryLayer,
   densityColor,
   colorForTemperature,
+  dataFill,
   WeatherPanel,
   FireOverview,
   WeatherOptions,
@@ -302,10 +303,13 @@ test('focos substituem a temperatura no mesmo polígono e desligar restaura o cl
   await draw(undefined);
   const polygon = document.querySelector('.territory-shape');
   assert.ok(polygon);
-  assert.equal(polygon.getAttribute('fill'), colorForTemperature(32));
+  // O dado leva a própria opacidade na mistura, para manter a cor nos dois temas.
+  const fill = (color) => dataFill(color, 0.68).fillColor;
+  assert.equal(polygon.getAttribute('fill'), fill(colorForTemperature(32)));
+  assert.equal(polygon.getAttribute('fill-opacity'), '1');
   await draw('territorial');
   assert.equal(document.querySelector('.territory-shape'), polygon);
-  assert.equal(polygon.getAttribute('fill'), densityColor(8));
+  assert.equal(polygon.getAttribute('fill'), fill(densityColor(8)));
   await act(async () => polygon.dispatchEvent(new dom.window.FocusEvent('focus')));
   const tooltip = document.getElementById('map-hover-tooltip');
   assert.match(tooltip.textContent, /8 focos \/ 1.000 km²/);
@@ -317,7 +321,7 @@ test('focos substituem a temperatura no mesmo polígono e desligar restaura o cl
   );
   assert.equal(selected, '51');
   await draw(undefined);
-  assert.equal(polygon.getAttribute('fill'), colorForTemperature(32));
+  assert.equal(polygon.getAttribute('fill'), fill(colorForTemperature(32)));
   assert.match(tooltip.textContent, /32 °C/);
   assert.doesNotMatch(tooltip.textContent, /focos/);
 });
@@ -972,7 +976,7 @@ test('render sem dado novo não reescreve os polígonos; dado novo repinta só o
   }
   assert.equal(
     document.querySelector('[aria-label="Município 5100001"]').getAttribute('fill'),
-    colorForTemperature(36),
+    dataFill(colorForTemperature(36), 0.68).fillColor,
   );
 });
 
@@ -1063,8 +1067,13 @@ test('hover usa o mesmo estilo da camada: sem chuva não vira mancha branca', as
   map.eachLayer((candidate) => {
     if (candidate.feature?.properties?.ibgeCode === '5103403' && candidate.setStyle) layer = candidate;
   });
-  const opacity = () => Number(layer.options.fillOpacity);
-  assert.equal(layer.options.fillColor, '#f1f5f9', 'zero medido conserva a cor da escala de chuva');
+  // A opacidade do dado vai na mistura do preenchimento (map/dataFill.ts).
+  const opacity = () => Number(/#f1f5f9 (\d+)%/.exec(layer.options.fillColor)?.[1]) / 100;
+  assert.equal(
+    layer.options.fillColor,
+    dataFill('#f1f5f9', 0.12).fillColor,
+    'zero medido conserva a cor da escala de chuva',
+  );
   const resting = opacity();
   layer.fire('mouseover', { containerPoint: { x: 10, y: 10 } });
   assert.ok(opacity() > resting && opacity() <= 0.3, `hover leve, não opaco (${opacity()})`);

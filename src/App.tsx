@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { clearSourcePauses, requestForcedWeatherRefresh } from '@/api/client';
 import {
@@ -36,6 +36,8 @@ import { useNotificationNavigation } from '@/features/notifications/useNotificat
 import { SyncStatus } from '@/features/weather/SyncStatus';
 import type { FollowTarget } from '@/features/follow/useFollowedMunicipalities';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
+import { scheduleIdle } from '@/lib/idle';
+import { lazyPreload } from '@/lib/lazyPreload';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { useDeferredReady } from '@/lib/useDeferredReady';
 import { useWeatherMapData } from '@/features/weather/useWeatherMapData';
@@ -47,53 +49,81 @@ import type { ReactNode } from 'react';
 import { useDataContext } from '@/app/useDataContext';
 import '@/features/socioeconomic/socioeconomic.css';
 
-const PoliticalApp = lazy(() => import('@/features/political/PoliticalApp'));
-const SocioeconomicApp = lazy(() => import('@/features/socioeconomic/SocioeconomicApp'));
+const PoliticalApp = lazyPreload(() => import('@/features/political/PoliticalApp'));
+const SocioeconomicApp = lazyPreload(() => import('@/features/socioeconomic/SocioeconomicApp'));
 
-const HydrographyLayer = lazy(() =>
+const HydrographyLayer = lazyPreload(() =>
   import('@/features/map/HydrographyLayer').then((module) => ({
     default: module.HydrographyLayer,
   })),
 );
-const FireLegend = lazy(() =>
+const FireLegend = lazyPreload(() =>
   import('@/features/fire/FireLegend').then((m) => ({ default: m.FireLegend })),
 );
-const FireOverview = lazy(() =>
+const FireOverview = lazyPreload(() =>
   import('@/features/fire/FireOverview').then((m) => ({ default: m.FireOverview })),
 );
-const RainLegend = lazy(() =>
+const RainLegend = lazyPreload(() =>
   import('@/features/rainfall/RainLegend').then((m) => ({ default: m.RainLegend })),
 );
-const RainOverview = lazy(() =>
+const RainOverview = lazyPreload(() =>
   import('@/features/rainfall/RainOverview').then((m) => ({ default: m.RainOverview })),
 );
-const ClimateOverview = lazy(() =>
+const ClimateOverview = lazyPreload(() =>
   import('@/features/weather/ClimateOverview').then((m) => ({ default: m.ClimateOverview })),
 );
-const FireHotspotsLayer = lazy(() =>
+const FireHotspotsLayer = lazyPreload(() =>
   import('@/features/fire/FireHotspotsLayer').then((module) => ({
     default: module.FireHotspotsLayer,
   })),
 );
-const WeatherPanel = lazy(() =>
+const WeatherPanel = lazyPreload(() =>
   import('@/features/weather/WeatherPanel').then((module) => ({ default: module.WeatherPanel })),
 );
-const WeatherLayer = lazy(() =>
+const WeatherLayer = lazyPreload(() =>
   import('@/features/weather/WeatherLayer').then((module) => ({ default: module.WeatherLayer })),
 );
-const WeatherOptions = lazy(() =>
+const WeatherOptions = lazyPreload(() =>
   import('@/features/weather/WeatherOptions').then((module) => ({
     default: module.WeatherOptions,
   })),
 );
-const WeatherLegend = lazy(() =>
+const WeatherLegend = lazyPreload(() =>
   import('@/features/weather/WeatherLegend').then((module) => ({ default: module.WeatherLegend })),
 );
-const AlertsLayer = lazy(() =>
+const AlertsLayer = lazyPreload(() =>
   import('@/features/weather/AlertsLayer').then((module) => ({ default: module.AlertsLayer })),
 );
+// Código dos outros contextos, adiantado para a troca não esperar a rede.
+const CONTEXT_CODE = {
+  political: PoliticalApp.preload,
+  socioeconomic: SocioeconomicApp.preload,
+};
+
+// Peças do painel e do mapa que só montam com outra camada ou com uma seleção.
+// Chegam com o navegador ocioso: sem isso, o primeiro uso trocava o painel pelo
+// fallback do Suspense por um instante, e ele encolhia e crescia de novo.
+const CLIMATE_ON_DEMAND = [
+  WeatherPanel,
+  ClimateOverview,
+  RainOverview,
+  RainLegend,
+  FireOverview,
+  FireLegend,
+  FireHotspotsLayer,
+  HydrographyLayer,
+];
+
 export default function App() {
-  const { context, control } = useDataContext();
+  const { context, control } = useDataContext(CONTEXT_CODE);
+  useEffect(
+    () =>
+      scheduleIdle(() => {
+        void PoliticalApp.preload();
+        void SocioeconomicApp.preload();
+      }, 1500),
+    [],
+  );
   if (context === 'political')
     return (
       <Suspense fallback={<TopProgress />}>
@@ -110,6 +140,13 @@ export default function App() {
 }
 
 function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
+  useEffect(
+    () =>
+      scheduleIdle(() => {
+        for (const component of CLIMATE_ON_DEMAND) void component.preload();
+      }, 600),
+    [],
+  );
   const { scope, selectedCode, setSelectedCode, drillIntoState, resetScope, isDrilledDown } =
     useMapScope();
   const {
@@ -816,6 +853,10 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
                   onSelect={selectFireCity}
                 />
               )}
+            </>
+          </Suspense>
+          <Suspense fallback={null}>
+            <>
               <WeatherOptions
                 showAlerts={showWeatherAlerts}
                 onToggleAlerts={setShowWeatherAlerts}

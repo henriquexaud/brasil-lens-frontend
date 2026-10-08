@@ -29,7 +29,7 @@
   --attribution-surface: rgb(255 255 255 / 78%);
   --pill-surface: rgb(255 255 255 / 94%);
   --pill-border: rgb(255 255 255 / 98%);
-  --map-background: #f5f5f5;
+  --map-background: #dddddd;
   --map-basemap-filter: none;
   --map-boundary: #ffffff;
   --map-selection-halo: #ffffff;
@@ -40,6 +40,12 @@
   --map-fire-neutral: #edf0ee;
   --map-pending: #cbd5e1;
   --map-land: #f4f5f5;
+  /* Terra, divisa e hover sobre as cores de dado: iguais nos dois temas, para
+     o mapa pintado não mudar com o modo (ver map/dataFill.ts). */
+  --map-data-land: #f4f5f5;
+  --map-data-backing: transparent;
+  --map-data-boundary: #ffffff;
+  --map-data-hover-outline: #52606d;
   --map-alert-halo: #d2deda;
   --map-alert-halo-opacity: 0;
   --theme-thumb: #ffffff;
@@ -62,6 +68,7 @@
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --motion-fast: 160ms;
   --motion-ui: 280ms;
+  --motion-theme: 200ms;
   --motion-map: 420ms;
   --motion-skeleton: 1600ms;
 
@@ -94,8 +101,8 @@
   --attribution-surface: rgb(17 29 35 / 88%);
   --pill-surface: rgb(28 45 53 / 96%);
   --pill-border: rgb(104 141 152 / 50%);
-  --map-background: #14262d;
-  --map-basemap-filter: grayscale(1) brightness(0.5) sepia(0.18) hue-rotate(145deg) saturate(0.75);
+  --map-background: #061923;
+  --map-basemap-filter: grayscale(1) brightness(0.3) sepia(0.18) hue-rotate(145deg) saturate(0.75);
   --map-boundary: #647b81;
   --map-selection-halo: #182b31;
   --map-selection-outline: #d8e8e8;
@@ -104,7 +111,8 @@
   --map-neutral: #344a50;
   --map-fire-neutral: #2e4549;
   --map-pending: #6b858b;
-  --map-land: #23383e;
+  --map-land: #1d2b32;
+  --map-data-backing: var(--map-data-land);
   --map-alert-halo-opacity: 0.5;
   --theme-thumb: #3a535d;
   --theme-icon-active: #e1ebed;
@@ -138,7 +146,6 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  transition: background-color var(--motion-ui) var(--ease-in-out);
 }
 
 .app {
@@ -146,7 +153,6 @@ body {
   height: 100%;
   overflow: hidden;
   color: var(--text);
-  transition: color var(--motion-ui) var(--ease-in-out);
 }
 
 .auth-page {
@@ -469,15 +475,18 @@ body {
   inset: 0;
   /* Leaflet mantém panes com z-index próprio; o mapa fica atrás dos controles. */
   z-index: 0;
+}
+
+/* O CSS do Leaflet chega depois deste arquivo e pinta `.leaflet-container` de
+   #ddd; as duas classes juntas devolvem o fundo ao token do tema. */
+.map-container.leaflet-container {
   background: var(--map-background);
-  transition: background-color var(--motion-ui) var(--ease-in-out);
 }
 
 /* Só o relevo do Esri recebe o tratamento noturno; dados e WMS ficam em
    panes separados, com suas cores originais. */
 .leaflet-basemap-pane {
   filter: var(--map-basemap-filter);
-  transition: filter var(--motion-ui) var(--ease-in-out);
 }
 
 /* Paths SVG do mapa não têm transition nem animation. Cada SVG de pane é uma
@@ -2343,9 +2352,6 @@ body {
   border-radius: var(--radius-sm);
   padding: 3px;
   gap: 3px;
-  transition:
-    background-color var(--motion-ui) var(--ease-in-out),
-    border-color var(--motion-ui) var(--ease-in-out);
 }
 
 .segmented-control-indicator {
@@ -2358,7 +2364,6 @@ body {
   box-shadow: 0 1px 3px rgb(38 55 61 / 12%);
   transition:
     transform var(--motion-ui) var(--ease-out),
-    background-color var(--motion-ui) var(--ease-in-out),
     box-shadow var(--motion-fast) var(--ease-out),
     opacity var(--motion-fast) var(--ease-out);
   will-change: transform;
@@ -2627,8 +2632,6 @@ body {
   white-space: nowrap;
   pointer-events: none;
   transition:
-    background-color var(--motion-ui) var(--ease-in-out),
-    color var(--motion-ui) var(--ease-in-out),
     transform var(--motion-fast) var(--ease-out),
     box-shadow var(--motion-fast) var(--ease-out),
     border-color var(--motion-fast) var(--ease-out);
@@ -3286,6 +3289,9 @@ body {
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
   cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
 }
 .location-button:hover {
   color: var(--text);
@@ -3381,58 +3387,45 @@ body {
   }
 }
 
-/* O tema muda as superfícies HTML; paths do mapa continuam sem transições. */
-:where(
-  .app p,
-  .app span,
-  .app strong,
-  .app small,
-  .app dt,
-  .app dd,
-  .app label,
-  .app h1,
-  .app h2,
-  .app h3
-) {
-  transition: color var(--motion-ui) var(--ease-in-out);
+/* Cross-fade da página inteira (app/crossfade.ts), feito pelo compositor: a
+   tela anterior vira uma imagem que esmaece sobre a nova. Serve à troca de
+   tema e às trocas de tela (contexto, entrada e saída da conta); paths do mapa
+   continuam sem transição nenhuma. */
+::view-transition-group(*),
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-theme);
+  animation-timing-function: var(--ease-in-out);
 }
 
-.panel,
-.legend,
-.scope-section,
-.search-empty,
-.location-error,
-.weather-alerts-national-summary,
-.fire-detail-card,
-.rain-detail-card,
-.rain-forecast-card,
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip,
-.leaflet-control-attribution {
-  transition:
-    background-color var(--motion-ui) var(--ease-in-out),
-    border-color var(--motion-ui) var(--ease-in-out),
-    color var(--motion-ui) var(--ease-in-out),
-    box-shadow var(--motion-ui) var(--ease-in-out);
+/* Tema: nenhum componente anima a própria cor. Sem isso cada elemento trocava
+   no seu ritmo: uns na hora, outros em 160 ou 280 ms, e o texto, que herda a
+   cor de um pai também em transição, ainda depois. Durante a troca as
+   transições ficam desligadas, para o estado novo já nascer pronto. */
+:root[data-crossfade='theme'] :not(.theme-switch, .theme-switch *, .auth-lens, .auth-lens *),
+:root[data-crossfade='theme']
+  :not(.theme-switch, .theme-switch *, .auth-lens, .auth-lens *)::before,
+:root[data-crossfade='theme']
+  :not(.theme-switch, .theme-switch *, .auth-lens, .auth-lens *)::after {
+  transition: none !important;
 }
 
-.search-box,
-.search-results,
-.location-button {
-  transition:
-    background-color var(--motion-ui) var(--ease-in-out),
-    border-color var(--motion-fast) var(--ease-out),
-    color var(--motion-ui) var(--ease-in-out),
-    box-shadow var(--motion-ui) var(--ease-in-out);
+/* O switch fica fora do cross-fade: é o controle sob o dedo, então o disco
+   desliza de verdade em vez de sumir de um lado e surgir do outro. */
+:root[data-crossfade='theme'] .theme-switch {
+  view-transition-name: theme-switch;
+}
+
+::view-transition-old(theme-switch) {
+  display: none;
+}
+
+::view-transition-new(theme-switch) {
+  animation: none;
 }
 
 .map-tooltip {
   color: var(--text);
-  transition:
-    opacity var(--motion-fast) var(--ease-out),
-    background-color var(--motion-ui) var(--ease-in-out),
-    border-color var(--motion-ui) var(--ease-in-out),
-    color var(--motion-ui) var(--ease-in-out);
 }
 
 /* Inclui popups/tooltip nativos, além dos cartões próprios das features. */
@@ -3489,9 +3482,9 @@ body {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background-color var(--motion-ui) var(--ease-in-out),
+    background-color var(--motion-theme) var(--ease-in-out),
     border-color var(--motion-fast) var(--ease-out),
-    box-shadow var(--motion-ui) var(--ease-in-out);
+    box-shadow var(--motion-theme) var(--ease-in-out);
 }
 
 .theme-switch::before {
@@ -3521,8 +3514,8 @@ body {
   box-shadow: 0 1px 4px rgb(15 23 42 / 12%);
   pointer-events: none;
   transition:
-    transform var(--motion-ui) var(--ease-out),
-    background-color var(--motion-ui) var(--ease-in-out);
+    transform var(--motion-theme) var(--ease-out),
+    background-color var(--motion-theme) var(--ease-in-out);
 }
 
 .theme-switch[aria-checked='true'] .theme-switch__thumb {
@@ -3535,7 +3528,7 @@ body {
   display: grid;
   place-items: center;
   pointer-events: none;
-  transition: color var(--motion-ui) var(--ease-in-out);
+  transition: color var(--motion-theme) var(--ease-in-out);
 }
 
 .theme-switch[aria-checked='false'] .theme-switch__icon--sun,
