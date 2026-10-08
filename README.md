@@ -4,6 +4,8 @@ Interface do Brasil Lens: um mapa de clima e meio ambiente do Brasil (condiçõe
 
 O seletor de contexto também abre Socioeconômico: os 14 indicadores anteriores do IBGE, com menu População/Economia/Outros, paletas verde/jade, seleção de ano e detalhes do território. A API precisa da migration `0012_socioeconomic` e da carga `python -m app.jobs.import_indicators`.
 
+O contexto Política reutiliza o mapa e os controles para Eleições/Cargos/Participação, com anos 2022/2024/2026, turnos publicados e marca de andamento em 2026. Abre sempre no ano mais recente disponível para o cargo, inclusive edições parciais. A API precisa da migration `0013_political` e das cargas `python -m app.jobs.import_elections --year ANO`; [detalhes do domínio](https://github.com/henriquexaud/brasil-lens-backend/blob/main/docs/architecture.md#contexto-política).
+
 No ar em https://brasil-lens.vercel.app (plano grátis: se a API estiver dormindo, o primeiro carregamento leva ~1 min).
 
 ## Rodar

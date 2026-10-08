@@ -3,7 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { beforeEach, test } from 'node:test';
 import ts from 'typescript';
 
-const source = await readFile(new URL('../src/lib/sessionStorage.ts', import.meta.url), 'utf8');
+const source = (
+  await readFile(new URL('../src/lib/sessionStorage.ts', import.meta.url), 'utf8')
+).replace(
+  '@/features/political/selection',
+  new URL('../src/features/political/selection.ts', import.meta.url).href,
+);
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
 });
@@ -163,8 +168,50 @@ test('sessão v3 preserva preferências de clima na migração para v4', () => {
 });
 
 test('contexto e seleção socioeconômica são validados e preservam clima', () => {
-  saveSessionState({ activeThematicLayer: 'rainfall', dataContext: 'socioeconomic', socioeconomic: { indicatorKey: 'gdp', year: '2022' } });
-  assert.deepEqual(loadSessionState(), { activeThematicLayer: 'rainfall', dataContext: 'socioeconomic', socioeconomic: { indicatorKey: 'gdp', year: '2022' } });
-  mockStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ dataContext: 'inválido', socioeconomic: { indicatorKey: 'gdp', year: '5000' }, activeThematicLayer: 'rainfall' }));
+  saveSessionState({
+    activeThematicLayer: 'rainfall',
+    dataContext: 'socioeconomic',
+    socioeconomic: { indicatorKey: 'gdp', year: '2022' },
+  });
+  assert.deepEqual(loadSessionState(), {
+    activeThematicLayer: 'rainfall',
+    dataContext: 'socioeconomic',
+    socioeconomic: { indicatorKey: 'gdp', year: '2022' },
+  });
+  mockStorage.setItem(
+    SESSION_STORAGE_KEY,
+    JSON.stringify({
+      dataContext: 'inválido',
+      socioeconomic: { indicatorKey: 'gdp', year: '5000' },
+      activeThematicLayer: 'rainfall',
+    }),
+  );
   assert.deepEqual(loadSessionState(), { activeThematicLayer: 'rainfall' });
+});
+
+test('migra a sessão v4 e persiste Política com seleções válidas', () => {
+  mockStorage.setItem(
+    'brasil_lens_session_v4',
+    JSON.stringify({
+      dataContext: 'socioeconomic',
+      socioeconomic: { indicatorKey: 'population', year: '2022' },
+      selectedCode: '3550308',
+    }),
+  );
+  assert.equal(loadSessionState().selectedCode, '3550308');
+  assert.equal(mockStorage.getItem('brasil_lens_session_v4'), null);
+  const political = {
+    category: 'elections',
+    office: 'president',
+    year: 2026,
+    round: 1,
+    metric: 'leading_candidate',
+  };
+  saveSessionState({ dataContext: 'political', political });
+  assert.deepEqual(loadSessionState().political, political);
+  mockStorage.setItem(
+    SESSION_STORAGE_KEY,
+    JSON.stringify({ political: { ...political, year: 1900 } }),
+  );
+  assert.equal(loadSessionState().political, undefined);
 });

@@ -2,7 +2,7 @@ import type { Geometry, MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 
-export type DataContext = 'climate_environmental' | 'socioeconomic';
+export type DataContext = 'climate_environmental' | 'socioeconomic' | 'political';
 
 export interface Indicator {
   key: string;
@@ -404,4 +404,89 @@ export interface FireSummary {
 }
 export interface PushConfig {
   publicKey: string | null;
+}
+
+export type PoliticalOffice =
+  'president' | 'governor' | 'senator' | 'federal_deputy' | 'state_deputy' | 'mayor' | 'councillor';
+export type PoliticalMetric =
+  | 'leading_candidate'
+  | 'leading_party'
+  | 'leader_share'
+  | 'margin'
+  | 'turnout'
+  | 'abstention'
+  | 'blank_votes'
+  | 'null_votes'
+  | 'invalid_votes'
+  | 'representation';
+export interface PoliticalSelection {
+  category: 'elections' | 'representation' | 'participation';
+  office: PoliticalOffice;
+  year: number;
+  round: number;
+  metric: PoliticalMetric;
+}
+export interface PoliticalRelease {
+  year: number;
+  status: 'ok' | 'partial';
+  updatedAt: string | null;
+  note: string;
+  contests: { office: PoliticalOffice; rounds: number[] }[];
+}
+export interface PoliticalValue {
+  ibgeCode: string;
+  value: number | null;
+  label: string | null;
+  party: string | null;
+  tie: boolean;
+}
+export interface PoliticalValues {
+  year: number;
+  office: PoliticalOffice;
+  round: number;
+  metric: PoliticalMetric;
+  status: 'ok' | 'partial';
+  updatedAt: string | null;
+  note: string;
+  values: PoliticalValue[];
+}
+export interface PoliticalCandidate {
+  id: string;
+  name: string;
+  number: string;
+  party: string;
+  partyNumber: string;
+  status: string;
+  votes?: number | null;
+}
+export interface PoliticalDetail {
+  ibgeCode: string;
+  name: string;
+  level: TerritoryLevel;
+  year: number;
+  office: PoliticalOffice;
+  round: number;
+  status: 'ok' | 'partial';
+  updatedAt: string | null;
+  summary: {
+    eligible?: number | null;
+    turnout?: number | null;
+    abstention?: number | null;
+    totalVotes?: number | null;
+    validVotes?: number | null;
+    blankVotes?: number | null;
+    nullVotes?: number | null;
+    representatives?: number;
+    party?: string | null;
+    partyVotes?: number | null;
+    partySeats?: number | null;
+    candidateTie?: boolean;
+    partyTie?: boolean;
+  } | null;
+  leaders: PoliticalCandidate[];
+  representatives: PoliticalCandidate[];
+  representativeTotal: number;
+  offset: number;
+  limit: number;
+  note: string;
 }

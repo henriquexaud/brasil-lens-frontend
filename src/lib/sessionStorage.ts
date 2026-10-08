@@ -1,8 +1,10 @@
 import type { MapScopeState } from '@/features/map/useMapScope';
-import type { DataContext } from '@/api/types';
+import { validSelection } from '@/features/political/selection';
+import type { PoliticalSelection, DataContext } from '@/api/types';
 
-export const SESSION_STORAGE_KEY = 'brasil_lens_session_v4';
+export const SESSION_STORAGE_KEY = 'brasil_lens_session_v5';
 const LEGACY_STORAGE_KEYS = [
+  'brasil_lens_session_v4',
   'brasil_lens_session_v3',
   'brasil_lens_session_v2',
   'brasil_lens_session_v1',
@@ -10,6 +12,7 @@ const LEGACY_STORAGE_KEYS = [
 
 export interface AppSessionState {
   dataContext?: DataContext;
+  political?: PoliticalSelection;
   socioeconomic?: { indicatorKey: string; year: string };
   scope?: MapScopeState;
   selectedCode?: string | null;
@@ -47,7 +50,9 @@ function climateState(value: unknown): AppSessionState {
     };
   }
   return {
-    ...(source.dataContext === 'socioeconomic' || source.dataContext === 'climate_environmental'
+    ...(source.dataContext === 'political' ||
+    source.dataContext === 'socioeconomic' ||
+    source.dataContext === 'climate_environmental'
       ? { dataContext: source.dataContext }
       : {}),
     ...(socioeconomic &&
@@ -59,6 +64,7 @@ function climateState(value: unknown): AppSessionState {
       socioeconomic.year === '2100')
       ? { socioeconomic: { indicatorKey: socioeconomic.indicatorKey, year: socioeconomic.year } }
       : {}),
+    ...(validSelection(source.political) ? { political: source.political } : {}),
     ...(scope ? { scope } : {}),
     ...((typeof source.selectedCode === 'string' && /^(\d{2}|\d{7})$/.test(source.selectedCode)) ||
     source.selectedCode === null

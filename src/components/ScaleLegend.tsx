@@ -75,17 +75,19 @@ export function ScaleLegend({
           />
         ))}
       </div>
-      <div className="scale-legend-bounds">
-        {ticks.map((tick, index) => (
-          <span
-            key={index}
-            className={`scale-legend-tick-bound${tick.percent === 0 ? ' is-start' : tick.percent === 100 ? ' is-end' : ''}`}
-            style={{ left: `${tick.percent}%` }}
-          >
-            {tick.label}
-          </span>
-        ))}
-      </div>
+      {ticks.length > 0 && (
+        <div className="scale-legend-bounds">
+          {ticks.map((tick, index) => (
+            <span
+              key={index}
+              className={`scale-legend-tick-bound${tick.percent === 0 ? ' is-start' : tick.percent === 100 ? ' is-end' : ''}`}
+              style={{ left: `${tick.percent}%` }}
+            >
+              {tick.label}
+            </span>
+          ))}
+        </div>
+      )}
       {notice && (
         <p className="scale-legend-notice" role="status">
           {notice}

@@ -20,6 +20,7 @@ export function useDataContext() {
         options={[
           { value: 'climate_environmental', label: 'Clima e meio ambiente' },
           { value: 'socioeconomic', label: 'Socioeconômico' },
+          { value: 'political', label: 'Política' },
         ]}
         onChange={(value) => setContext(value as DataContext)}
       />

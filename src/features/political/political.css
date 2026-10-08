@@ -1,0 +1,41 @@
+.political-app {
+  --indicator-accent: var(--accent);
+  --indicator-tone: var(--accent);
+}
+.political-app .political-options {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.political-app .political-options .field-control {
+  font-size: 12px;
+}
+.political-app .political-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 11px;
+}
+.political-app .layer-metadata {
+  flex-wrap: wrap;
+}
+.political-app .political-party-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+}
+.political-app .featured-indicator {
+  margin: 14px 0 10px;
+}
+@media (max-width: 900px) {
+  .political-app .panel {
+    scroll-padding-top: var(--sheet-peek, 132px);
+  }
+  .political-app .political-options .field-control {
+    font-size: 16px;
+  }
+}

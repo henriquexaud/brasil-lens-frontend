@@ -5,11 +5,12 @@ import { disposeHarness, installDom, loadModule } from './helpers/harness.mjs';
 const dom = installDom();
 const { createElement: h, act } = await import('react');
 const { createRoot } = await import('react-dom/client');
-const { WeatherLegend, RainLegend, FireLegend, Legend, TEMPERATURE_SCALE, RAIN_SCALE_STOPS, FIRE_DENSITY_SCALE, densityColor } = await loadModule(`
+const { WeatherLegend, RainLegend, FireLegend, Legend, PoliticalLegend, TEMPERATURE_SCALE, RAIN_SCALE_STOPS, FIRE_DENSITY_SCALE, densityColor } = await loadModule(`
   export { WeatherLegend } from './src/features/weather/WeatherLegend';
   export { RainLegend } from './src/features/rainfall/RainLegend';
   export { FireLegend } from './src/features/fire/FireLegend';
   export { Legend } from './src/features/socioeconomic/Legend';
+  export { Legend as PoliticalLegend } from './src/features/political/Legend';
   export { TEMPERATURE_SCALE } from './src/features/map/colors';
   export { RAIN_SCALE_STOPS } from './src/features/rainfall/rainScale';
   export { FIRE_DENSITY_SCALE, densityColor } from './src/features/fire/fireDensity';
@@ -55,12 +56,46 @@ test('carregamento e ausência socioeconômicos mantêm dez segmentos neutros se
   assert.ok(segments().every(segment=>segment.disabled));
   assert.equal(document.querySelector('.scale-legend-bar').getAttribute('aria-busy'),'true');
   assert.match(document.querySelector('[role=status]').textContent,/Carregando/);
+  assert.equal(document.querySelector('.scale-legend-bounds'), null);
   await render(Legend, {indicator, classification:null, statistics:null});
   assert.equal(document.querySelector('.scale-legend-bar').getAttribute('aria-busy'),'false');
   assert.match(document.querySelector('[role=status]').textContent,/Sem dados/);
   await render(Legend, {indicator, classification:{...classification, min:7, max:7, breaks:Array(10).fill(7)}, statistics});
   assert.equal(segments().length,10);
   assert.match(segments()[1].title,/Sem valores distintos/);
+});
+
+const politicalData = {
+  year:2026, office:'president', round:1, metric:'leading_candidate', status:'partial',
+  values:[
+    {ibgeCode:'35', value:1, label:'Candidato', party:'PL', tie:false},
+    {ibgeCode:'33', value:1, label:'Candidato', party:'PT', tie:false},
+    {ibgeCode:'31', value:1, label:'Empate', party:null, tie:true},
+  ],
+};
+test('legenda política por partido omite empate e compacta a régua vazia mantendo o aviso parcial', async () => {
+  await render(PoliticalLegend, {data:politicalData, metric:'leading_candidate', loading:false});
+  assert.equal(document.querySelector('figure').className, 'legend scale-legend');
+  assert.deepEqual(segments().map(segment=>segment.getAttribute('aria-label')), ['PL', 'PT']);
+  assert.equal(document.querySelector('.scale-legend-bounds'), null);
+  assert.match(document.querySelector('[role=status]').textContent, /resultados parciais/);
+  await act(async () => segments()[0].focus());
+  assert.equal(document.querySelector('.scale-legend-active-text').textContent, 'PL');
+});
+test('legendas políticas numéricas usam dez cores no componente comum e cinco marcas legíveis', async () => {
+  for (const metric of ['leader_share','margin','turnout','abstention','invalid_votes','blank_votes','null_votes']) {
+    await render(PoliticalLegend, {data:{...politicalData,metric}, metric, loading:false});
+    assert.equal(segments().length, 10);
+    assert.equal(new Set(segments().map(segment=>segment.style.backgroundColor)).size, 10);
+    assert.equal(document.querySelectorAll('.scale-legend-tick-bound').length, 5);
+  }
+  assert.match(segments()[0].getAttribute('aria-label'), /0,5/);
+});
+test('um recorte só de empates não inventa partido nem ausência na legenda', async () => {
+  await render(PoliticalLegend, {data:{...politicalData, values:[politicalData.values[2]]}, metric:'leading_candidate', loading:false});
+  assert.equal(document.querySelector('figure'), null);
+  await render(PoliticalLegend, {data:{...politicalData, values:[]}, metric:'leading_candidate', loading:false});
+  assert.match(document.querySelector('[role=status]').textContent,/Sem dados/);
 });
 
 test('a escala de focos usa dez cores coerentes com o mapa, com zero e ausência preservados', () => {

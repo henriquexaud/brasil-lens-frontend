@@ -47,6 +47,7 @@ import type { ReactNode } from 'react';
 import { useDataContext } from '@/app/useDataContext';
 import '@/features/socioeconomic/socioeconomic.css';
 
+const PoliticalApp = lazy(() => import('@/features/political/PoliticalApp'));
 const SocioeconomicApp = lazy(() => import('@/features/socioeconomic/SocioeconomicApp'));
 
 const HydrographyLayer = lazy(() =>
@@ -93,6 +94,12 @@ const AlertsLayer = lazy(() =>
 );
 export default function App() {
   const { context, control } = useDataContext();
+  if (context === 'political')
+    return (
+      <Suspense fallback={<TopProgress />}>
+        <PoliticalApp contextControl={control} />
+      </Suspense>
+    );
   return context === 'socioeconomic' ? (
     <Suspense fallback={<TopProgress />}>
       <SocioeconomicApp contextControl={control} />
