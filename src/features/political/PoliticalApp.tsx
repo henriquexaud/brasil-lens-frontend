@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { FollowedMunicipality, PoliticalValues } from '@/api/types';
+import type { PoliticalValues } from '@/api/types';
 import type { TerritoryPresentation } from '@/features/map/TerritoryPresentation';
 import { ScopeHeader } from '@/components/ScopeHeader';
 import { ErrorMessage, TopProgress } from '@/components/Feedback';
@@ -14,8 +14,6 @@ import { useTerritoryMap } from '@/features/map/useTerritoryMap';
 import { useNationalMunicipalData } from '@/features/map/useNationalMunicipalData';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
-import { FollowedMunicipalitiesPanel } from '@/features/follow/FollowedMunicipalitiesPanel';
-import type { FollowTarget } from '@/features/follow/useFollowedMunicipalities';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 import { useMobileSheet } from '@/app/useMobileSheet';
@@ -58,7 +56,6 @@ export default function PoliticalApp({ contextControl }: { contextControl: React
     statesOutlineLayer,
     selectedStateOutline,
     selectedBoundary,
-    selectedFeature,
     scopeReady,
     territoryReady,
     visibleMunicipalities,
@@ -152,32 +149,6 @@ export default function PoliticalApp({ contextControl }: { contextControl: React
     },
     [drillIntoState, setSelectedCode],
   );
-  const openFollowed = useCallback(
-    (item: FollowedMunicipality) => {
-      if (!item.name || !item.stateCode) return;
-      selectSearch({
-        ibgeCode: item.municipalityCode,
-        name: item.name,
-        level: 'municipality',
-        abbreviation: item.stateAbbreviation,
-        parentCode: item.stateCode,
-        parentName: item.stateName,
-      });
-    },
-    [selectSearch],
-  );
-  const followTarget: FollowTarget | null =
-    selectedCode?.length === 7
-      ? {
-          municipalityCode: selectedCode,
-          name: selectedFeature?.properties.name ?? null,
-          stateCode: scope.parent ?? selectedCode.slice(0, 2),
-          stateName: scope.parentName ?? null,
-          stateAbbreviation:
-            statesOutlineLayer.data?.features.find((item) => item.id === selectedCode.slice(0, 2))
-              ?.properties.abbreviation ?? null,
-        }
-      : null;
   const onBack = selectedCode
     ? () => setSelectedCode(null)
     : isDrilledDown
@@ -299,7 +270,6 @@ export default function PoliticalApp({ contextControl }: { contextControl: React
               </p>
             )}
           </ErrorBoundary>
-          <FollowedMunicipalitiesPanel current={followTarget} onOpen={openFollowed} />
           {!isDrilledDown && (national.meshError || municipalValues.error) && (
             <div className="panel-section">
               <ErrorMessage error={national.meshError ?? municipalValues.error} />

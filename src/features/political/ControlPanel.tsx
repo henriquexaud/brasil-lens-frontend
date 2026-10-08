@@ -164,37 +164,39 @@ export function ControlPanel({
               : undefined
         }
       >
-        <select
-          className="indicator-year-select"
-          disabled={!years.length}
-          aria-label="Ano da eleição"
-          value={selection.year}
-          onChange={(event) => change({ year: Number(event.target.value) })}
-        >
-          {years.map((r) => (
-            <option key={r.year} value={r.year}>
-              {r.year}
-            </option>
-          ))}
-        </select>
-        {selection.category !== 'representation' && rounds.length > 0 && (
+        <div className="political-period">
           <select
             className="indicator-year-select"
-            aria-label="Turno"
-            value={selection.round}
-            onChange={(event) => change({ round: Number(event.target.value) })}
+            disabled={!years.length}
+            aria-label="Ano da eleição"
+            value={selection.year}
+            onChange={(event) => change({ year: Number(event.target.value) })}
           >
-            {rounds.map((round) => (
-              <option key={round} value={round}>
-                {round}º turno
+            {years.map((r) => (
+              <option key={r.year} value={r.year}>
+                {r.year}
               </option>
             ))}
           </select>
-        )}
+          {selection.category !== 'representation' && rounds.length > 0 && (
+            <select
+              className="indicator-year-select"
+              aria-label="Turno"
+              value={selection.round}
+              onChange={(event) => change({ round: Number(event.target.value) })}
+            >
+              {rounds.map((round) => (
+                <option key={round} value={round}>
+                  {round}º turno
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </LayerMetadata>
       {release?.status === 'partial' && (
         <p className="source-note" role="status">
-          {release.year} em andamento · Parcial
+          Parcial · em andamento
           {release.updatedAt &&
             ` · ${new Date(release.updatedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
         </p>

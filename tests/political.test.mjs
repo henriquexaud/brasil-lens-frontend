@@ -8,6 +8,8 @@ const { createRoot } = await import('react-dom/client');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const {
   PoliticalApp,
+  TerritoryPanel,
+  summaryMetric,
   presentationFor,
   candidateName,
   numericBands,
@@ -18,6 +20,8 @@ const {
   SESSION_STORAGE_KEY,
 } = await loadModule(
   `
+  export { TerritoryPanel } from './src/features/political/TerritoryPanel';
+  export { summaryMetric } from './src/features/political/summary';
   export { default as PoliticalApp } from './src/features/political/PoliticalApp';
   export { presentationFor, candidateName, numericBands, numericColor } from './src/features/political/presentation';
   export { DEFAULT_SELECTION, normalizeSelection, latestSelection } from './src/features/political/selection';
@@ -255,7 +259,7 @@ test('menu abre no pleito mais recente, mantém categorias e não consulta clima
     [...year.options].map((o) => o.value),
     ['2026', '2022'],
   );
-  assert.match(document.body.textContent, /2026 em andamento/);
+  assert.match(document.body.textContent, /Parcial · em andamento/);
   const round = document.querySelector('[aria-label="Turno"]');
   assert.deepEqual(
     [...round.options].map((o) => o.value),
@@ -285,4 +289,115 @@ test('menu abre no pleito mais recente, mantém categorias e não consulta clima
   await act(async () => officeButton('Presidência').click());
   await settle();
   assert.equal(document.querySelector('[aria-label="Ano da eleição"]').value, '2026');
+});
+
+const detailFixture = {
+  ibgeCode: 'BR',
+  name: 'Brasil',
+  level: 'country',
+  year: 2026,
+  office: 'president',
+  round: 1,
+  status: 'partial',
+  updatedAt: null,
+  note: 'Dados do TSE',
+  summary: {
+    eligible: 1000,
+    turnout: 800,
+    abstention: 200,
+    totalVotes: 800,
+    validVotes: 700,
+    blankVotes: 40,
+    nullVotes: 60,
+    representatives: 10,
+    party: 'PL',
+    partySeats: 4,
+    partyVotes: 400,
+  },
+  leaders: [
+    { id: '1', name: 'CANDIDATO A', party: 'PL', votes: 400 },
+    { id: '2', name: 'CANDIDATO B', party: 'PT', votes: 300 },
+  ],
+  representatives: [],
+  representativeTotal: 10,
+  offset: 0,
+  limit: 25,
+};
+
+test('destaques políticos preservam bases percentuais, zero, empate e ausência', () => {
+  for (const [metric, expected] of Object.entries({
+    turnout: 80,
+    abstention: 20,
+    blank_votes: 5,
+    null_votes: 7.5,
+    invalid_votes: 12.5,
+    leader_share: 57.14,
+    margin: 14.29,
+  })) {
+    assert.equal(summaryMetric(detailFixture, metric).value, expected);
+  }
+  const zero = { ...detailFixture, summary: { ...detailFixture.summary, blankVotes: 0 } };
+  assert.equal(summaryMetric(zero, 'blank_votes').value, 0);
+  zero.summary.nullVotes = null;
+  assert.equal(summaryMetric(zero, 'invalid_votes').value, null);
+  zero.summary.totalVotes = 0;
+  assert.equal(summaryMetric(zero, 'blank_votes').value, null);
+  assert.equal(
+    summaryMetric({ ...detailFixture, leaders: [detailFixture.leaders[0]] }, 'margin').value,
+    null,
+  );
+  assert.equal(
+    summaryMetric(
+      { ...detailFixture, leaders: [detailFixture.leaders[0], detailFixture.leaders[0]] },
+      'margin',
+    ).value,
+    0,
+  );
+});
+
+test('detalhes priorizam a categoria e deixam contagens secundárias sob demanda', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify(detailFixture), { status: 200 });
+  for (const selection of [
+    DEFAULT_SELECTION,
+    { ...DEFAULT_SELECTION, category: 'participation', metric: 'turnout' },
+    { ...DEFAULT_SELECTION, category: 'representation', metric: 'representation' },
+  ]) {
+    await act(async () =>
+      root.render(
+        h(
+          QueryClientProvider,
+          { client },
+          h(TerritoryPanel, {
+            key: selection.category,
+            code: 'BR',
+            selection,
+            enabled: true,
+            onDrillDown() {},
+          }),
+        ),
+      ),
+    );
+    await settle();
+    await settle();
+    const section = document.querySelector('.territory-detail');
+    assert.equal(section.querySelector('.detail-header + .source-note').textContent, 'Presidência');
+    assert.equal(section.querySelectorAll('.featured-value').length, 1);
+    assert.ok(!section.textContent.includes('Eleitorado'));
+    if (selection.category === 'representation') {
+      assert.equal(section.querySelector('.featured-value').textContent, '10');
+      assert.match(section.textContent, /Ver eleitos/);
+    } else {
+      assert.equal(
+        section.querySelector('.featured-value').textContent,
+        selection.category === 'participation' ? '80%' : 'Candidato A',
+      );
+      await act(async () => section.querySelector('summary').click());
+      await settle();
+      assert.match(section.textContent, /Eleitorado/);
+      assert.equal(
+        section.textContent.includes('Dois mais votados'),
+        selection.category === 'elections',
+      );
+    }
+  }
 });

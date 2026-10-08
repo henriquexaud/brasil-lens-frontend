@@ -44,11 +44,18 @@ export function useMobileSheet() {
     const header = headerRef.current;
     if (!slot || !header) return;
     // +2: bordas de cima e de baixo do painel.
-    const update = () => slot.style.setProperty('--sheet-peek', `${header.offsetHeight + 2}px`);
+    const update = () => {
+      slot.style.setProperty('--sheet-peek', `${header.offsetHeight + 2}px`);
+      slot.parentElement?.style.setProperty(
+        '--sheet-height',
+        `${slot.getBoundingClientRect().height}px`,
+      );
+    };
     update();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(update);
     observer.observe(header);
+    observer.observe(slot);
     return () => observer.disconnect();
   }, []);
 

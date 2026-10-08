@@ -39,3 +39,27 @@
     font-size: 16px;
   }
 }
+
+.political-app .political-period {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.political-app .political-period .indicator-year-select {
+  margin: 0;
+  max-width: none;
+}
+.political-app .featured-indicator > .indicator-label {
+  margin: 0;
+}
+.political-app .political-detail-label {
+  margin: 12px 0 4px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.political-app .political-options:empty {
+  display: none;
+}

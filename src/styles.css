@@ -1761,7 +1761,7 @@ body {
 @media (max-width: 900px) {
   .panel-slot {
     top: auto;
-    /* O tema fica no topo; só a atribuição precisa de folga no rodapé. */
+    /* A atribuição precisa de folga no rodapé. */
     bottom: calc(28px + env(safe-area-inset-bottom));
     left: 8px;
     right: 8px;
@@ -3373,10 +3373,7 @@ body {
   .search-slot {
     z-index: 610;
     top: max(var(--gutter), env(safe-area-inset-top));
-    width: min(
-      340px,
-      calc(100% - var(--gutter) - max(var(--gutter), env(safe-area-inset-right)) - 86px)
-    );
+    width: min(340px, calc(100% - var(--gutter) - max(var(--gutter), env(safe-area-inset-right))));
   }
 
   .search-input {
@@ -3548,8 +3545,26 @@ body {
 
 @media (max-width: 900px) {
   .app:not(.auth-page) .theme-switch {
-    top: max(var(--gutter), env(safe-area-inset-top));
-    bottom: auto;
+    top: auto;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(28px + env(safe-area-inset-bottom) + var(--sheet-height, 0px) + 8px);
+    width: 64px;
+    height: 34px;
+  }
+
+  .app:not(.auth-page) .theme-switch__thumb {
+    top: calc(50% - 13px);
+    width: 26px;
+    height: 26px;
+  }
+
+  .app:not(.auth-page) .theme-switch[aria-checked='true'] .theme-switch__thumb {
+    transform: translateX(30px);
+  }
+
+  .app:not(.auth-page) .theme-switch__icon {
+    width: 16px;
+    height: 16px;
   }
 }
 

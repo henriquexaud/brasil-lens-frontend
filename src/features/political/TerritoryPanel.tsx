@@ -5,19 +5,14 @@ import { Disclosure } from '@/components/Disclosure';
 import { DrillDownButton } from '@/components/DrillDownButton';
 import { useDetail } from './queries';
 import { officeLabel } from './selection';
-import { candidateName, partyColor } from './presentation';
+import { candidateName } from './presentation';
+import {
+  formatCount as count,
+  PartyDot,
+  PoliticalStats,
+  PoliticalSummary,
+} from './PoliticalSummary';
 
-const count = (value: number | null | undefined) =>
-  value == null ? 'Sem dados' : value.toLocaleString('pt-BR');
-function PartyDot({ party }: { party: string }) {
-  return (
-    <span
-      className="political-party-dot"
-      style={{ backgroundColor: partyColor(party) }}
-      aria-hidden="true"
-    />
-  );
-}
 function Representatives({ code, selection }: { code: string; selection: PoliticalSelection }) {
   const [offset, setOffset] = useState(0);
   const query = useDetail(code, selection, offset);
@@ -25,17 +20,17 @@ function Representatives({ code, selection }: { code: string; selection: Politic
   if (!query.data) return <p role="status">Carregando eleitos…</p>;
   return (
     <>
-      <dl className="indicator-list">
-        {query.data.representatives.map((candidate) => (
-          <div key={candidate.id} className="indicator-row">
-            <dt className="indicator-label">{candidateName(candidate.name)}</dt>
-            <dd className="indicator-value">
+      <PoliticalStats
+        rows={query.data.representatives.map((candidate) => ({
+          label: candidateName(candidate.name),
+          value: (
+            <>
               <PartyDot party={candidate.party} />
-              {candidate.party} · {candidate.number}
-            </dd>
-          </div>
-        ))}
-      </dl>
+              {candidate.party}
+            </>
+          ),
+        }))}
+      />
       {query.data.representativeTotal > 25 && (
         <div className="political-pagination">
           <button
@@ -80,7 +75,6 @@ export function TerritoryPanel({
   const data = query.data;
   const representative = selection.category === 'representation';
   const summary = data?.summary;
-  const leadingParty = selection.metric === 'leading_party';
   return (
     <section className="panel-section territory-detail" aria-label="Resumo político do território">
       <header className="detail-header">
@@ -116,97 +110,47 @@ export function TerritoryPanel({
         </>
       ) : (
         <>
-          <p className="source-note">
-            {officeLabel(selection.office)} · {selection.year}
-            {representative ? ' · Eleitos no pleito' : ` · ${selection.round}º turno`}
-          </p>
+          <p className="source-note">{officeLabel(selection.office)}</p>
           {!data ? (
             <p role="status">Carregando dados…</p>
           ) : !summary ? (
             <p className="featured-value is-missing">Sem dados para este território</p>
           ) : (
             <>
-              {(selection.category === 'elections' ||
-                (representative && data.leaders.length === 1)) && (
-                <div className="featured-indicator">
-                  <p className="detail-kicker">
-                    {representative
-                      ? 'Eleito no pleito'
-                      : leadingParty
-                        ? 'Partido mais votado'
-                        : summary.candidateTie
-                          ? 'Empate entre os mais votados'
-                          : 'Mais votado no recorte'}
-                  </p>
-                  <p className="featured-value">
-                    {leadingParty
-                      ? summary.partyTie
-                        ? 'Empate'
-                        : (summary.party ?? 'Sem dados')
-                      : !representative && summary.candidateTie
-                        ? 'Empate'
-                        : data.leaders[0]
-                          ? candidateName(data.leaders[0].name)
-                          : 'Resultado municipal'}
-                  </p>
-                  <p className="source-note">
-                    {leadingParty && summary.party && <PartyDot party={summary.party} />}
-                    {!leadingParty && data.leaders[0] && <PartyDot party={data.leaders[0].party} />}
-                    {leadingParty
-                      ? `${count(summary.partyVotes)} votos`
-                      : data.leaders[0]
-                        ? representative
-                          ? `${data.leaders[0].party} · ${data.leaders[0].number}`
-                          : `${data.leaders[0].party} · ${count(data.leaders[0].votes)} votos`
-                        : 'Candidatos concorrem em circunscrições diferentes. Consulte um município.'}
-                  </p>
-                </div>
+              <PoliticalSummary data={data} selection={selection} />
+              {!representative && (
+                <Disclosure title="Mais detalhes" className="territory-details">
+                  <PoliticalStats
+                    rows={[
+                      { label: 'Eleitorado', value: count(summary.eligible) },
+                      { label: 'Comparecimento', value: count(summary.turnout) },
+                      { label: 'Abstenção', value: count(summary.abstention) },
+                      { label: 'Votos válidos', value: count(summary.validVotes) },
+                      { label: 'Brancos', value: count(summary.blankVotes) },
+                      { label: 'Nulos', value: count(summary.nullVotes) },
+                    ]}
+                  />
+                  {selection.category === 'elections' && data.leaders.length > 1 && (
+                    <>
+                      <p className="political-detail-label">Dois mais votados</p>
+                      <PoliticalStats
+                        rows={data.leaders.map((candidate) => ({
+                          label: candidateName(candidate.name),
+                          value: (
+                            <>
+                              <PartyDot party={candidate.party} />
+                              {candidate.party} · {count(candidate.votes)}
+                            </>
+                          ),
+                        }))}
+                      />
+                    </>
+                  )}
+                </Disclosure>
               )}
-              <dl className="indicator-list">
-                {(representative
-                  ? [
-                      ['Eleitos no pleito', summary.representatives],
-                      [
-                        `${summary.partyTie ? 'Empate · ' : ''}${summary.party ?? 'Partido'} · eleitos`,
-                        summary.partySeats,
-                      ],
-                    ]
-                  : [
-                      ['Eleitorado', summary.eligible],
-                      ['Comparecimento', summary.turnout],
-                      ['Abstenção', summary.abstention],
-                      ['Votos válidos', summary.validVotes],
-                      ['Brancos', summary.blankVotes],
-                      ['Nulos', summary.nullVotes],
-                    ]
-                ).map(([label, value]) => (
-                  <div className="indicator-row" key={String(label)}>
-                    <dt className="indicator-label">{label}</dt>
-                    <dd className="indicator-value">{count(value as number | null | undefined)}</dd>
-                  </div>
-                ))}
-              </dl>
               {representative && (
                 <Disclosure title="Ver eleitos">
                   <Representatives code={code} selection={selection} />
-                </Disclosure>
-              )}
-              {!representative && data.leaders.length > 1 && (
-                <Disclosure title="Mais votados">
-                  <p className="source-note">Dois candidatos mais votados neste recorte.</p>
-                  <dl className="indicator-list">
-                    {data.leaders.map((candidate) => (
-                      <div className="indicator-row" key={candidate.id}>
-                        <dt className="indicator-label">
-                          {candidateName(candidate.name)} · {candidate.party}
-                        </dt>
-                        <dd className="indicator-value">
-                          <PartyDot party={candidate.party} />
-                          {count(candidate.votes)}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
                 </Disclosure>
               )}
             </>
@@ -214,18 +158,20 @@ export function TerritoryPanel({
           <Disclosure title="Sobre estes dados">
             <p className="source-note">{data?.note}</p>
             <p className="source-note">
-              Percentuais de comparecimento e abstenção usam o eleitorado; brancos e nulos usam o
-              total de votos do cargo. Percentual do líder e margem usam votos válidos. Para o
-              Senado em 2026, cada eleitor pode dar dois votos. As divisas são as da malha atual do
-              IBGE.
+              {representative
+                ? 'Eleitos neste pleito na circunscrição do território. Presidência representa o país; cargos estaduais representam a UF. Senado inclui somente as vagas disputadas.'
+                : selection.category === 'participation'
+                  ? ['turnout', 'abstention'].includes(selection.metric)
+                    ? 'Percentual calculado sobre o eleitorado.'
+                    : 'Percentual calculado sobre o total de votos do cargo.'
+                  : 'Percentual do líder e margem calculados sobre os votos válidos. São mostrados os dois candidatos mais votados do recorte.'}
             </p>
-            {representative && (
+            {selection.office === 'senator' && selection.year === 2026 && !representative && (
               <p className="source-note">
-                Cargos estaduais representam a UF; Presidência representa o país. No município, são
-                mostrados os eleitos da sua circunscrição. Senado inclui apenas as vagas disputadas
-                neste pleito.
+                Cada eleitor pode dar dois votos para o Senado neste pleito.
               </p>
             )}
+            <p className="source-note">Divisas da malha atual do IBGE.</p>
             {data?.updatedAt && (
               <p className="source-note">
                 Publicação do TSE: {new Date(data.updatedAt).toLocaleString('pt-BR')}
