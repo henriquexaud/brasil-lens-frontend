@@ -727,17 +727,17 @@ test('seletor temático exibe Clima, Chuva e Fogo com indicador deslizante', asy
     ),
   );
 
-  const segmentButtons = document.querySelectorAll('.weather-segment-btn');
+  const segmentButtons = document.querySelectorAll('.segmented-control-tab');
   assert.equal(segmentButtons.length, 3);
   assert.equal(segmentButtons[0].classList.contains('is-active'), true, 'Clima deve estar ativo');
   assert.equal(segmentButtons[1].classList.contains('is-active'), false, 'Chuva deve estar inativa');
   assert.equal(segmentButtons[2].classList.contains('is-active'), false, 'Fogo deve estar inativo');
   assert.equal(segmentButtons[2].textContent.trim(), 'Fogo');
-  assert.match(document.querySelector('.weather-segment-indicator').style.transform, /0%/);
+  assert.match(document.querySelector('.segmented-control-indicator').style.transform, /0%/);
 
-  const climateBadge = document.querySelector('.badge-climate');
+  const climateBadge = document.querySelector('.badge-neutral');
   assert.ok(climateBadge);
-  assert.equal(climateBadge.textContent, 'Ativo');
+  assert.equal(climateBadge.textContent, 'Sem dados');
 
   await act(async () => segmentButtons[2].click());
   assert.equal(fireToggled, true);
@@ -749,7 +749,7 @@ test('seletor temático exibe Clima, Chuva e Fogo com indicador deslizante', asy
     showFireHotspots: true,
     onToggleFireHotspots: () => {},
   })));
-  assert.match(document.querySelector('.weather-segment-indicator').style.transform, /200%/);
+  assert.match(document.querySelector('.segmented-control-indicator').style.transform, /200%/);
 });
 
 test('seletor temático exibe faixa de temperatura no badge da camada de clima', async () => {

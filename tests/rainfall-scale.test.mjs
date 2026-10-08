@@ -20,9 +20,9 @@ const {
 } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
 test('escala cromática de chuva contém paleta contínua de azuis', () => {
-  assert.equal(RAIN_SCALE_STOPS.length, 7, 'deve ter 7 pontos de escala para a legenda');
+  assert.equal(RAIN_SCALE_STOPS.length, 10, 'deve ter 10 cores para mapa e legenda');
   assert.equal(RAIN_SCALE_STOPS[0].color, '#f1f5f9');
-  assert.equal(RAIN_SCALE_STOPS[6].color, '#1e3a8a');
+  assert.equal(RAIN_SCALE_STOPS[9].color, '#172554');
 });
 
 test('rainColor mapeia valores de mm para a escala de azuis', () => {
@@ -37,6 +37,9 @@ test('rainColor mapeia valores de mm para a escala de azuis', () => {
   assert.equal(rainColor(60), '#2563eb');
   assert.equal(rainColor(85), '#1d4ed8');
   assert.equal(rainColor(120), '#1e3a8a');
+  assert.equal(rainColor(150), '#172554');
+  assert.equal(new Set(RAIN_SCALE_STOPS.map(stop => stop.color)).size, 10);
+  RAIN_SCALE_STOPS.forEach(stop => assert.equal(rainColor(stop.min), stop.color));
 });
 
 test('rainDescription e rainBadgeText retornam classificações amigáveis', () => {

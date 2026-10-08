@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import type { WeatherAlertCollection } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
 import { ErrorMessage } from '@/components/Feedback';
+import { LayerToggle } from '@/components/LayerToggle';
+import { StatusBadge } from '@/components/StatusBadge';
 import { WeatherAlertCard } from './WeatherAlertCard';
 import { WeatherAlertGroupCard } from './WeatherAlertGroupCard';
 import { WeatherAlertsNationalSummary } from './WeatherAlertsNationalSummary';
@@ -14,6 +16,7 @@ export interface WeatherOptionsProps {
   onToggleHydrography?: (show: boolean) => void;
   hydrographyPartial?: boolean;
   hydrographyError?: boolean;
+  hydrographyPending?: boolean;
   code: string | null;
   alertsData: WeatherAlertCollection | undefined;
   alertsPending: boolean;
@@ -28,6 +31,7 @@ export function WeatherOptions({
   onToggleHydrography,
   hydrographyPartial,
   hydrographyError = false,
+  hydrographyPending = false,
   code,
   alertsData,
   alertsPending,
@@ -79,79 +83,89 @@ export function WeatherOptions({
       className="panel-section weather-options-section"
       aria-label="Camadas e fontes de clima"
     >
-      {}
       <div className="weather-layers-panel">
-        {}
         {onToggleHydrography && (
-          <div className="weather-layer-card">
-            <label className="weather-layer-label weather-toggle">
-              <input
-                type="checkbox"
-                checked={showHydrography ?? false}
-                onChange={(event) => onToggleHydrography(event.target.checked)}
-              />
-              <div className="weather-layer-title">
-                <span>Rios e corpos d'água</span>
-                <span className="weather-layer-source">ANA / SNIRH</span>
-              </div>
-            </label>
-            {showHydrography && (
-              <span
-                className={`weather-layer-badge ${
+          <LayerToggle
+            label="Rios e corpos d'água"
+            sources={[
+              {
+                label: 'ANA',
+                description: 'Sistema Nacional de Informações sobre Recursos Hídricos (SNIRH).',
+              },
+            ]}
+            checked={showHydrography ?? false}
+            onChange={onToggleHydrography}
+            status={
+              <StatusBadge
+                tone={
                   hydrographyError
-                    ? 'badge-error'
+                    ? 'error'
                     : hydrographyPartial
-                      ? 'badge-warning'
-                      : 'badge-hydro'
-                }`}
+                      ? 'warning'
+                      : hydrographyPending
+                        ? 'neutral'
+                        : 'hydro'
+                }
               >
-                {hydrographyError ? 'Indisponível' : hydrographyPartial ? 'Parcial' : 'Ativo'}
-              </span>
-            )}
-          </div>
+                {hydrographyError
+                  ? 'Indisponível'
+                  : hydrographyPartial
+                    ? 'Parcial'
+                    : hydrographyPending
+                      ? 'Carregando…'
+                      : 'Ativo'}
+              </StatusBadge>
+            }
+          />
         )}
-
-        {}
-        <div className="weather-layer-card">
-          <label className="weather-layer-label weather-toggle">
-            <input
-              type="checkbox"
-              checked={showAlerts}
-              onChange={(event) => onToggleAlerts(event.target.checked)}
-            />
-            <div className="weather-layer-title">
-              <span>Alertas</span>
-              <span className="weather-layer-source">INMET · CEMADEN</span>
-            </div>
-          </label>
-          {showAlerts && (
-            <span
-              className={`weather-layer-badge ${
-                relevantCount > 0 ? 'badge-alert' : 'badge-neutral'
-              }`}
+        <LayerToggle
+          label="Alertas"
+          sources={[
+            { label: 'INMET', description: 'Instituto Nacional de Meteorologia.' },
+            {
+              label: 'CEMADEN',
+              description: 'Centro Nacional de Monitoramento e Alertas de Desastres Naturais.',
+            },
+          ]}
+          checked={showAlerts}
+          onChange={onToggleAlerts}
+          status={
+            <StatusBadge
+              tone={
+                alertsError != null
+                  ? alertsData
+                    ? 'warning'
+                    : 'error'
+                  : relevantCount > 0
+                    ? 'alert'
+                    : 'neutral'
+              }
             >
-              {alertsPending && !alertsData
-                ? 'Consultando…'
-                : relevantCount > 0
-                  ? `${relevantCount} ${relevantCount === 1 ? 'alerta ativo' : 'alertas ativos'}`
-                  : 'Sem alertas'}
-            </span>
-          )}
-        </div>
+              {alertsError != null
+                ? alertsData
+                  ? 'Dados anteriores'
+                  : 'Indisponível'
+                : !alertsData
+                  ? alertsPending
+                    ? 'Carregando…'
+                    : 'Sem dados'
+                  : relevantCount > 0
+                    ? `${relevantCount} ${relevantCount === 1 ? 'alerta ativo' : 'alertas ativos'}`
+                    : 'Sem alertas'}
+            </StatusBadge>
+          }
+        />
       </div>
 
-      {}
       {showAlerts && (
         <div className="weather-alerts-container">
           {alertsError != null && <ErrorMessage error={alertsError} />}
 
-          {}
-          {territoryLevel === 'national' && (
-            <WeatherAlertsNationalSummary features={alertsData?.features ?? []} />
+          {alertsData && territoryLevel === 'national' && (
+            <WeatherAlertsNationalSummary features={alertsData.features} />
           )}
 
-          {}
-          {territoryLevel === 'state' && (
+          {alertsData && territoryLevel === 'state' && (
             <div className="weather-alert-state-view">
               {groupedStateAlerts.length > 0 ? (
                 <div className="weather-alert-list">
@@ -177,8 +191,7 @@ export function WeatherOptions({
             </div>
           )}
 
-          {}
-          {territoryLevel === 'municipality' && (
+          {alertsData && territoryLevel === 'municipality' && (
             <div className="weather-alert-municipality-view">
               <div className="weather-alert-section">
                 <div className="weather-alert-section-title">
@@ -236,4 +249,3 @@ export function WeatherOptions({
     </section>
   );
 }
-

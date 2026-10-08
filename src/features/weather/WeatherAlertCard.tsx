@@ -1,3 +1,4 @@
+import { SourceTag } from '@/components/LayerMetadata';
 import { useMemo } from 'react';
 import type { WeatherAlertFeature } from '@/api/types';
 import { Disclosure } from '@/components/Disclosure';
@@ -75,9 +76,7 @@ export function WeatherAlertCard({
             >
               {style.label}
             </span>
-            <span className="weather-alert-source-tag">
-              {alertSourceLabel(properties.provider)}
-            </span>
+            <SourceTag label={alertSourceLabel(properties.provider)} />
           </span>
         }
       >

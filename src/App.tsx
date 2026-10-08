@@ -726,10 +726,11 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
                 maxTemperature={maxTemperature}
                 maxRainfall={maxRainfall}
                 fireHotspots={fireHotspotsLayer.data}
-                fireHotspotsLoading={fireHotspotsLayer.isFetching}
+                fireHotspotsLoading={showFireHotspots && !fireLayerSettled}
                 fireHotspotsError={fireError != null}
                 current={currentWeather}
-                error={weatherError ?? fireError}
+                loading={weatherLayerActive && !climateBaseReady}
+                error={weatherError}
                 scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
               />
             </div>
@@ -814,6 +815,7 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
                 showHydrography={showHydrography}
                 onToggleHydrography={setShowHydrography}
                 hydrographyPartial={hydroCollection?.metadata.status === 'partial'}
+                hydrographyPending={hydrographyLayer.isFetching && !hydroCollection}
                 code={selectedCode ?? scope.parent}
                 hydrographyError={showHydrography && hydrographyLayer.error != null}
                 alertsData={alerts.data}

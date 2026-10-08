@@ -30,8 +30,8 @@ const catalog = [indicator('population'), indicator('urban_population'), indicat
 const response = (key = 'population', year = 'latest', level = 'state', parent = null) => ({
   level, parent, indicator: { ...catalog.find(item => item.key === key), year: year === 'latest' ? catalog.find(item => item.key === key).latestYear : Number(year), requestedYear: year },
   statistics: { min: 0, max: 100, mean: 50, median: 50, count: 2, missing: 1 },
-  classification: { method: 'quantile', scope: 'national', min: 0, max: 100, classes: 2, breaks: [50,100] },
-  values: [{ibgeCode:'35',value:0,classIndex:0}, {ibgeCode:'33',value:100,classIndex:1}, {ibgeCode:'99',value:null,classIndex:null}], version:'1',
+  classification: { method: 'quantile', scope: 'national', min: 0, max: 100, classes: 10, breaks: Array.from({length: 10}, (_, i) => (i + 1) * 10) },
+  values: [{ibgeCode:'35',value:0,classIndex:0}, {ibgeCode:'33',value:100,classIndex:9}, {ibgeCode:'99',value:null,classIndex:null}], version:'1',
 });
 let root, client, calls;
 const stored = () => JSON.parse(window.sessionStorage.getItem(SESSION_STORAGE_KEY));
@@ -73,14 +73,48 @@ test('zero tem cor e texto; ausência fica neutra, sem inventar valor', () => {
   }
 });
 
-test('menu original alterna indicador e ano e só consulta o domínio socioeconômico', async () => {
+test('dez faixas têm cores distintas e a legenda acompanha o mapa em todas as categorias', async () => {
+  globalThis.fetch = async url => {
+    const parsed = new URL(url);
+    if (!parsed.pathname.endsWith('/values')) {
+      const body = parsed.pathname.endsWith('/indicators')
+        ? { indicators: catalog, version: '1' }
+        : { ibgeCode: 'BR', name: 'Brasil', level: 'country', indicators: [] };
+      return new Response(JSON.stringify(body), { status: 200 });
+    }
+    const body = response(parsed.searchParams.get('indicator'));
+    body.classification = { method: 'quantile', scope: 'national', min: 0, max: 100,
+      classes: 10, breaks: Array.from({length: 10}, (_, i) => (i + 1) * 10) };
+    body.values = Array.from({length: 10}, (_, i) => ({ibgeCode: String(i), value: i * 10, classIndex: i}));
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+  await render();
+  for (const category of ['População', 'Economia', 'Outros']) {
+    await click(category);
+    const colors = [...document.querySelectorAll('.scale-legend-segment')].map(item => item.style.backgroundColor);
+    assert.equal(colors.length, 10);
+    assert.equal(new Set(colors).size, 10);
+    const mapColors = [...globalThis.mapProps.presentation.colors.values()];
+    assert.equal(new Set(mapColors).size, 10);
+    mapColors.forEach((color, index) => {
+      const swatch = document.createElement('span');
+      swatch.style.background = color;
+      assert.equal(colors[index], swatch.style.background);
+    });
+  }
+});
+
+test('menu alterna indicador e ano diretamente, sem Ajustes, e só consulta o domínio socioeconômico', async () => {
   await render();
   assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(item=>item.textContent),['População','Economia','Outros']);
   assert.equal(globalThis.nationalProps.weatherEnabled,false);
   await click('Economia');
   assert.equal(globalThis.mapProps.presentation.colors.get('35'),'#EDF7F5');
-  await click('Ajustes');
-  const year = document.querySelector('#year'); assert.ok(year);
+  assert.equal([...document.querySelectorAll('button')].some(item => item.textContent.includes('Ajustes')), false);
+  assert.equal(document.querySelector('.indicator-extra-panel'), null);
+  assert.equal(document.querySelector('.source-tag').title, 'Fonte IBGE');
+  const year = document.querySelector('.layer-metadata #year'); assert.ok(year);
+  assert.equal(year.getAttribute('aria-label'), 'Ano de referência');
   await act(async()=>{ year.value='2022'; year.dispatchEvent(new window.Event('change',{bubbles:true})); });
   await settle();
   assert.ok(calls.some(url=>url.searchParams.get('indicator')==='gdp' && url.searchParams.get('year')==='2022'));

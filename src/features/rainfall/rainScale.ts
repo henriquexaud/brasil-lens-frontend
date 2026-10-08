@@ -6,12 +6,15 @@ export interface RainScaleStop {
 
 export const RAIN_SCALE_STOPS: RainScaleStop[] = [
   { min: 0, label: '0 mm', color: '#f1f5f9' },
-  { min: 0.1, label: '2 mm', color: '#dbeafe' },
-  { min: 5, label: '10 mm', color: '#93c5fd' },
-  { min: 15, label: '25 mm', color: '#60a5fa' },
-  { min: 30, label: '50 mm', color: '#3b82f6' },
-  { min: 50, label: '75 mm', color: '#2563eb' },
-  { min: 75, label: '100+ mm', color: '#1e3a8a' },
+  { min: Number.MIN_VALUE, label: 'Mais de 0 a menos de 2 mm', color: '#dbeafe' },
+  { min: 2, label: '2 a menos de 5 mm', color: '#bfdbfe' },
+  { min: 5, label: '5 a menos de 15 mm', color: '#93c5fd' },
+  { min: 15, label: '15 a menos de 30 mm', color: '#60a5fa' },
+  { min: 30, label: '30 a menos de 50 mm', color: '#3b82f6' },
+  { min: 50, label: '50 a menos de 75 mm', color: '#2563eb' },
+  { min: 75, label: '75 a menos de 100 mm', color: '#1d4ed8' },
+  { min: 100, label: '100 a menos de 150 mm', color: '#1e3a8a' },
+  { min: 150, label: '150 mm ou mais', color: '#172554' },
 ];
 
 export function rainAmount(city: {
@@ -34,15 +37,12 @@ export function rainingNowText(city: {
 }
 
 export function rainColor(mm: number | null | undefined): string {
-  if (mm == null || mm <= 0) return '#f1f5f9';
-  if (mm < 2) return '#dbeafe';
-  if (mm < 5) return '#bfdbfe';
-  if (mm < 15) return '#93c5fd';
-  if (mm < 30) return '#60a5fa';
-  if (mm < 50) return '#3b82f6';
-  if (mm < 75) return '#2563eb';
-  if (mm < 100) return '#1d4ed8';
-  return '#1e3a8a';
+  if (mm == null || !Number.isFinite(mm) || mm <= 0) return RAIN_SCALE_STOPS[0]!.color;
+  for (let index = RAIN_SCALE_STOPS.length - 1; index >= 0; index--) {
+    const stop = RAIN_SCALE_STOPS[index]!;
+    if (mm >= stop.min) return stop.color;
+  }
+  return RAIN_SCALE_STOPS[0]!.color;
 }
 
 export function rainDescription(mm: number | null | undefined): string {

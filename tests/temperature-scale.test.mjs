@@ -14,8 +14,8 @@ const {
   NO_DATA_COLOR,
 } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
-test('escala fixa de temperatura com 9 faixas em intervalos de 5°C', () => {
-  assert.equal(TEMPERATURE_SCALE.length, 9, 'deve ter exatamente 9 faixas');
+test('escala fixa de temperatura com 10 faixas em intervalos de 5°C', () => {
+  assert.equal(TEMPERATURE_SCALE.length, 10, 'deve ter exatamente 10 faixas');
 
   const expectedScale = [
     { max: 0, color: '#2454C6', label: '<0°' },
@@ -26,7 +26,8 @@ test('escala fixa de temperatura com 9 faixas em intervalos de 5°C', () => {
     { max: 25, color: '#FFF5A6', label: '20–25°' },
     { max: 30, color: '#FFD447', label: '25–30°' },
     { max: 35, color: '#FF9B38', label: '30–35°' },
-    { max: Infinity, color: '#F04432', label: '≥35°' },
+    { max: 40, color: '#F04432', label: '35–40°' },
+    { max: Infinity, color: '#A51C30', label: '>40°' },
   ];
 
   expectedScale.forEach((expected, i) => {
@@ -58,7 +59,12 @@ test('colorForTemperature mapeia valores conforme a classe fixa especificada', (
   assert.equal(colorForTemperature(32), '#FF9B38');
   assert.equal(colorForTemperature(35), '#F04432');
   assert.equal(colorForTemperature(36), '#F04432');
-  assert.equal(colorForTemperature(42), '#F04432');
+  assert.equal(colorForTemperature(39.49), '#F04432');
+  assert.equal(colorForTemperature(39.5), '#F04432');
+  assert.equal(colorForTemperature(40), '#F04432');
+  assert.equal(colorForTemperature(40.49), '#F04432');
+  assert.equal(colorForTemperature(40.5), '#A51C30');
+  assert.equal(colorForTemperature(42), '#A51C30');
 
   assert.equal(colorForTemperature(null), NO_DATA_COLOR);
   assert.equal(colorForTemperature(undefined), NO_DATA_COLOR);
@@ -76,7 +82,8 @@ test('bandForTemperature recupera metadados da faixa térmica correspondente', (
   assert.equal(bandCold?.color, '#2454C6');
 
   const bandHot = bandForTemperature(40);
-  assert.equal(bandHot?.label, '≥35°');
+  assert.equal(bandHot?.label, '35–40°');
+  assert.equal(bandForTemperature(41)?.label, '>40°');
   assert.equal(bandForTemperature(30)?.label, '30–35°');
   assert.equal(bandHot?.color, '#F04432');
 });

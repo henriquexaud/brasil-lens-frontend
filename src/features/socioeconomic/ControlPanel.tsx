@@ -1,8 +1,9 @@
-import { useCallback, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useMemo, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { valuesOptions } from './queries';
 import type { Indicator, TerritoryLevel } from '@/api/types';
-import { Select } from '@/components/Select';
+import { LayerMetadata } from '@/components/LayerMetadata';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import {
   formatIndicatorUnit,
   getCategoryForIndicatorKey,
@@ -17,7 +18,7 @@ function categoryStyle(key: string): CSSProperties {
   const palette = paletteForIndicator(key);
   return {
     '--indicator-accent': palette[palette.length - 1],
-    '--indicator-tone': palette[3],
+    '--indicator-tone': palette[7],
   } as CSSProperties;
 }
 
@@ -43,9 +44,6 @@ export function ControlPanel({
   parentCode = null,
 }: Props) {
   const queryClient = useQueryClient();
-  const [expanded, setExpanded] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const id = useId();
 
   const prefetchIndicator = useCallback(
     (key: string) => {
@@ -63,12 +61,6 @@ export function ControlPanel({
     () => getCategoryForIndicatorKey(selectedIndicatorKey, categories),
     [selectedIndicatorKey, categories],
   );
-  const activeIndex = Math.max(
-    0,
-    categories.findIndex((category) => category.id === activeCategoryId),
-  );
-  const segmentCount = Math.max(1, categories.length);
-
   const activeCategory = useMemo(
     () => categories.find((c) => c.id === activeCategoryId) ?? categories[0],
     [categories, activeCategoryId],
@@ -81,63 +73,29 @@ export function ControlPanel({
 
   const years = current?.availableYears ?? [];
   const latest = current?.latestYear ?? resolvedYear;
-  const label =
-    selectedYear === LATEST_YEAR
-      ? latest
-        ? `${latest} · Último`
-        : 'Último disponível'
-      : selectedYear;
+  const latestLabel = latest ? `${latest} · Último` : 'Último disponível';
 
   return (
     <section
       className="panel-section indicator-controls"
       style={categoryStyle(selectedIndicatorKey)}
       aria-label="Indicador do mapa"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' && expanded) {
-          event.stopPropagation();
-          setExpanded(false);
-          trigger.current?.focus();
-        }
-      }}
     >
       {categories.length > 1 && (
-        <div
-          className="weather-segmented-control indicator-segmented-control"
-          role="tablist"
-          aria-label="Dimensões socioeconômicas"
-        >
-          <span
-            className="weather-segment-indicator"
-            aria-hidden="true"
-            style={{
-              width: `calc((100% - ${6 + (segmentCount - 1) * 3}px) / ${segmentCount})`,
-              transform: `translateX(calc(${activeIndex * 100}% + ${3 + activeIndex * 3}px))`,
-            }}
-          />
-          {categories.map((cat) => {
-            const isActive = cat.id === activeCategoryId;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`weather-segment-btn ${isActive ? 'is-active' : ''}`}
-                onMouseEnter={() => prefetchIndicator(cat.defaultKey)}
-                onFocus={() => prefetchIndicator(cat.defaultKey)}
-                onClick={() => {
-                  if (cat.id !== activeCategoryId) {
-                    setExpanded(false);
-                    onIndicatorChange(cat.defaultKey);
-                  }
-                }}
-              >
-                {cat.label}
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedControl
+          className="indicator-segmented-control"
+          label="Dimensões socioeconômicas"
+          value={activeCategoryId}
+          options={categories.map((category) => ({
+            value: category.id,
+            label: category.label,
+            onIntent: () => prefetchIndicator(category.defaultKey),
+          }))}
+          onChange={(value) => {
+            const category = categories.find((item) => item.id === value);
+            if (category) onIndicatorChange(category.defaultKey);
+          }}
+        />
       )}
 
       {activeCategory && activeCategory.indicators.length > 0 && (
@@ -158,7 +116,6 @@ export function ControlPanel({
                 onMouseEnter={() => prefetchIndicator(indicator.key)}
                 onFocus={() => prefetchIndicator(indicator.key)}
                 onClick={() => {
-                  setExpanded(false);
                   onIndicatorChange(indicator.key);
                 }}
               >
@@ -169,52 +126,43 @@ export function ControlPanel({
         </div>
       )}
 
-      <div className="indicator-meta-row">
-        <div className="indicator-meta-left">
-          <span className="indicator-source-tag">IBGE</span>
-          {current?.unit && (
-            <span className="indicator-unit-badge">
-              {current.key === 'household_income_per_capita'
-                ? 'R$ constantes'
-                : formatIndicatorUnit(current.unit)}
-            </span>
-          )}
-        </div>
-        <button
-          ref={trigger}
-          type="button"
-          className="text-button indicator-adjust-toggle"
-          aria-expanded={expanded}
-          aria-controls={id}
-          onClick={() => setExpanded(!expanded)}
-          aria-label="Ajustar ano e ver informações do indicador"
-        >
-          <span className="indicator-year-label">{years.length ? label : 'Sem dados'}</span>
-          <span className="indicator-adjust-cta">
-            Ajustes <span className="disclosure-chevron" aria-hidden="true" />
+      <LayerMetadata
+        sources={[{ label: 'IBGE', description: current?.description ?? undefined }]}
+        unit={
+          current?.unit
+            ? current.key === 'household_income_per_capita'
+              ? 'R$ constantes'
+              : formatIndicatorUnit(current.unit)
+            : undefined
+        }
+      >
+        {years.length > 1 ? (
+          <select
+            id="year"
+            className="indicator-year-select"
+            aria-label="Ano de referência"
+            value={selectedYear}
+            onChange={(event) => onYearChange(event.target.value)}
+          >
+            <option value={LATEST_YEAR}>{latestLabel}</option>
+            {[...years]
+              .sort((a, b) => b - a)
+              .map((year) => (
+                <option key={year} value={String(year)}>
+                  {year}
+                </option>
+              ))}
+          </select>
+        ) : (
+          <span className="indicator-year-label">
+            {years.length
+              ? selectedYear === LATEST_YEAR
+                ? latestLabel
+                : selectedYear
+              : 'Sem dados'}
           </span>
-        </button>
-      </div>
-
-      {expanded && (
-        <div id={id} className="control-extra indicator-extra-panel">
-          {years.length > 1 && (
-            <Select
-              id="year"
-              label="Ano de referência"
-              value={selectedYear}
-              options={[
-                { value: LATEST_YEAR, label: 'Último disponível' },
-                ...[...years]
-                  .sort((a, b) => b - a)
-                  .map((year) => ({ value: String(year), label: String(year) })),
-              ]}
-              onChange={onYearChange}
-            />
-          )}
-          {current?.description && <p className="source-note">{current.description}</p>}
-        </div>
-      )}
+        )}
+      </LayerMetadata>
     </section>
   );
 }

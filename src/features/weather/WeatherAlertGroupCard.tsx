@@ -1,3 +1,4 @@
+import { SourceTag } from '@/components/LayerMetadata';
 import { useMemo } from 'react';
 import { Disclosure } from '@/components/Disclosure';
 import { ALERT_STYLES, alertSourceLabel } from './alertStyles';
@@ -56,7 +57,7 @@ export function WeatherAlertGroupCard({ group, defaultOpen = false }: WeatherAle
             >
               {style.label}
             </span>
-            <span className="weather-alert-source-tag">{alertSourceLabel(group.provider)}</span>
+            <SourceTag label={alertSourceLabel(group.provider)} />
           </span>
         }
       >

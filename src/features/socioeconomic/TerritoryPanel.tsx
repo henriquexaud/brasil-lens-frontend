@@ -1,6 +1,7 @@
 import type { MapFeatureProperties, MapIndicatorMeta, MapValue } from '@/api/types';
 import { AnimatedText } from '@/components/AnimatedText';
 import { Disclosure } from '@/components/Disclosure';
+import { DrillDownButton } from '@/components/DrillDownButton';
 import { ErrorMessage } from '@/components/Feedback';
 import { useOverview } from './queries';
 import { formatValue, levelLabel } from './format';
@@ -139,9 +140,7 @@ export function TerritoryPanel({
         </dl>
       )}
       {level === 'state' && name && onClose && (
-        <button type="button" className="drill-button" onClick={() => onDrillDown(code, name)}>
-          Ver municípios <span aria-hidden="true">→</span>
-        </button>
+        <DrillDownButton onClick={() => onDrillDown(code, name)} />
       )}
       {name && indicator && indicatorCategoryId(indicator.key) !== 'other' && (
         <Disclosure

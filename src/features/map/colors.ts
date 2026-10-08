@@ -7,7 +7,8 @@ export const TEMPERATURE_SCALE = [
   { max: 25, color: '#FFF5A6', label: '20–25°', min: 20, name: '20°C a menos de 25°C' },
   { max: 30, color: '#FFD447', label: '25–30°', min: 25, name: '25°C a menos de 30°C' },
   { max: 35, color: '#FF9B38', label: '30–35°', min: 30, name: '30°C a menos de 35°C' },
-  { max: Infinity, color: '#F04432', label: '≥35°', min: 35, name: '35°C ou mais' },
+  { max: 40, color: '#F04432', label: '35–40°', min: 35, name: '35°C a 40°C' },
+  { max: Infinity, color: '#A51C30', label: '>40°', min: 40, name: 'Acima de 40°C' },
 ] as const;
 
 export type TemperatureBand = (typeof TEMPERATURE_SCALE)[number];
@@ -19,7 +20,10 @@ function temperatureBand(temp: number | null | undefined): TemperatureBand | und
   if (temp == null || !Number.isFinite(temp)) return undefined;
   // Labels throughout the UI use whole degrees; classify that same displayed value.
   const displayed = Math.round(temp);
-  return TEMPERATURE_SCALE.find((band) => displayed >= band.min && displayed < band.max);
+  return TEMPERATURE_SCALE.find(
+    (band) =>
+      displayed >= band.min && (band.max === 40 ? displayed <= band.max : displayed < band.max),
+  );
 }
 
 export function colorForTemperature(temp: number | null | undefined): string {

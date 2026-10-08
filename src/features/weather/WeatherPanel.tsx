@@ -7,6 +7,7 @@ import type {
 import { AnimatedText } from '@/components/AnimatedText';
 import { ErrorMessage } from '@/components/Feedback';
 import { Disclosure } from '@/components/Disclosure';
+import { DrillDownButton } from '@/components/DrillDownButton';
 import { measurement, weatherDescription, WeatherIcon } from './conditions';
 import { Forecast, RainForecastSection } from './WeatherForecast';
 import { FireStatusSection, RainStatusSection } from './WeatherStatusSections';
@@ -163,9 +164,7 @@ export function WeatherPanel({
 
       {}
       {isState && territory && (
-        <button className="drill-button" onClick={() => onDrillDown(code, territory.name)}>
-          Ver municípios <span aria-hidden="true">→</span>
-        </button>
+        <DrillDownButton onClick={() => onDrillDown(code, territory.name)} />
       )}
     </section>
   );

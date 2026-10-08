@@ -1,3 +1,4 @@
+import { SourceTag } from '@/components/LayerMetadata';
 import { useMemo } from 'react';
 import type { WeatherAlertFeature } from '@/api/types';
 import { ALERT_STYLES } from './alertStyles';
@@ -38,12 +39,8 @@ export function WeatherAlertsNationalSummary({ features }: WeatherAlertsNational
 
         {}
         <div className="national-summary-sources" aria-label="Fontes oficiais">
-          {sources.inmet > 0 && (
-            <span className="weather-alert-source-tag">INMET ({sources.inmet})</span>
-          )}
-          {sources.cemaden > 0 && (
-            <span className="weather-alert-source-tag">CEMADEN ({sources.cemaden})</span>
-          )}
+          {sources.inmet > 0 && <SourceTag label={`INMET (${sources.inmet})`} />}
+          {sources.cemaden > 0 && <SourceTag label={`CEMADEN (${sources.cemaden})`} />}
         </div>
       </div>
 
