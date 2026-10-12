@@ -148,7 +148,7 @@ test('consulta carrega normalmente antes do pleito, renova às 18h e para após 
   }
 });
 
-test('linha de parcial fica oculta quando pausada e reaparece somente durante a apuração', async (t) => {
+test('resultado parcial permanece visível e distingue apuração em andamento', async (t) => {
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: window.startsAt - 1000 });
   const root = createRoot(document.getElementById('root'));
   const releases = [
@@ -162,7 +162,7 @@ test('linha de parcial fica oculta quando pausada e reaparece somente durante a 
   ];
   try {
     await act(async () => root.render(h(ControlPanel, { selection, releases, onChange() {} })));
-    assert.equal(document.querySelector('.indicator-controls [role="status"]'), null);
+    assert.match(document.querySelector('.indicator-controls [role="status"]').textContent, /Resultados parciais/);
     assert.match(document.querySelector('.source-tag').title, /Resultado parcial.*Publicação/);
     await act(async () => t.mock.timers.tick(1000));
     assert.match(
@@ -170,7 +170,7 @@ test('linha de parcial fica oculta quando pausada e reaparece somente durante a 
       /Parcial · em andamento/,
     );
     await act(async () => t.mock.timers.tick(window.endsAt - window.startsAt));
-    assert.equal(document.querySelector('.indicator-controls [role="status"]'), null);
+    assert.match(document.querySelector('.indicator-controls [role="status"]').textContent, /Resultados parciais/);
     assert.match(document.querySelector('.source-tag').title, /Resultado parcial/);
   } finally {
     await act(async () => root.unmount());

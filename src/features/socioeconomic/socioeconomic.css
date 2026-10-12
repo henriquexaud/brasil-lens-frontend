@@ -157,8 +157,17 @@
   border-color: var(--indicator-tone);
 }
 @media (max-width: 900px) {
+  .socioeconomic-app .panel {
+    scroll-padding-top: var(--sheet-peek, 132px);
+  }
+
+  .socioeconomic-app .indicator-pill-btn {
+    min-height: 32px;
+  }
+
   .socioeconomic-app .indicator-year-select {
     font-size: 16px;
+    min-height: 32px;
   }
 }
 .socioeconomic-app button:focus-visible {

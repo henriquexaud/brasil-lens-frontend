@@ -26,7 +26,7 @@ export function AuthScreen() {
   }
 
   return (
-    <main className="app auth-page">
+    <main className={`app auth-page${registering ? ' is-registering' : ''}`}>
       <div className="auth-layout">
         <div className="auth-form-side">
           <div className="auth-brand">
@@ -36,13 +36,7 @@ export function AuthScreen() {
             </span>
           </div>
           <section className="auth-card" aria-labelledby="auth-title">
-            <p className="auth-eyebrow">O Brasil, mais perto.</p>
             <h1 id="auth-title">{registering ? 'Crie sua conta' : 'Bem-vindo de volta'}</h1>
-            <p className="auth-description">
-              {registering
-                ? 'Acompanhe os municípios que importam para você.'
-                : 'Entre para retomar seus municípios e explorar o mapa.'}
-            </p>
             <form onSubmit={submit} key={registering ? 'register' : 'login'}>
               <fieldset disabled={auth.submitting}>
                 {registering && (
@@ -64,6 +58,7 @@ export function AuthScreen() {
                     name="email"
                     type="email"
                     autoComplete="email"
+                    inputMode="email"
                     autoCapitalize="none"
                     spellCheck={false}
                     required
@@ -148,12 +143,10 @@ export function AuthScreen() {
           </section>
           {registering && (
             <p className="auth-hint">
-              Seu e-mail é usado para acessar a conta. As notificações do app são opcionais: você
-              escolhe os municípios pelo sino em Municípios seguidos e autoriza o recebimento neste
-              dispositivo. Pode desativar quando quiser.
+              Seu e-mail é usado para acessar a conta. Notificações são opcionais: ative pelo sino
+              em Municípios seguidos e autorize neste dispositivo. Desative quando quiser.
             </p>
           )}
-          <p className="auth-footer">Clima e meio ambiente, do país ao seu município.</p>
         </div>
         <aside className="auth-visual" aria-hidden="true">
           <AuthLens />

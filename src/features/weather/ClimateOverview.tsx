@@ -44,7 +44,7 @@ export function ClimateOverview({
 
     const second = sortedDesc[1];
     if (valid.length === 2 && second) {
-      return { hottest: [first], coldest: [second] };
+      return { hottest: [sortedDesc[0]!], coldest: [second] };
     }
 
     const maxPerGroup = Math.min(3, Math.floor(valid.length / 2) || 1);

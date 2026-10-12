@@ -95,21 +95,21 @@ export function TerritoryPanel({
       className="panel-section territory-detail"
       aria-label={onClose ? 'Local selecionado' : 'Resumo do território'}
     >
-      <header className="detail-header">
-        <div>
-          {name && level ? (
-            <>
-              <p className="detail-kicker">
-                {levelLabel(level)}
-                {parentName && ` · ${parentName}`}
-              </p>
-              <AnimatedText as="h2" className="detail-title" text={name} />
-            </>
-          ) : (
-            <span role="status">Carregando local…</span>
-          )}
-        </div>
-        {onClose && (
+      {onClose && (
+        <header className="detail-header">
+          <div>
+            {name && level ? (
+              <>
+                <p className="detail-kicker">
+                  {levelLabel(level)}
+                  {parentName && ` · ${parentName}`}
+                </p>
+                <AnimatedText as="h2" className="detail-title" text={name} />
+              </>
+            ) : (
+              <span role="status">Carregando local…</span>
+            )}
+          </div>
           <button
             type="button"
             className="icon-button"
@@ -118,8 +118,8 @@ export function TerritoryPanel({
           >
             ×
           </button>
-        )}
-      </header>
+        </header>
+      )}
       {overview.error && !territory && <ErrorMessage error={overview.error} />}
       {indicator && (
         <dl className="featured-indicator">

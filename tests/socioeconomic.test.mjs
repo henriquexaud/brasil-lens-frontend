@@ -65,7 +65,7 @@ test('zero tem cor e texto; ausência fica neutra, sem inventar valor', () => {
   assert.equal(presentation.values.has('35'),true);
   assert.equal(presentation.values.has('99'),false);
   assert.equal(presentation.tooltips.get('35').value,'0 hab.');
-  assert.equal(presentation.tooltips.get('99').value,'sem dado');
+  assert.equal(presentation.tooltips.get('99').value,'Sem dados');
   assert.equal(presentationFor(response('gdp')).colors.get('35'),'#EDF7F5');
   for (const key of ['area_km2','household_income_per_capita','unemployment_rate']) {
     assert.equal(presentationFor(response(key)).colors.get('35'),'#EEF3FB');

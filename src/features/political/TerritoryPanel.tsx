@@ -169,7 +169,7 @@ export function TerritoryPanel({
               )}
             </>
           )}
-          {data?.level === 'state' && (
+          {data?.level === 'state' && onClose && (
             <DrillDownButton onClick={() => onDrillDown(code, data.name)} />
           )}
         </>

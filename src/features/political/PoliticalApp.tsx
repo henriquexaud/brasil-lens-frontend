@@ -20,6 +20,7 @@ import { useMobileSheet } from '@/app/useMobileSheet';
 import { ControlPanel } from './ControlPanel';
 import { Legend } from './Legend';
 import { TerritoryPanel } from './TerritoryPanel';
+import { ParticipationRanking } from './ParticipationRanking';
 import { useCatalog, useValues, useDetail } from './queries';
 import { presentationFor } from './presentation';
 import { DEFAULT_SELECTION, latestSelection, normalizeSelection } from './selection';
@@ -271,6 +272,13 @@ export default function PoliticalApp({ contextControl }: { contextControl: React
               </p>
             )}
           </ErrorBoundary>
+          {!selectedCode && scopeReady && !values.error && values.data && mapLayer.data && (
+            <ParticipationRanking
+              data={values.data}
+              collection={mapLayer.data}
+              onSelect={selectMapTerritory}
+            />
+          )}
           {!isDrilledDown && (national.meshError || municipalValues.error) && (
             <div className="panel-section">
               <ErrorMessage error={national.meshError ?? municipalValues.error} />

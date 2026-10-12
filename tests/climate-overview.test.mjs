@@ -235,3 +235,21 @@ test('ClimateOverview nomeia estados quando o Brasil já é a média de cada UF'
     /média de pontos do seu território, ponderada pela área/,
   );
 });
+
+
+test('duas cidades fora de ordem mantêm a mais quente primeiro sem duplicar a mais fria', async () => {
+  const cities = [
+    { id: '1', name: 'Fria', temperatureC: 10 },
+    { id: '2', name: 'Quente', temperatureC: 30 },
+  ];
+  await act(async () => root.render(h(ClimateOverview, { cities, onSelect() {} })));
+  const details = document.querySelector('details');
+  await act(async () => {
+    details.open = true;
+    details.dispatchEvent(new dom.window.Event('toggle'));
+  });
+  const buttons = document.querySelectorAll('.climate-ranking-city');
+  assert.equal(buttons.length, 2);
+  assert.match(buttons[0].textContent, /Quente/);
+  assert.match(buttons[1].textContent, /Fria/);
+});

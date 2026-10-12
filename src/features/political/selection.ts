@@ -87,7 +87,7 @@ export function normalizeSelection(
     if (!isParticipation(next.metric)) next.metric = 'turnout';
   } else if (next.category === 'representation') next.metric = 'representation';
   else if (!METRICS.slice(0, 4).some((m) => m.value === next.metric))
-    next.metric = isExecutive(next.office) ? 'leading_candidate' : 'leading_party';
+    next.metric = 'leading_candidate';
   let release = releases.find(
     (r) => r.year === next.year && r.contests.some((c) => c.office === next.office),
   );

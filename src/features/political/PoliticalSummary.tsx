@@ -125,6 +125,10 @@ export function PoliticalSummary({
   }
   const party = selection.metric === 'leading_party';
   const tie = party ? summary.partyTie : summary.candidateTie;
+  const municipalOffice = ['mayor', 'councillor'].includes(selection.office);
+  const needsNarrowerScope = municipalOffice
+    ? data.level !== 'municipality'
+    : selection.office !== 'president' && data.level === 'country';
   return (
     <Highlight
       label={tie ? 'Empate entre os mais votados' : party ? 'Partido mais votado' : 'Mais votado'}
@@ -135,7 +139,11 @@ export function PoliticalSummary({
             ? (summary.party ?? 'Sem dados')
             : leader
               ? candidateName(leader.name)
-              : 'Resultado municipal'
+              : needsNarrowerScope
+                ? municipalOffice
+                  ? 'Resultado por município'
+                  : 'Resultado por estado'
+                : 'Sem dados'
       }
       note={
         party ? (
@@ -149,8 +157,12 @@ export function PoliticalSummary({
             {leader.party}
             {data.leaders.length < 2 && ` · ${formatCount(leader.votes)} votos`}
           </>
-        ) : !tie ? (
-          'Consulte um município para ver os candidatos.'
+        ) : !tie && needsNarrowerScope ? (
+          municipalOffice ? (
+            'Selecione um município para ver os candidatos.'
+          ) : (
+            'Selecione um estado para ver os candidatos.'
+          )
         ) : undefined
       }
     />

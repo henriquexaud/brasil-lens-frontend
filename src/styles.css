@@ -213,7 +213,7 @@ body {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  margin-bottom: 40px;
+  margin-bottom: 28px;
   font-size: 24px;
   letter-spacing: -0.8px;
 }
@@ -231,13 +231,6 @@ body {
   box-shadow: var(--shadow);
 }
 
-.auth-eyebrow {
-  margin: 0 0 8px;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .auth-card h1 {
   margin: 0;
   font-size: 24px;
@@ -246,10 +239,8 @@ body {
   line-height: 1.3;
 }
 
-.auth-description {
-  margin: 10px 0 28px;
-  color: var(--text-soft);
-  line-height: 1.65;
+.auth-card form {
+  margin-top: 24px;
 }
 
 .auth-card fieldset {
@@ -388,13 +379,6 @@ body {
   cursor: pointer;
 }
 
-.auth-footer {
-  margin: 32px 0 0;
-  color: var(--text-faint);
-  font-size: 11px;
-  text-align: left;
-}
-
 .auth-unavailable {
   max-width: 420px;
 }
@@ -433,38 +417,92 @@ body {
 
 @media (max-width: 900px) {
   .auth-page {
-    padding: 28px 20px 90px;
+    --auth-form-space: 448px;
+    padding: max(16px, env(safe-area-inset-top)) 20px calc(56px + env(safe-area-inset-bottom));
+    background: var(--surface-muted);
+  }
+
+  .auth-page.is-registering {
+    --auth-form-space: 600px;
   }
 
   .auth-card {
-    padding: 28px 24px;
+    padding: 24px;
   }
 
   .auth-layout {
     grid-template-columns: minmax(0, 1fr);
-    max-width: 440px;
+    gap: 8px;
+    max-width: 400px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .auth-form-side {
-    padding: 28px 24px;
+    padding: 0;
   }
 
   .auth-brand {
-    margin-bottom: 28px;
+    margin-bottom: 12px;
+  }
+
+  .auth-card h1 {
+    font-size: 22px;
+  }
+
+  .auth-card form {
+    margin-top: 18px;
+  }
+
+  .auth-card fieldset {
+    gap: 12px;
+  }
+
+  .auth-field {
+    gap: 4px;
+  }
+
+  .auth-field input,
+  .auth-submit {
+    min-height: 44px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .auth-submit {
+    margin-top: 0;
+  }
+
+  .auth-alternative {
+    margin-top: 8px;
+    padding-top: 0;
+    border: 0;
+  }
+
+  .auth-alternative button {
+    min-height: 44px;
+  }
+
+  .auth-form-side > .auth-hint {
+    margin: 8px 0 0;
+    line-height: 1.5;
   }
 
   .auth-visual {
-    padding: 20px 24px;
-    border-top: 1px solid var(--border);
-    border-left: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 
-  .auth-visual img {
-    max-width: 360px;
+  .auth-visual .auth-lens {
+    max-width: clamp(124px, calc(100svh - var(--auth-form-space)), 340px);
   }
 
   .auth-page .theme-switch {
-    bottom: calc(16px + env(safe-area-inset-bottom));
+    bottom: calc(12px + env(safe-area-inset-bottom));
   }
 }
 
@@ -3128,6 +3166,53 @@ body {
   border-radius: 50%;
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.territory-ranking {
+  margin: 0 16px 12px;
+}
+
+.territory-ranking-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  min-height: 32px;
+  padding: 7px 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.territory-ranking-item span {
+  overflow-wrap: anywhere;
+}
+
+.territory-ranking-item strong {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.territory-ranking-item:hover {
+  color: var(--accent);
+}
+
+.territory-ranking-item:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .territory-ranking-item {
+    min-height: 44px;
+  }
 }
 
 /* Detalhes de quantidade de chuva nos painéis territoriais */

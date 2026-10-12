@@ -74,7 +74,7 @@ export function ControlPanel({
                 const target = OFFICES.find((o) => o.group === group)!;
                 change({
                   office: target.value,
-                  metric: isExecutive(target.value) ? 'leading_candidate' : 'leading_party',
+                  metric: 'leading_candidate',
                 });
               }}
             >
@@ -195,9 +195,11 @@ export function ControlPanel({
           )}
         </div>
       </LayerMetadata>
-      {electionRefreshInterval(window, selection, release?.status) && release && (
+      {release?.status === 'partial' && (
         <p className="source-note" role="status">
-          Parcial · em andamento
+          {electionRefreshInterval(window, selection, release.status)
+            ? 'Parcial · em andamento'
+            : 'Resultados parciais'}
           {release.updatedAt &&
             ` · ${new Date(release.updatedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
         </p>

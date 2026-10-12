@@ -32,9 +32,6 @@
   margin: 14px 0 10px;
 }
 @media (max-width: 900px) {
-  .political-app .panel {
-    scroll-padding-top: var(--sheet-peek, 132px);
-  }
   .political-app .political-options .field-control {
     font-size: 16px;
   }

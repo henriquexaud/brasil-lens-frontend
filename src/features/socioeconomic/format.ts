@@ -56,7 +56,7 @@ export function unitLabel(unit: string): string {
 }
 
 export function formatValue(value: number | null, unit: string, decimalPlaces: number): string {
-  if (value === null) return 'sem dado';
+  if (value === null) return 'Sem dados';
 
   if (unit === 'BRL') {
     return formatCurrency(value, decimalPlaces);

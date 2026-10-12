@@ -20,6 +20,7 @@ import { useMobileSheet } from '@/app/useMobileSheet';
 import { ControlPanel } from './ControlPanel';
 import { Legend } from './Legend';
 import { TerritoryPanel } from './TerritoryPanel';
+import { IndicatorRanking } from './IndicatorRanking';
 import { useIndicators, useValues } from './queries';
 import { presentationFor } from './presentation';
 import { yearForIndicator } from './indicatorCategories';
@@ -313,6 +314,18 @@ export default function SocioeconomicApp({ contextControl }: { contextControl: R
               onDrillDown={drillIntoState}
             />
           </ErrorBoundary>
+          {!selectedCode &&
+            supported &&
+            scopeReady &&
+            !values.error &&
+            values.data &&
+            mapLayer.data && (
+              <IndicatorRanking
+                data={values.data}
+                collection={mapLayer.data}
+                onSelect={selectMapTerritory}
+              />
+            )}
           {!isDrilledDown && (national.meshError || municipalValues.error) && (
             <div className="panel-section">
               <ErrorMessage error={national.meshError ?? municipalValues.error} />

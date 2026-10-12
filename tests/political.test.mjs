@@ -8,6 +8,7 @@ const { createRoot } = await import('react-dom/client');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
 const {
   PoliticalApp,
+  PoliticalSummary,
   TerritoryPanel,
   summaryMetric,
   voteShares,
@@ -21,6 +22,7 @@ const {
   SESSION_STORAGE_KEY,
 } = await loadModule(
   `
+  export { PoliticalSummary } from './src/features/political/PoliticalSummary';
   export { TerritoryPanel } from './src/features/political/TerritoryPanel';
   export { summaryMetric, voteShares } from './src/features/political/summary';
   export { default as PoliticalApp } from './src/features/political/PoliticalApp';
@@ -564,4 +566,33 @@ test('território selecionado mantém identificação e empate não destaca um v
     (document.querySelector('.territory-detail').textContent.match(/Candidato A/g) ?? []).length,
     1,
   );
+});
+
+
+test('trocar para cargo legislativo prioriza candidato e preserva escolha explícita de partido', async () => {
+  await render();
+  const deputies = [...document.querySelectorAll('button')].find((item) => item.textContent === 'Deputados');
+  await act(async () => deputies.click());
+  await settle();
+  assert.equal(document.querySelector('#political-metric').value, 'leading_candidate');
+  assert.ok(calls.some((url) => url.searchParams.get('office') === 'federal_deputy' && url.searchParams.get('metric') === 'leading_candidate'));
+  assert.equal(normalizeSelection({ ...DEFAULT_SELECTION, office: 'federal_deputy', metric: 'turnout' }, releases).metric, 'leading_candidate');
+  assert.equal(normalizeSelection({ ...DEFAULT_SELECTION, office: 'federal_deputy', metric: 'leading_party' }, releases).metric, 'leading_party');
+});
+
+test('ausência de candidato orienta para a circunscrição correta sem inventar resultado', async () => {
+  for (const [office, level, expected] of [
+    ['federal_deputy', 'country', 'Selecione um estado'],
+    ['senator', 'country', 'Selecione um estado'],
+    ['mayor', 'state', 'Selecione um município'],
+    ['councillor', 'country', 'Selecione um município'],
+    ['president', 'country', 'Sem dados'],
+    ['governor', 'state', 'Sem dados'],
+  ]) {
+    await act(async () => root.render(h(PoliticalSummary, {
+      data: { summary: {}, leaders: [], level },
+      selection: { ...DEFAULT_SELECTION, office },
+    })));
+    assert.ok(document.body.textContent.includes(expected));
+  }
 });
