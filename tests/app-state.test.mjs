@@ -47,7 +47,11 @@ test('a sessão restaura a UF aberta e o município selecionado', async () => {
     selectedCode: '3550308',
   });
   const hook = await renderHook(useMapScope);
-  assert.deepEqual(hook.current.scope, { level: 'municipality', parent: '35', parentName: 'São Paulo' });
+  assert.deepEqual(hook.current.scope, {
+    level: 'municipality',
+    parent: '35',
+    parentName: 'São Paulo',
+  });
   assert.equal(hook.current.selectedCode, '3550308');
   assert.equal(hook.current.isDrilledDown, true);
 });
@@ -69,16 +73,24 @@ test('entrar numa UF limpa a seleção e grava; voltar ao Brasil desfaz', async 
   assert.equal(stored().selectedCode, '3550308');
 
   await act(async () => hook.current.drillIntoState('33', 'Rio de Janeiro'));
-  assert.deepEqual(hook.current.scope, { level: 'municipality', parent: '33', parentName: 'Rio de Janeiro' });
+  assert.deepEqual(hook.current.scope, {
+    level: 'municipality',
+    parent: '33',
+    parentName: 'Rio de Janeiro',
+  });
   assert.equal(hook.current.selectedCode, null, 'a seleção da UF anterior não vaza');
-  assert.deepEqual(stored().scope, { level: 'municipality', parent: '33', parentName: 'Rio de Janeiro' });
+  assert.deepEqual(stored().scope, {
+    level: 'municipality',
+    parent: '33',
+    parentName: 'Rio de Janeiro',
+  });
 
   await act(async () => hook.current.resetScope());
   assert.equal(hook.current.isDrilledDown, false);
   assert.deepEqual(stored().scope, { level: 'state', parent: null, parentName: null });
 });
 
-test('preferências começam em clima com alertas; Meio ambiente começa em desmatamento com rios', async () => {
+test('preferências começam em clima com alertas; Meio ambiente começa em Florestas com rios', async () => {
   const prefs = (await renderHook(() => useAppPreferences('climate'))).current;
   assert.deepEqual(
     [prefs.showClimate, prefs.showRainfall, prefs.showFireHotspots, prefs.weatherLayerActive],
@@ -92,7 +104,7 @@ test('preferências começam em clima com alertas; Meio ambiente começa em desm
   const environment = (await renderHook(() => useAppPreferences('environment'))).current;
   assert.deepEqual(
     [environment.indicatorLayer, environment.showFireHotspots, environment.weatherLayerActive],
-    ['deforestation', false, false],
+    ['forest', false, false],
   );
   assert.equal(environment.showHydrography, true);
   assert.equal(environment.showWeatherAlerts, false, 'avisos ficam no Clima');
@@ -114,7 +126,7 @@ test('a sessão restaura a aba de cada contexto; valor desconhecido cai no padr�
   root = undefined;
   assert.equal(
     (await renderHook(() => useAppPreferences('environment'))).current.indicatorLayer,
-    'deforestation',
+    'forest',
   );
 });
 
@@ -134,7 +146,10 @@ test('só uma camada temática fica ativa; desligar a ativa deixa nenhuma', asyn
 
   const environment = await renderHook(() => useAppPreferences('environment'));
   await act(async () => environment.current.handleEnvironmentLayer('fire'));
-  assert.deepEqual([environment.current.showFireHotspots, environment.current.indicatorLayer], [true, null]);
+  assert.deepEqual(
+    [environment.current.showFireHotspots, environment.current.indicatorLayer],
+    [true, null],
+  );
   assert.equal(environment.current.weatherLayerActive, false, 'focos não consultam o clima');
   await act(async () => environment.current.handleEnvironmentLayer('none'));
   assert.equal(environment.current.showFireHotspots, false);

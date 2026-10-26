@@ -23,7 +23,7 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
     () => loadSessionState().activeThematicLayer ?? 'climate',
   );
   const [environmentLayer, setEnvironmentLayer] = useState<EnvironmentLayer>(
-    () => loadSessionState().environmentLayer ?? 'deforestation',
+    () => loadSessionState().environmentLayer ?? 'forest',
   );
 
   const climate = variant === 'climate';

@@ -14,12 +14,13 @@ export interface IndicatorLayerConfig {
 export const INDICATOR_LAYERS: Record<IndicatorLayer, IndicatorLayerConfig> = {
   deforestation: {
     indicatorKey: 'deforestation_prodes',
-    label: 'Desmatamento',
+    // Rótulo curto da aba; legenda e destaque mantêm "Desmatamento anual".
+    label: 'Perda',
     unit: 'km² · ano PRODES',
     source: {
       label: 'INPE',
       description:
-        'PRODES: vegetação nativa suprimida entre agosto e julho, nos seis biomas (TerraBrasilis).',
+        'PRODES: perda de vegetação nativa (desmatamento) entre agosto e julho, nos seis biomas.',
     },
   },
   forest: {
