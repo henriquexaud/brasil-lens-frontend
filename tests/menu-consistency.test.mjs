@@ -104,7 +104,7 @@ const environmentProps = {
   fireError: false,
 };
 
-test('Meio ambiente alterna Florestas, Perda e Fogo e desliga a aba ativa', async () => {
+test('Meio ambiente alterna Florestas, Desmatamento e Fogo e desliga a aba ativa', async () => {
   const changes = [];
   await render(EnvironmentThematicSwitch, {
     ...environmentProps,
@@ -112,7 +112,7 @@ test('Meio ambiente alterna Florestas, Perda e Fogo e desliga a aba ativa', asyn
   });
   assert.deepEqual(
     [...document.querySelectorAll('[role="tab"]')].map((item) => item.textContent),
-    ['Florestas', 'Perda', 'Fogo'],
+    ['Florestas', 'Desmatamento', 'Fogo'],
   );
   assert.equal(document.querySelector('.source-tag').textContent, 'INPE');
   assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² · ano PRODES');
@@ -121,7 +121,7 @@ test('Meio ambiente alterna Florestas, Perda e Fogo e desliga a aba ativa', asyn
     [...select.options].map((option) => option.textContent),
     ['2025 · Último', '2025', '2017', '2014'],
   );
-  await act(async () => tab('Perda').click());
+  await act(async () => tab('Desmatamento').click());
   await act(async () => tab('Florestas').click());
   assert.deepEqual(changes, ['none', 'forest']);
   await render(EnvironmentThematicSwitch, { ...environmentProps, layer: 'forest' });
