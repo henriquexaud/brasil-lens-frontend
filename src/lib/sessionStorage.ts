@@ -2,8 +2,9 @@ import type { MapScopeState } from '@/features/map/useMapScope';
 import { validSelection } from '@/features/political/selection';
 import type { PoliticalSelection, DataContext } from '@/api/types';
 
-export const SESSION_STORAGE_KEY = 'brasil_lens_session_v5';
+export const SESSION_STORAGE_KEY = 'brasil_lens_session_v6';
 const LEGACY_STORAGE_KEYS = [
+  'brasil_lens_session_v5',
   'brasil_lens_session_v4',
   'brasil_lens_session_v3',
   'brasil_lens_session_v2',
@@ -18,8 +19,13 @@ export interface AppSessionState {
   selectedCode?: string | null;
   showWeatherAlerts?: boolean;
   showHydrography?: boolean;
-  activeThematicLayer?: 'climate' | 'fire' | 'rainfall' | 'none';
+  activeThematicLayer?: ClimateLayer;
+  environmentLayer?: EnvironmentLayer;
 }
+
+export type ClimateLayer = 'climate' | 'rainfall' | 'none';
+export type EnvironmentLayer = 'deforestation' | 'forest' | 'fire' | 'none';
+const DATA_CONTEXTS: DataContext[] = ['climate', 'environment', 'socioeconomic', 'political'];
 
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -49,11 +55,19 @@ function climateState(value: unknown): AppSessionState {
       parentName: typeof rawScope.parentName === 'string' ? rawScope.parentName : null,
     };
   }
-  return {
-    ...(source.dataContext === 'political' ||
-    source.dataContext === 'socioeconomic' ||
+  // Até a v5, Fogo era uma aba do contexto "Clima e meio ambiente". Agora fica
+  // no Meio ambiente: quem estava com Fogo ativo volta para ele.
+  const legacyFire = source.activeThematicLayer === 'fire';
+  const dataContext =
     source.dataContext === 'climate_environmental'
-      ? { dataContext: source.dataContext }
+      ? legacyFire
+        ? 'environment'
+        : 'climate'
+      : source.dataContext;
+  const environmentLayer = legacyFire ? 'fire' : source.environmentLayer;
+  return {
+    ...(DATA_CONTEXTS.includes(dataContext as DataContext)
+      ? { dataContext: dataContext as DataContext }
       : {}),
     ...(socioeconomic &&
     typeof socioeconomic.indicatorKey === 'string' &&
@@ -76,10 +90,11 @@ function climateState(value: unknown): AppSessionState {
     ...(typeof source.showHydrography === 'boolean'
       ? { showHydrography: source.showHydrography }
       : {}),
-    ...(['climate', 'fire', 'rainfall', 'none'].includes(String(source.activeThematicLayer))
-      ? {
-          activeThematicLayer: source.activeThematicLayer as AppSessionState['activeThematicLayer'],
-        }
+    ...(['climate', 'rainfall', 'none'].includes(String(source.activeThematicLayer))
+      ? { activeThematicLayer: source.activeThematicLayer as ClimateLayer }
+      : {}),
+    ...(['deforestation', 'forest', 'fire', 'none'].includes(String(environmentLayer))
+      ? { environmentLayer: environmentLayer as EnvironmentLayer }
       : {}),
   };
 }

@@ -5,10 +5,13 @@ import { disposeHarness, installDom, loadModule } from './helpers/harness.mjs';
 const dom = installDom();
 const { createElement: h, act, useState } = await import('react');
 const { createRoot } = await import('react-dom/client');
-const { SegmentedControl, WeatherThematicSwitch, WeatherOptions } = await loadModule(`
+const { SegmentedControl, WeatherThematicSwitch, WeatherOptions, EnvironmentThematicSwitch, RiversOption } =
+  await loadModule(`
   export { SegmentedControl } from './src/components/SegmentedControl';
   export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch';
   export { WeatherOptions } from './src/features/weather/WeatherOptions';
+  export { EnvironmentThematicSwitch } from './src/features/environment/EnvironmentThematicSwitch';
+  export { RiversOption } from './src/features/environment/RiversOption';
 `);
 let root;
 beforeEach(() => {
@@ -68,14 +71,49 @@ test('clicar na aba climática ativa continua desligando a camada', async () => 
     showClimate: true,
     onToggleClimate: (value) => changes.push(['climate', value]),
     onToggleRainfall: (value) => changes.push(['rain', value]),
-    onToggleFireHotspots: (value) => changes.push(['fire', value]),
   });
+  assert.equal(tab('Fogo'), undefined, 'focos ficam no Meio ambiente');
   await act(async () => tab('Clima').click());
-  await act(async () => tab('Fogo').click());
+  await act(async () => tab('Chuva').click());
   assert.deepEqual(changes, [
     ['climate', false],
-    ['fire', true],
+    ['rain', true],
   ]);
+});
+
+const environmentProps = {
+  layer: 'deforestation',
+  onChange: () => {},
+  years: [2014, 2017, 2025],
+  year: 'latest',
+  onYearChange: () => {},
+  resolvedYear: 2025,
+  fireLoading: false,
+  fireError: false,
+};
+
+test('Meio ambiente alterna Desmatamento, Florestas e Fogo e desliga a aba ativa', async () => {
+  const changes = [];
+  await render(EnvironmentThematicSwitch, {
+    ...environmentProps,
+    onChange: (value) => changes.push(value),
+  });
+  assert.deepEqual(
+    [...document.querySelectorAll('[role="tab"]')].map((item) => item.textContent),
+    ['Desmatamento', 'Florestas', 'Fogo'],
+  );
+  assert.equal(document.querySelector('.source-tag').textContent, 'INPE');
+  assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² · ano PRODES');
+  const select = document.querySelector('.indicator-year-select');
+  assert.deepEqual(
+    [...select.options].map((option) => option.textContent),
+    ['2025 · Último', '2025', '2017', '2014'],
+  );
+  await act(async () => tab('Desmatamento').click());
+  await act(async () => tab('Florestas').click());
+  assert.deepEqual(changes, ['none', 'forest']);
+  await render(EnvironmentThematicSwitch, { ...environmentProps, layer: 'forest' });
+  assert.equal(document.querySelector('.source-tag').textContent, 'MapBiomas');
 });
 
 test('chuva mantém zero válido, período e fonte; ausência, carga e falha têm estados próprios', async () => {
@@ -103,10 +141,10 @@ test('resumo mantém leituras anteriores de clima e focos quando a renovação f
     error: 'Falha',
   });
   assert.match(document.querySelector('.badge-warning').textContent, /20 - 30°C.*anterior/);
-  await render(WeatherThematicSwitch, {
-    showFireHotspots: true,
-    onToggleFireHotspots: () => {},
-    fireHotspotsError: true,
+  await render(EnvironmentThematicSwitch, {
+    ...environmentProps,
+    layer: 'fire',
+    fireError: true,
     fireHotspots: { metadata: { hotspotCount: 12, status: 'stale' } },
   });
   assert.equal(document.querySelector('.source-tag').textContent, 'INPE');
@@ -143,21 +181,24 @@ test('fontes dos complementos são neutras e falha na renovação preserva alert
     code: null,
     showAlerts: true,
     onToggleAlerts: () => {},
-    showHydrography: true,
-    onToggleHydrography: () => {},
-    hydrographyPartial: true,
     alertsPending: false,
     alertsError: 'Falha',
     alertsData: { features: [] },
   });
   assert.deepEqual(
     [...document.querySelectorAll('.source-tag')].map((source) => source.textContent),
-    ['ANA', 'INMET', 'CEMADEN'],
+    ['INMET', 'CEMADEN'],
+  );
+  assert.equal(document.querySelector('.badge-warning').textContent, 'Dados anteriores');
+  await render(RiversOption, { checked: true, onChange: () => {}, partial: true });
+  assert.deepEqual(
+    [...document.querySelectorAll('.source-tag')].map((source) => source.textContent),
+    ['ANA'],
   );
   const badges = [...document.querySelectorAll('.weather-layer-badge')];
   assert.ok(badges.every((badge) => badge.classList.contains('badge-warning')));
   assert.deepEqual(
     badges.map((badge) => badge.textContent),
-    ['Parcial', 'Dados anteriores'],
+    ['Parcial'],
   );
 });

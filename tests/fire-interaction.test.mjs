@@ -709,9 +709,7 @@ test('WeatherPanel em modo Clima mantém foco térmico/geral e não mistura disc
   assert.equal(panel.querySelector('.detail-kicker'), null);
 });
 
-test('seletor temático exibe Clima, Chuva e Fogo com indicador deslizante', async () => {
-  let climateToggled = null;
-  let fireToggled = null;
+test('seletor temático do Clima exibe Clima e Chuva com indicador deslizante', async () => {
   let rainToggled = null;
 
   await act(async () =>
@@ -721,9 +719,7 @@ test('seletor temático exibe Clima, Chuva e Fogo com indicador deslizante', asy
         { client },
         h(WeatherThematicSwitch, {
           showClimate: true,
-          onToggleClimate: (val) => { climateToggled = val; },
-          showFireHotspots: false,
-          onToggleFireHotspots: (val) => { fireToggled = val; },
+          onToggleClimate: () => {},
           showRainfall: false,
           onToggleRainfall: (val) => { rainToggled = val; },
         }),
@@ -732,28 +728,24 @@ test('seletor temático exibe Clima, Chuva e Fogo com indicador deslizante', asy
   );
 
   const segmentButtons = document.querySelectorAll('.segmented-control-tab');
-  assert.equal(segmentButtons.length, 3);
+  assert.equal(segmentButtons.length, 2, 'Fogo fica no contexto Meio ambiente');
   assert.equal(segmentButtons[0].classList.contains('is-active'), true, 'Clima deve estar ativo');
-  assert.equal(segmentButtons[1].classList.contains('is-active'), false, 'Chuva deve estar inativa');
-  assert.equal(segmentButtons[2].classList.contains('is-active'), false, 'Fogo deve estar inativo');
-  assert.equal(segmentButtons[2].textContent.trim(), 'Fogo');
+  assert.equal(segmentButtons[1].textContent.trim(), 'Chuva');
   assert.match(document.querySelector('.segmented-control-indicator').style.transform, /0%/);
 
   const climateBadge = document.querySelector('.badge-neutral');
   assert.ok(climateBadge);
   assert.equal(climateBadge.textContent, 'Sem dados');
 
-  await act(async () => segmentButtons[2].click());
-  assert.equal(fireToggled, true);
+  await act(async () => segmentButtons[1].click());
+  assert.equal(rainToggled, true);
   await act(async () => root.render(h(WeatherThematicSwitch, {
     showClimate: false,
     onToggleClimate: () => {},
-    showRainfall: false,
+    showRainfall: true,
     onToggleRainfall: () => {},
-    showFireHotspots: true,
-    onToggleFireHotspots: () => {},
   })));
-  assert.match(document.querySelector('.segmented-control-indicator').style.transform, /200%/);
+  assert.match(document.querySelector('.segmented-control-indicator').style.transform, /100%/);
 });
 
 test('seletor temático exibe faixa de temperatura no badge da camada de clima', async () => {

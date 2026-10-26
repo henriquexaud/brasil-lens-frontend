@@ -1,4 +1,9 @@
-import type { MapFeatureProperties, MapIndicatorMeta, MapValue } from '@/api/types';
+import type {
+  IndicatorContext,
+  MapFeatureProperties,
+  MapIndicatorMeta,
+  MapValue,
+} from '@/api/types';
 import { AnimatedText } from '@/components/AnimatedText';
 import { Disclosure } from '@/components/Disclosure';
 import { DrillDownButton } from '@/components/DrillDownButton';
@@ -65,7 +70,9 @@ export function TerritoryPanel({
   loading,
   onClose,
   onDrillDown,
+  context = 'socioeconomic',
 }: {
+  context?: IndicatorContext;
   code: string;
   territory?: MapFeatureProperties;
   indicator: MapIndicatorMeta | null;
@@ -80,6 +87,7 @@ export function TerritoryPanel({
     code,
     indicator?.year === null || indicator?.year === undefined ? year : String(indicator.year),
     Boolean(indicator) && needsOverview,
+    context,
   );
   const name = territory?.name ?? overview.data?.name;
   const level = territory?.level ?? overview.data?.level;
@@ -142,15 +150,18 @@ export function TerritoryPanel({
       {level === 'state' && name && onClose && (
         <DrillDownButton onClick={() => onDrillDown(code, name)} />
       )}
-      {name && indicator && indicatorCategoryId(indicator.key) !== 'other' && (
-        <Disclosure
-          key={`${code}:${year}:${indicatorCategoryId(indicator.key)}`}
-          title="Mais detalhes"
-          className="territory-details"
-        >
-          <TerritoryExtra code={code} year={year} mappedKey={indicator.key} />
-        </Disclosure>
-      )}
+      {name &&
+        indicator &&
+        context === 'socioeconomic' &&
+        indicatorCategoryId(indicator.key) !== 'other' && (
+          <Disclosure
+            key={`${code}:${year}:${indicatorCategoryId(indicator.key)}`}
+            title="Mais detalhes"
+            className="territory-details"
+          >
+            <TerritoryExtra code={code} year={year} mappedKey={indicator.key} />
+          </Disclosure>
+        )}
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { FireHotspotCollection, WeatherCurrentResponse } from '@/api/types';
+import type { WeatherCurrentResponse } from '@/api/types';
 import { LayerMetadata } from '@/components/LayerMetadata';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -12,11 +12,6 @@ export interface WeatherThematicSwitchProps {
   showRainfall?: boolean;
   onToggleRainfall?: (show: boolean) => void;
   maxRainfall?: number;
-  showFireHotspots?: boolean;
-  onToggleFireHotspots?: (show: boolean) => void;
-  fireHotspotsLoading?: boolean;
-  fireHotspots?: FireHotspotCollection;
-  fireHotspotsError?: boolean;
   loading?: boolean;
   current?: WeatherCurrentResponse;
   error?: unknown;
@@ -31,11 +26,6 @@ export function WeatherThematicSwitch({
   showRainfall,
   onToggleRainfall,
   maxRainfall,
-  showFireHotspots,
-  onToggleFireHotspots,
-  fireHotspotsLoading,
-  fireHotspots,
-  fireHotspotsError,
   loading = false,
   current,
   error,
@@ -60,21 +50,13 @@ export function WeatherThematicSwitch({
   const layers = [
     { value: 'climate', label: 'Clima', toggle: onToggleClimate },
     { value: 'rainfall', label: 'Chuva', toggle: onToggleRainfall },
-    { value: 'fire', label: 'Fogo', toggle: onToggleFireHotspots },
   ].filter((layer) => layer.toggle);
-  const active = showClimate
-    ? 'climate'
-    : showRainfall
-      ? 'rainfall'
-      : showFireHotspots
-        ? 'fire'
-        : null;
+  const active = showClimate ? 'climate' : showRainfall ? 'rainfall' : null;
   const sourceUnavailable = error != null || current?.status === 'unavailable';
   const missingLabel = sourceUnavailable ? 'Indisponível' : loading ? 'Carregando…' : 'Sem dados';
   const missingTone = sourceUnavailable ? 'error' : 'neutral';
   const rainAvailable = maxRainfall != null && Number.isFinite(maxRainfall);
   const stale = current?.status === 'stale' || sourceUnavailable;
-  const fireStale = fireHotspots?.metadata.status === 'stale' || fireHotspotsError;
 
   return (
     <div className="weather-thematic-selector">
@@ -113,37 +95,6 @@ export function WeatherThematicSwitch({
             {rainAvailable
               ? `Máx: ${maxRainfall.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm${stale ? ' · anterior' : ''}`
               : missingLabel}
-          </StatusBadge>
-        </LayerMetadata>
-      )}
-      {showFireHotspots && (
-        <LayerMetadata
-          sources={[
-            {
-              label: 'INPE',
-              description: 'Programa Queimadas: focos detectados nas últimas 48 horas.',
-            },
-          ]}
-          unit="48h"
-        >
-          <StatusBadge
-            tone={
-              fireHotspots
-                ? fireStale
-                  ? 'warning'
-                  : 'fire'
-                : fireHotspotsError
-                  ? 'error'
-                  : 'neutral'
-            }
-          >
-            {fireHotspots
-              ? `${fireHotspots.metadata.hotspotCount.toLocaleString('pt-BR')} focos · ${scopeName ?? 'Brasil'}${fireStale ? ' · anterior' : ''}`
-              : fireHotspotsError
-                ? 'Indisponível'
-                : fireHotspotsLoading
-                  ? 'Carregando…'
-                  : 'Sem dados'}
           </StatusBadge>
         </LayerMetadata>
       )}

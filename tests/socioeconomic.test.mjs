@@ -131,14 +131,14 @@ test('PNAD municipal informa ausência de cobertura e não prepara o mosaico', a
 });
 
 test('trocar contexto preserva preferências climáticas e território', async () => {
-  const state = { dataContext:'climate_environmental', activeThematicLayer:'rainfall', showHydrography:false, selectedCode:'3550308' };
+  const state = { dataContext:'climate', activeThematicLayer:'rainfall', showHydrography:false, selectedCode:'3550308' };
   window.sessionStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify(state));
   function Probe() { return useDataContext().control; }
   await act(async()=>root.render(h(Probe)));
   const select = document.querySelector('#data-context');
   await act(async()=>{ select.value='socioeconomic'; select.dispatchEvent(new window.Event('change',{bubbles:true})); });
   assert.deepEqual(stored(), {...state,dataContext:'socioeconomic'});
-  await act(async()=>{ select.value='climate_environmental'; select.dispatchEvent(new window.Event('change',{bubbles:true})); });
+  await act(async()=>{ select.value='climate'; select.dispatchEvent(new window.Event('change',{bubbles:true})); });
   assert.deepEqual(stored(),state);
 });
 

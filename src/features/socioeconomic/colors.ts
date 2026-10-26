@@ -38,6 +38,32 @@ export const PALETTES = {
     '#376AA6',
     '#24548D',
   ],
+  // Meio ambiente: terra para desmatamento (distinta do vermelho dos focos) e
+  // verde-musgo para floresta (distinto do verde de População).
+  earthDeforestation: [
+    '#FAF1E4',
+    '#F4E0C2',
+    '#EDCB9C',
+    '#E4B277',
+    '#D99757',
+    '#C97D41',
+    '#B36533',
+    '#994F29',
+    '#7C3D22',
+    '#5F2E1B',
+  ],
+  mossForest: [
+    '#EEF5E7',
+    '#DCEACB',
+    '#C5DCA9',
+    '#A9CB86',
+    '#8AB866',
+    '#6BA34E',
+    '#4F8B3D',
+    '#387331',
+    '#265C27',
+    '#17461D',
+  ],
 } as const;
 
 const DEFAULT_RAMP = PALETTES.greenBrasil;
@@ -49,8 +75,14 @@ const CATEGORY_PALETTES: Record<IndicatorCategoryId, PaletteKey> = {
   other: 'blueOther',
 };
 
+const INDICATOR_PALETTES: Record<string, PaletteKey> = {
+  deforestation_prodes: 'earthDeforestation',
+  forest_cover: 'mossForest',
+};
+
 export function paletteForIndicator(key: string | null | undefined): readonly string[] {
-  return key ? PALETTES[CATEGORY_PALETTES[indicatorCategoryId(key)]] : DEFAULT_RAMP;
+  if (!key) return DEFAULT_RAMP;
+  return PALETTES[INDICATOR_PALETTES[key] ?? CATEGORY_PALETTES[indicatorCategoryId(key)]];
 }
 
 export const NO_DATA_COLOR = '#e2e5ea';

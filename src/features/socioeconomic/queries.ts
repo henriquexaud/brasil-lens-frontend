@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/api/client';
 import type {
+  IndicatorContext,
   IndicatorListResponse,
   MapValuesResponse,
   TerritoryLevel,
@@ -47,11 +48,20 @@ export function useValues(
   return useQuery({ ...valuesOptions(level, parent, indicator, year), enabled });
 }
 
-export function useOverview(code: string, year: string, enabled = true) {
+export function useOverview(
+  code: string,
+  year: string,
+  enabled = true,
+  context: IndicatorContext = 'socioeconomic',
+) {
   return useQuery({
-    queryKey: ['socioeconomic', 'territory', code, year],
+    queryKey: ['socioeconomic', 'territory', code, year, context],
     queryFn: ({ signal }) =>
-      apiGet<TerritoryOverview>(`/socioeconomic/territories/${code}`, { year }, signal),
+      apiGet<TerritoryOverview>(
+        `/socioeconomic/territories/${code}`,
+        context === 'socioeconomic' ? { year } : { year, context },
+        signal,
+      ),
     staleTime: FRESHNESS,
     enabled,
   });

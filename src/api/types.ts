@@ -2,7 +2,9 @@ import type { Geometry, MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 
-export type DataContext = 'climate_environmental' | 'socioeconomic' | 'political';
+export type DataContext = 'climate' | 'environment' | 'socioeconomic' | 'political';
+
+export type IndicatorContext = 'socioeconomic' | 'environment';
 
 export interface Indicator {
   key: string;

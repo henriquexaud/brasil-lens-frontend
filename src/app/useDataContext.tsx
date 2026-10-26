@@ -11,8 +11,8 @@ const MAP_READY_MS = 400;
 export function useDataContext(preload: Partial<Record<DataContext, () => Promise<void>>> = {}) {
   const [context, setContext] = useState<DataContext>(() =>
     new URL(window.location.href).searchParams.has('municipality')
-      ? 'climate_environmental'
-      : (loadSessionState().dataContext ?? 'climate_environmental'),
+      ? 'climate'
+      : (loadSessionState().dataContext ?? 'climate'),
   );
   // O select mostra a escolha na hora; `context` só muda dentro do cross-fade.
   const [choice, setChoice] = useState(context);
@@ -51,7 +51,8 @@ export function useDataContext(preload: Partial<Record<DataContext, () => Promis
         hideLabel
         value={choice}
         options={[
-          { value: 'climate_environmental', label: 'Clima e meio ambiente' },
+          { value: 'climate', label: 'Clima' },
+          { value: 'environment', label: 'Meio ambiente' },
           { value: 'socioeconomic', label: 'Socioeconômico' },
           { value: 'political', label: 'Política' },
         ]}

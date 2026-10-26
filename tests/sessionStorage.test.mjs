@@ -88,8 +88,8 @@ test('loadSessionState trata JSON corrompido sem quebrar', () => {
 });
 
 test('clearSessionState remove a chave da sessão', () => {
-  saveSessionState({ activeThematicLayer: 'fire' });
-  assert.equal(loadSessionState().activeThematicLayer, 'fire');
+  saveSessionState({ environmentLayer: 'fire' });
+  assert.equal(loadSessionState().environmentLayer, 'fire');
   clearSessionState();
   assert.deepEqual(loadSessionState(), {});
 });
@@ -160,11 +160,45 @@ test('recortes antigos ou municipais sem UF não são restaurados', () => {
   }
 });
 
-test('sessão v3 preserva preferências de clima na migração para v4', () => {
+test('sessão v3 preserva preferências de clima e leva Fogo para o Meio ambiente', () => {
   const previous = { activeThematicLayer: 'fire', showWeatherAlerts: false, selectedCode: '35' };
   mockStorage.setItem('brasil_lens_session_v3', JSON.stringify(previous));
-  assert.deepEqual(loadSessionState(), previous);
+  assert.deepEqual(loadSessionState(), {
+    environmentLayer: 'fire',
+    showWeatherAlerts: false,
+    selectedCode: '35',
+  });
   assert.equal(mockStorage.getItem('brasil_lens_session_v3'), null);
+});
+
+test('v5 com Fogo ativo abre o Meio ambiente; as outras abas abrem o Clima', () => {
+  mockStorage.setItem(
+    'brasil_lens_session_v5',
+    JSON.stringify({ dataContext: 'climate_environmental', activeThematicLayer: 'fire' }),
+  );
+  assert.deepEqual(loadSessionState(), { dataContext: 'environment', environmentLayer: 'fire' });
+  assert.equal(mockStorage.getItem('brasil_lens_session_v5'), null);
+  mockStorage.clear();
+  mockStorage.setItem(
+    'brasil_lens_session_v5',
+    JSON.stringify({
+      dataContext: 'climate_environmental',
+      activeThematicLayer: 'rainfall',
+      showHydrography: false,
+    }),
+  );
+  assert.deepEqual(loadSessionState(), {
+    dataContext: 'climate',
+    activeThematicLayer: 'rainfall',
+    showHydrography: false,
+  });
+});
+
+test('camada do Meio ambiente é validada', () => {
+  saveSessionState({ dataContext: 'environment', environmentLayer: 'forest' });
+  assert.deepEqual(loadSessionState(), { dataContext: 'environment', environmentLayer: 'forest' });
+  mockStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ environmentLayer: 'lava' }));
+  assert.deepEqual(loadSessionState(), {});
 });
 
 test('contexto e seleção socioeconômica são validados e preservam clima', () => {

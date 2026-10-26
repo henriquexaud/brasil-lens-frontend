@@ -78,49 +78,68 @@ test('entrar numa UF limpa a seleção e grava; voltar ao Brasil desfaz', async 
   assert.deepEqual(stored().scope, { level: 'state', parent: null, parentName: null });
 });
 
-test('preferências começam em clima com alertas e hidrografia ligados', async () => {
-  const hook = await renderHook(useAppPreferences);
-  const prefs = hook.current;
+test('preferências começam em clima com alertas; Meio ambiente começa em desmatamento com rios', async () => {
+  const prefs = (await renderHook(() => useAppPreferences('climate'))).current;
   assert.deepEqual(
     [prefs.showClimate, prefs.showRainfall, prefs.showFireHotspots, prefs.weatherLayerActive],
     [true, false, false, true],
   );
   assert.equal(prefs.showWeatherAlerts, true);
-  assert.equal(prefs.showHydrography, true);
+  assert.equal(prefs.showHydrography, false, 'rios ficam no Meio ambiente');
+  await act(async () => root.unmount());
+  root = undefined;
+
+  const environment = (await renderHook(() => useAppPreferences('environment'))).current;
+  assert.deepEqual(
+    [environment.indicatorLayer, environment.showFireHotspots, environment.weatherLayerActive],
+    ['deforestation', false, false],
+  );
+  assert.equal(environment.showHydrography, true);
+  assert.equal(environment.showWeatherAlerts, false, 'avisos ficam no Clima');
 });
 
-test('a sessão restaura camada temática e chaves; valor desconhecido cai no clima', async () => {
-  seed({ activeThematicLayer: 'fire', showHydrography: false, showWeatherAlerts: false });
-  const prefs = (await renderHook(useAppPreferences)).current;
+test('a sessão restaura a aba de cada contexto; valor desconhecido cai no padrão', async () => {
+  seed({ environmentLayer: 'fire', showHydrography: false, showWeatherAlerts: false });
+  const prefs = (await renderHook(() => useAppPreferences('environment'))).current;
   assert.deepEqual(
-    [prefs.showFireHotspots, prefs.showClimate, prefs.showHydrography, prefs.showWeatherAlerts],
-    [true, false, false, false],
+    [prefs.showFireHotspots, prefs.indicatorLayer, prefs.showHydrography, prefs.showClimate],
+    [true, null, false, false],
   );
   await act(async () => root.unmount());
   root = undefined;
 
-  seed({ activeThematicLayer: 'lava' });
-  assert.equal((await renderHook(useAppPreferences)).current.showClimate, true);
+  seed({ activeThematicLayer: 'lava', environmentLayer: 'lava' });
+  assert.equal((await renderHook(() => useAppPreferences('climate'))).current.showClimate, true);
+  await act(async () => root.unmount());
+  root = undefined;
+  assert.equal(
+    (await renderHook(() => useAppPreferences('environment'))).current.indicatorLayer,
+    'deforestation',
+  );
 });
 
 test('só uma camada temática fica ativa; desligar a ativa deixa nenhuma', async () => {
-  const hook = await renderHook(useAppPreferences);
+  const hook = await renderHook(() => useAppPreferences('climate'));
 
   await act(async () => hook.current.handleToggleRainfall(true));
   assert.deepEqual([hook.current.showRainfall, hook.current.showClimate], [true, false]);
   assert.equal(hook.current.weatherLayerActive, true, 'chuva usa os mesmos dados do clima');
   assert.equal(stored().activeThematicLayer, 'rainfall');
 
-  await act(async () => hook.current.handleToggleFireHotspots(true));
-  assert.deepEqual([hook.current.showFireHotspots, hook.current.showRainfall], [true, false]);
-  assert.equal(hook.current.weatherLayerActive, false, 'focos não consultam o clima');
-
-  await act(async () => hook.current.handleToggleFireHotspots(false));
-  assert.deepEqual(
-    [hook.current.showClimate, hook.current.showRainfall, hook.current.showFireHotspots],
-    [false, false, false],
-  );
+  await act(async () => hook.current.handleToggleRainfall(false));
+  assert.deepEqual([hook.current.showClimate, hook.current.showRainfall], [false, false]);
   assert.equal(stored().activeThematicLayer, 'none');
+  await act(async () => root.unmount());
+  root = undefined;
+
+  const environment = await renderHook(() => useAppPreferences('environment'));
+  await act(async () => environment.current.handleEnvironmentLayer('fire'));
+  assert.deepEqual([environment.current.showFireHotspots, environment.current.indicatorLayer], [true, null]);
+  assert.equal(environment.current.weatherLayerActive, false, 'focos não consultam o clima');
+  await act(async () => environment.current.handleEnvironmentLayer('none'));
+  assert.equal(environment.current.showFireHotspots, false);
+  assert.equal(stored().environmentLayer, 'none');
+  assert.equal(stored().activeThematicLayer, 'none', 'a aba do Clima é preservada');
 });
 
 test('alertas e hidrografia são persistidos de forma independente da camada temática', async () => {

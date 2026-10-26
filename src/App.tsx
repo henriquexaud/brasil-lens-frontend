@@ -28,6 +28,12 @@ import type { MapViewport } from '@/features/map/ViewportObserver';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
 import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
+import { EnvironmentThematicSwitch } from '@/features/environment/EnvironmentThematicSwitch';
+import { RiversOption } from '@/features/environment/RiversOption';
+import { useEnvironmentIndicator } from '@/features/environment/useEnvironmentIndicator';
+import { Legend as IndicatorLegend } from '@/features/socioeconomic/Legend';
+import { TerritoryPanel as IndicatorPanel } from '@/features/socioeconomic/TerritoryPanel';
+import { IndicatorRanking } from '@/features/socioeconomic/IndicatorRanking';
 import { useTerritoryMap } from '@/features/map/useTerritoryMap';
 import { useNationalMunicipalData } from '@/features/map/useNationalMunicipalData';
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
@@ -41,7 +47,7 @@ import { lazyPreload } from '@/lib/lazyPreload';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { useDeferredReady } from '@/lib/useDeferredReady';
 import { useWeatherMapData } from '@/features/weather/useWeatherMapData';
-import { useAppPreferences } from '@/app/useAppPreferences';
+import { useAppPreferences, type MapVariant } from '@/app/useAppPreferences';
 import { useMobileSheet } from '@/app/useMobileSheet';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
 import { AccountMenu } from '@/features/auth/AccountMenu';
@@ -135,11 +141,19 @@ export default function App() {
       <SocioeconomicApp contextControl={control} />
     </Suspense>
   ) : (
-    <ClimateApp contextControl={control} />
+    <ClimateApp key={context} variant={context} contextControl={control} />
   );
 }
 
-function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
+// Clima e Meio ambiente compartilham esta composição: território, busca, focos,
+// rios e o mosaico nacional. `variant` decide as abas e a camada de apoio.
+function ClimateApp({
+  contextControl,
+  variant,
+}: {
+  contextControl: ReactNode;
+  variant: MapVariant;
+}) {
   useEffect(
     () =>
       scheduleIdle(() => {
@@ -157,11 +171,13 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
     showClimate,
     showFireHotspots,
     showRainfall,
+    indicatorLayer,
+    environmentLayer,
     weatherLayerActive,
     handleToggleClimate,
-    handleToggleFireHotspots,
     handleToggleRainfall,
-  } = useAppPreferences();
+    handleEnvironmentLayer,
+  } = useAppPreferences(variant);
 
   const [viewport, setViewport] = useState<MapViewport>({ zoom: 4 });
   const activeFireMode = fireMode(viewport.zoom);
@@ -241,6 +257,15 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
     isDrilledDown,
     viewport,
     selectedCode,
+    pageVisible,
+  });
+
+  const environment = useEnvironmentIndicator({
+    layer: indicatorLayer,
+    scope,
+    isDrilledDown,
+    scopeReady,
+    territoryReady,
     pageVisible,
   });
 
@@ -337,7 +362,9 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
     ? climateBaseReady
     : showFireHotspots
       ? fireLayerRequested && fireLayerSettled
-      : territoryReady;
+      : indicatorLayer
+        ? territoryReady && !environment.loading
+        : territoryReady;
   const alerts = useWeatherAlerts(showWeatherAlerts && layerBaseReady);
   const fireByCode = useMemo(
     () =>
@@ -355,6 +382,7 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
     !alerts.isFetching &&
     !fireHotspotsLayer.isFetching &&
     !fireSummary.isFetching &&
+    !environment.fetching &&
     viewportWeatherBusy === 0;
   // Pede só com o mapa parado, para não buscar áreas por onde o pan apenas passou.
   const hydroReady = useDeferredReady(
@@ -491,7 +519,14 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
       !hydrographyLayer.isFetching &&
       !fireHotspotsLayer.isFetching &&
       !fireSummary.isFetching &&
-      Boolean(weatherLayerActive ? nationalWeather.data : showFireHotspots && fireSummary.data),
+      !environment.fetching &&
+      Boolean(
+        weatherLayerActive
+          ? nationalWeather.data
+          : showFireHotspots
+            ? fireSummary.data
+            : indicatorLayer && environment.values.data,
+      ),
     weatherEnabled: weatherLayerActive,
     weatherRevision: nationalWeather.data?.fetchedAt,
   });
@@ -513,8 +548,21 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
     ) {
       return { mesh: nationalMunicipalData.mesh, fireByCode };
     }
+    if (
+      indicatorLayer &&
+      !isDrilledDown &&
+      nationalMunicipalData.mesh &&
+      environment.municipalPresentation
+    ) {
+      return {
+        mesh: nationalMunicipalData.mesh,
+        presentation: environment.municipalPresentation,
+      };
+    }
     return undefined;
   }, [
+    indicatorLayer,
+    environment.municipalPresentation,
     weatherLayerActive,
     showFireHotspots,
     isDrilledDown,
@@ -567,7 +615,9 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
   // Territórios ainda sem dado da camada pulsam enquanto isto for verdadeiro.
   const territoryDataLoading = weatherLayerActive
     ? !climateBaseReady || scopeWeatherFetching
-    : showFireHotspots && (!fireSummary.data || fireSummary.isFetching);
+    : indicatorLayer
+      ? environment.loading
+      : showFireHotspots && (!fireSummary.data || fireSummary.isFetching);
 
   const isViewActivelyWorking = Boolean(
     selectedWeather.isFetching ||
@@ -577,6 +627,7 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
     (showFireHotspots && (fireHotspotsLayer.isFetching || fireSummary.isFetching)) ||
     (showHydrography && hydrographyLayer.isFetching) ||
     (showWeatherAlerts && alerts.isFetching) ||
+    environment.fetching ||
     selectedBoundary.isFetching,
   );
 
@@ -675,18 +726,22 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
   }, [isDrilledDown, scope.parent, selectedCode]);
 
   return (
-    <div className="app">
+    // Desmatamento e Florestas usam os estilos de indicador do Socioeconômico.
+    <div className={indicatorLayer ? 'app socioeconomic-app' : 'app'}>
       {((!scopeReady && mapLayer.isFetching) ||
         selectedBoundary.isFetching ||
+        environment.fetching ||
         (showClimate && selectedWeather.isFetching)) && <TopProgress />}
       <MapView
+        presentation={environment.presentation}
+        onNationalMosaicPublished={indicatorLayer ? environment.onNationalPublished : undefined}
         collection={collection}
         selectedCode={selectedCode}
         onSelect={selectMapTerritory}
         onDrillDown={drillIntoState}
         weatherByCode={weatherByCode}
         stateOutline={selectedStateOutline}
-        discoveredMosaic={discoveredMosaic}
+        discoveredMosaic={indicatorLayer ? undefined : discoveredMosaic}
         discoveredMosaicVersion={discoveredMosaicVersion}
         discoveredMosaicVersions={discoveredMosaicVersions}
         completeMosaicStates={completeMosaicStates}
@@ -759,29 +814,51 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
               backAriaLabel={backAriaLabel}
             />
             <div className="thematic-switch-wrapper">
-              <WeatherThematicSwitch
-                showClimate={showClimate}
-                onToggleClimate={handleToggleClimate}
-                showRainfall={showRainfall}
-                onToggleRainfall={handleToggleRainfall}
-                showFireHotspots={showFireHotspots}
-                onToggleFireHotspots={handleToggleFireHotspots}
-                minTemperature={minTemperature}
-                maxTemperature={maxTemperature}
-                maxRainfall={maxRainfall}
-                fireHotspots={fireHotspotsLayer.data}
-                fireHotspotsLoading={showFireHotspots && !fireLayerSettled}
-                fireHotspotsError={fireError != null}
-                current={currentWeather}
-                loading={weatherLayerActive && !climateBaseReady}
-                error={weatherError}
-                scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
-              />
+              {variant === 'climate' ? (
+                <WeatherThematicSwitch
+                  showClimate={showClimate}
+                  onToggleClimate={handleToggleClimate}
+                  showRainfall={showRainfall}
+                  onToggleRainfall={handleToggleRainfall}
+                  minTemperature={minTemperature}
+                  maxTemperature={maxTemperature}
+                  maxRainfall={maxRainfall}
+                  current={currentWeather}
+                  loading={weatherLayerActive && !climateBaseReady}
+                  error={weatherError}
+                  scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+                />
+              ) : (
+                <EnvironmentThematicSwitch
+                  layer={environmentLayer}
+                  onChange={handleEnvironmentLayer}
+                  years={environment.availableYears}
+                  year={environment.year}
+                  onYearChange={environment.setYear}
+                  resolvedYear={environment.indicator?.year ?? null}
+                  fireHotspots={fireHotspotsLayer.data}
+                  fireLoading={showFireHotspots && !fireLayerSettled}
+                  fireError={fireError != null}
+                  scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+                />
+              )}
             </div>
           </div>
           {failure && (
             <div className="panel-section">
               <ErrorMessage error={failure} />
+            </div>
+          )}
+          {!failure && environment.error && (
+            <div className="panel-section">
+              <ErrorMessage error={environment.error} />
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => void client.invalidateQueries({ queryKey: ['environment'] })}
+              >
+                Tentar novamente
+              </button>
             </div>
           )}
           {scopeReady &&
@@ -800,7 +877,26 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
                 </div>
               }
             >
-              {selectedCode ? (
+              {indicatorLayer ? (
+                <IndicatorPanel
+                  key={`${indicatorLayer}:${selectedCode ?? scope.parent ?? 'BR'}`}
+                  context="environment"
+                  code={selectedCode ?? scope.parent ?? 'BR'}
+                  territory={selectedFeature?.properties}
+                  indicator={environment.indicator}
+                  value={
+                    selectedCode
+                      ? environment.values.data?.values.find(
+                          (item) => item.ibgeCode === selectedCode,
+                        )
+                      : undefined
+                  }
+                  year={environment.year}
+                  loading={environment.loading}
+                  onClose={selectedCode ? () => setSelectedCode(null) : undefined}
+                  onDrillDown={drillIntoState}
+                />
+              ) : selectedCode ? (
                 <WeatherPanel
                   key={selectedCode}
                   code={selectedCode}
@@ -846,6 +942,13 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
                   onSelect={selectWeatherCity}
                 />
               )}
+              {indicatorLayer && !selectedCode && environment.values.data && mapLayer.data && (
+                <IndicatorRanking
+                  data={environment.values.data}
+                  collection={mapLayer.data}
+                  onSelect={selectMapTerritory}
+                />
+              )}
               {showFireHotspots && fireSummary.data && !selectedCode && (
                 <FireOverview
                   summary={fireSummary.data}
@@ -855,25 +958,33 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
               )}
             </>
           </Suspense>
-          <Suspense fallback={null}>
+          {variant === 'climate' ? (
             <>
-              <WeatherOptions
-                showAlerts={showWeatherAlerts}
-                onToggleAlerts={setShowWeatherAlerts}
-                showHydrography={showHydrography}
-                onToggleHydrography={setShowHydrography}
-                hydrographyPartial={hydroCollection?.metadata.status === 'partial'}
-                hydrographyPending={hydrographyLayer.isFetching && !hydroCollection}
-                code={selectedCode ?? scope.parent}
-                hydrographyError={showHydrography && hydrographyLayer.error != null}
-                alertsData={alerts.data}
-                alertsPending={alerts.isPending}
-                alertsError={alerts.error}
-                scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+              <Suspense fallback={null}>
+                <WeatherOptions
+                  showAlerts={showWeatherAlerts}
+                  onToggleAlerts={setShowWeatherAlerts}
+                  code={selectedCode ?? scope.parent}
+                  alertsData={alerts.data}
+                  alertsPending={alerts.isPending}
+                  alertsError={alerts.error}
+                  scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+                />
+              </Suspense>
+              <FollowedMunicipalitiesPanel
+                current={followTarget}
+                onOpen={openFollowedMunicipality}
               />
             </>
-          </Suspense>
-          <FollowedMunicipalitiesPanel current={followTarget} onOpen={openFollowedMunicipality} />
+          ) : (
+            <RiversOption
+              checked={showHydrography}
+              onChange={setShowHydrography}
+              partial={hydroCollection?.metadata.status === 'partial'}
+              pending={hydrographyLayer.isFetching && !hydroCollection}
+              error={showHydrography && hydrographyLayer.error != null}
+            />
+          )}
           <SyncStatus
             current={currentWeather}
             error={
@@ -893,6 +1004,7 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
               });
               void client.invalidateQueries({ queryKey: ['fire-hotspots'], exact: false });
               void client.invalidateQueries({ queryKey: ['hydrography'], exact: false });
+              void client.invalidateQueries({ queryKey: ['environment'] });
               void client.invalidateQueries({
                 queryKey: ['map', 'municipality'],
                 refetchType: 'none',
@@ -905,7 +1017,14 @@ function ClimateApp({ contextControl }: { contextControl: ReactNode }) {
       {!failure && (
         <div className="legend-slot">
           <Suspense fallback={null}>
-            {showFireHotspots ? (
+            {indicatorLayer ? (
+              <IndicatorLegend
+                indicator={environment.legendData?.indicator ?? environment.indicator}
+                classification={environment.legendData?.classification ?? null}
+                statistics={environment.legendData?.statistics ?? null}
+                loading={environment.loading}
+              />
+            ) : showFireHotspots ? (
               <FireLegend
                 loading={fireSummary.isFetching || fireHotspotsLayer.isFetching}
                 error={fireSummary.error != null}

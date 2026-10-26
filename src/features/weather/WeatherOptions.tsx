@@ -12,11 +12,6 @@ import { IBGE_UF_MAP, UF_NAMES, groupStateAlerts, partitionMunicipalityAlerts } 
 export interface WeatherOptionsProps {
   showAlerts: boolean;
   onToggleAlerts: (show: boolean) => void;
-  showHydrography?: boolean;
-  onToggleHydrography?: (show: boolean) => void;
-  hydrographyPartial?: boolean;
-  hydrographyError?: boolean;
-  hydrographyPending?: boolean;
   code: string | null;
   alertsData: WeatherAlertCollection | undefined;
   alertsPending: boolean;
@@ -27,11 +22,6 @@ export interface WeatherOptionsProps {
 export function WeatherOptions({
   showAlerts,
   onToggleAlerts,
-  showHydrography,
-  onToggleHydrography,
-  hydrographyPartial,
-  hydrographyError = false,
-  hydrographyPending = false,
   code,
   alertsData,
   alertsPending,
@@ -81,43 +71,9 @@ export function WeatherOptions({
   return (
     <section
       className="panel-section weather-options-section"
-      aria-label="Camadas e fontes de clima"
+      aria-label="Avisos e fontes de clima"
     >
       <div className="weather-layers-panel">
-        {onToggleHydrography && (
-          <LayerToggle
-            label="Rios e corpos d'água"
-            sources={[
-              {
-                label: 'ANA',
-                description: 'Sistema Nacional de Informações sobre Recursos Hídricos (SNIRH).',
-              },
-            ]}
-            checked={showHydrography ?? false}
-            onChange={onToggleHydrography}
-            status={
-              <StatusBadge
-                tone={
-                  hydrographyError
-                    ? 'error'
-                    : hydrographyPartial
-                      ? 'warning'
-                      : hydrographyPending
-                        ? 'neutral'
-                        : 'hydro'
-                }
-              >
-                {hydrographyError
-                  ? 'Indisponível'
-                  : hydrographyPartial
-                    ? 'Parcial'
-                    : hydrographyPending
-                      ? 'Carregando…'
-                      : 'Ativo'}
-              </StatusBadge>
-            }
-          />
-        )}
         <LayerToggle
           label="Alertas"
           sources={[

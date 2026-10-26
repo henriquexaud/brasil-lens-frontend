@@ -9,6 +9,8 @@ const RANKING_TITLES: Record<string, string> = {
   gdp_per_capita: 'Maior e menor PIB por habitante',
   household_income_per_capita: 'Maior e menor renda por habitante',
   unemployment_rate: 'Maior e menor desemprego',
+  deforestation_prodes: 'Maior e menor desmatamento',
+  forest_cover: 'Maior e menor cobertura florestal',
 };
 
 export function IndicatorRanking({

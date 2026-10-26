@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
+import {
+  loadSessionState,
+  saveSessionState,
+  type ClimateLayer,
+  type EnvironmentLayer,
+} from '@/lib/sessionStorage';
 
-export function useAppPreferences() {
+export type MapVariant = 'climate' | 'environment';
+
+// Clima e Meio ambiente compartilham a composição do mapa; cada um guarda a
+// própria aba ativa e só a sua camada de apoio (avisos ou rios).
+export function useAppPreferences(variant: MapVariant = 'climate') {
   const [showWeatherAlerts, setShowWeatherAlerts] = useState<boolean>(() => {
     const saved = loadSessionState();
     return typeof saved.showWeatherAlerts === 'boolean' ? saved.showWeatherAlerts : true;
@@ -10,46 +19,55 @@ export function useAppPreferences() {
     const saved = loadSessionState();
     return typeof saved.showHydrography === 'boolean' ? saved.showHydrography : true;
   });
-  const [activeThematicLayer, setActiveThematicLayer] = useState<
-    'climate' | 'fire' | 'rainfall' | 'none'
-  >(() => {
-    const saved = loadSessionState();
-    if (saved.activeThematicLayer === 'fire') return 'fire';
-    if (saved.activeThematicLayer === 'rainfall') return 'rainfall';
-    if (saved.activeThematicLayer === 'none') return 'none';
-    return 'climate';
-  });
+  const [climateLayer, setClimateLayer] = useState<ClimateLayer>(
+    () => loadSessionState().activeThematicLayer ?? 'climate',
+  );
+  const [environmentLayer, setEnvironmentLayer] = useState<EnvironmentLayer>(
+    () => loadSessionState().environmentLayer ?? 'deforestation',
+  );
 
-  const showClimate = activeThematicLayer === 'climate';
-  const showFireHotspots = activeThematicLayer === 'fire';
-  const showRainfall = activeThematicLayer === 'rainfall';
+  const climate = variant === 'climate';
+  const showClimate = climate && climateLayer === 'climate';
+  const showRainfall = climate && climateLayer === 'rainfall';
+  const showFireHotspots = !climate && environmentLayer === 'fire';
+  const indicatorLayer =
+    !climate && (environmentLayer === 'deforestation' || environmentLayer === 'forest')
+      ? environmentLayer
+      : null;
   const weatherLayerActive = showClimate || showRainfall;
 
   const handleToggleClimate = useCallback((show: boolean) => {
-    setActiveThematicLayer(show ? 'climate' : 'none');
-  }, []);
-  const handleToggleFireHotspots = useCallback((show: boolean) => {
-    setActiveThematicLayer(show ? 'fire' : 'none');
+    setClimateLayer(show ? 'climate' : 'none');
   }, []);
   const handleToggleRainfall = useCallback((show: boolean) => {
-    setActiveThematicLayer(show ? 'rainfall' : 'none');
+    setClimateLayer(show ? 'rainfall' : 'none');
+  }, []);
+  const handleEnvironmentLayer = useCallback((layer: EnvironmentLayer) => {
+    setEnvironmentLayer(layer);
   }, []);
 
   useEffect(() => {
-    saveSessionState({ showWeatherAlerts, showHydrography, activeThematicLayer });
-  }, [showWeatherAlerts, showHydrography, activeThematicLayer]);
+    saveSessionState({
+      showWeatherAlerts,
+      showHydrography,
+      activeThematicLayer: climateLayer,
+      environmentLayer,
+    });
+  }, [showWeatherAlerts, showHydrography, climateLayer, environmentLayer]);
 
   return {
-    showWeatherAlerts,
+    showWeatherAlerts: climate && showWeatherAlerts,
     setShowWeatherAlerts,
-    showHydrography,
+    showHydrography: !climate && showHydrography,
     setShowHydrography,
     showClimate,
     showFireHotspots,
     showRainfall,
+    indicatorLayer,
+    environmentLayer,
     weatherLayerActive,
     handleToggleClimate,
-    handleToggleFireHotspots,
     handleToggleRainfall,
+    handleEnvironmentLayer,
   };
 }
