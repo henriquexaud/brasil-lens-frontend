@@ -59,6 +59,7 @@ import '@/features/socioeconomic/socioeconomic.css';
 
 const PoliticalApp = lazyPreload(() => import('@/features/political/PoliticalApp'));
 const SocioeconomicApp = lazyPreload(() => import('@/features/socioeconomic/SocioeconomicApp'));
+const TransportApp = lazyPreload(() => import('@/features/transport/TransportApp'));
 
 const HydrographyLayer = lazyPreload(() =>
   import('@/features/map/HydrographyLayer').then((module) => ({
@@ -112,6 +113,7 @@ const AlertsLayer = lazyPreload(() =>
 const CONTEXT_CODE = {
   political: PoliticalApp.preload,
   socioeconomic: SocioeconomicApp.preload,
+  transport: TransportApp.preload,
 };
 
 // Peças do painel e do mapa que só montam com outra camada ou com uma seleção.
@@ -137,9 +139,16 @@ export default function App() {
       scheduleIdle(() => {
         void PoliticalApp.preload();
         void SocioeconomicApp.preload();
+        void TransportApp.preload();
       }, 1500),
     [],
   );
+  if (context === 'transport')
+    return (
+      <Suspense fallback={<TopProgress />}>
+        <TransportApp contextControl={control} />
+      </Suspense>
+    );
   if (context === 'political')
     return (
       <Suspense fallback={<TopProgress />}>

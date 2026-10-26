@@ -3,12 +3,15 @@ import { readFile } from 'node:fs/promises';
 import { beforeEach, test } from 'node:test';
 import ts from 'typescript';
 
-const source = (
-  await readFile(new URL('../src/lib/sessionStorage.ts', import.meta.url), 'utf8')
-).replace(
-  '@/features/political/selection',
-  new URL('../src/features/political/selection.ts', import.meta.url).href,
-);
+const source = (await readFile(new URL('../src/lib/sessionStorage.ts', import.meta.url), 'utf8'))
+  .replace(
+    '@/features/political/selection',
+    new URL('../src/features/political/selection.ts', import.meta.url).href,
+  )
+  .replace(
+    '@/features/transport/layers',
+    new URL('../src/features/transport/layers.ts', import.meta.url).href,
+  );
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
 });
@@ -253,4 +256,15 @@ test('migra a sessão v4 e persiste Política com seleções válidas', () => {
 test('a aba Umidade do Clima é persistida', () => {
   saveSessionState({ dataContext: 'climate', activeThematicLayer: 'humidity' });
   assert.deepEqual(loadSessionState(), { dataContext: 'climate', activeThematicLayer: 'humidity' });
+});
+
+test('o contexto Transporte guarda aba, tipo de rodovia e ruas; valores inválidos caem', () => {
+  const transport = { tab: 'waterways', roads: 'road_state', showStreets: true };
+  saveSessionState({ dataContext: 'transport', transport });
+  assert.deepEqual(loadSessionState(), { dataContext: 'transport', transport });
+  mockStorage.setItem(
+    SESSION_STORAGE_KEY,
+    JSON.stringify({ dataContext: 'transport', transport: { ...transport, roads: 'road_x' } }),
+  );
+  assert.deepEqual(loadSessionState(), { dataContext: 'transport' });
 });

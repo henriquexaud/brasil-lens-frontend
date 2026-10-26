@@ -96,6 +96,7 @@ interface Props {
   exploredFireByCode?: Map<string, FireMunicipality>;
   nationalMosaic?: NationalMosaic;
   nationalMosaicPaused?: boolean;
+  maxZoom?: number;
   locationTarget?: {
     code: string;
     latitude: number;
@@ -199,6 +200,7 @@ export function MapView({
   exploredFireByCode,
   nationalMosaic,
   nationalMosaicPaused = false,
+  maxZoom = 12,
   locationTarget,
 }: Props) {
   const scopeKey = collection
@@ -212,7 +214,7 @@ export function MapView({
       zoom={restored?.zoom ?? BRAZIL_ZOOM}
       className="map-container"
       minZoom={3}
-      maxZoom={12}
+      maxZoom={maxZoom}
       zoomSnap={0.25}
       zoomDelta={0.25}
       scrollWheelZoom={false}

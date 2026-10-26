@@ -1,6 +1,7 @@
 import type { MapScopeState } from '@/features/map/useMapScope';
 import { validSelection } from '@/features/political/selection';
 import type { PoliticalSelection, DataContext } from '@/api/types';
+import { validTransport, type TransportPreferences } from '@/features/transport/layers';
 
 export const SESSION_STORAGE_KEY = 'brasil_lens_session_v6';
 const LEGACY_STORAGE_KEYS = [
@@ -21,11 +22,18 @@ export interface AppSessionState {
   showHydrography?: boolean;
   activeThematicLayer?: ClimateLayer;
   environmentLayer?: EnvironmentLayer;
+  transport?: TransportPreferences;
 }
 
 export type ClimateLayer = 'climate' | 'rainfall' | 'humidity' | 'none';
 export type EnvironmentLayer = 'deforestation' | 'forest' | 'fire' | 'none';
-const DATA_CONTEXTS: DataContext[] = ['climate', 'environment', 'socioeconomic', 'political'];
+const DATA_CONTEXTS: DataContext[] = [
+  'climate',
+  'environment',
+  'socioeconomic',
+  'political',
+  'transport',
+];
 
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -96,6 +104,7 @@ function climateState(value: unknown): AppSessionState {
     ...(['deforestation', 'forest', 'fire', 'none'].includes(String(environmentLayer))
       ? { environmentLayer: environmentLayer as EnvironmentLayer }
       : {}),
+    ...(validTransport(source.transport) ? { transport: source.transport } : {}),
   };
 }
 

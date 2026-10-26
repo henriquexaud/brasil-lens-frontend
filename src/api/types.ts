@@ -1,8 +1,8 @@
-import type { Geometry, MultiPolygon, Point } from 'geojson';
+import type { FeatureCollection, Geometry, MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 
-export type DataContext = 'climate' | 'environment' | 'socioeconomic' | 'political';
+export type DataContext = 'climate' | 'environment' | 'socioeconomic' | 'political' | 'transport';
 
 export type IndicatorContext = 'socioeconomic' | 'environment';
 
@@ -491,4 +491,41 @@ export interface PoliticalDetail {
   offset: number;
   limit: number;
   note: string;
+}
+
+export type TransportLayer =
+  'road_federal' | 'road_state' | 'road_local' | 'rail' | 'waterway' | 'port';
+
+export interface TransportFeatureProperties {
+  layer: TransportLayer;
+  name?: string | null;
+  attributes?: Record<string, string> | null;
+}
+
+export interface TransportNetwork
+  extends FeatureCollection<Geometry, TransportFeatureProperties> {
+  metadata: {
+    layer: TransportLayer;
+    detail: 'overview' | 'regional' | 'local' | 'street';
+    version: number;
+  };
+}
+
+export interface TransportCatalog {
+  version: number;
+  layers: { key: TransportLayer; label: string; source: 'dnit' | 'ibge'; minZoom: number }[];
+  sources: {
+    key: 'dnit' | 'ibge';
+    label: string;
+    edition?: string | null;
+    description: string;
+    url?: string | null;
+  }[];
+  streets: { url: string; layer: string; minZoom: number; description: string };
+}
+
+export interface TransportSummary {
+  code: string;
+  name: string;
+  totals: { layer: TransportLayer; value: number | null }[];
 }

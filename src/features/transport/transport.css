@@ -1,0 +1,7 @@
+.transport-app {
+  --indicator-tone: var(--indicator-accent);
+}
+
+.transport-app .featured-indicator {
+  margin-top: 4px;
+}
