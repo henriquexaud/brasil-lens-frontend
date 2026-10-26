@@ -4,7 +4,8 @@ export function StatusBadge({
   tone = 'neutral',
   children,
 }: {
-  tone?: 'neutral' | 'climate' | 'rain' | 'fire' | 'hydro' | 'alert' | 'warning' | 'error';
+  tone?:
+    'neutral' | 'climate' | 'rain' | 'humidity' | 'fire' | 'hydro' | 'alert' | 'warning' | 'error';
   children: ReactNode;
 }) {
   return (

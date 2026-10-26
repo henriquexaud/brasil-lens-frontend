@@ -31,6 +31,8 @@ import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch'
 import { EnvironmentThematicSwitch } from '@/features/environment/EnvironmentThematicSwitch';
 import { RiversOption } from '@/features/environment/RiversOption';
 import { useEnvironmentIndicator } from '@/features/environment/useEnvironmentIndicator';
+import { useHumidityPresentation } from '@/features/humidity/useHumidityPresentation';
+import { minHumidity as lowestHumidity } from '@/features/humidity/humidityScale';
 import { Legend as IndicatorLegend } from '@/features/socioeconomic/Legend';
 import { TerritoryPanel as IndicatorPanel } from '@/features/socioeconomic/TerritoryPanel';
 import { IndicatorRanking } from '@/features/socioeconomic/IndicatorRanking';
@@ -75,6 +77,12 @@ const RainLegend = lazyPreload(() =>
 const RainOverview = lazyPreload(() =>
   import('@/features/rainfall/RainOverview').then((m) => ({ default: m.RainOverview })),
 );
+const HumidityLegend = lazyPreload(() =>
+  import('@/features/humidity/HumidityLegend').then((m) => ({ default: m.HumidityLegend })),
+);
+const HumidityOverview = lazyPreload(() =>
+  import('@/features/humidity/HumidityOverview').then((m) => ({ default: m.HumidityOverview })),
+);
 const ClimateOverview = lazyPreload(() =>
   import('@/features/weather/ClimateOverview').then((m) => ({ default: m.ClimateOverview })),
 );
@@ -114,6 +122,8 @@ const CLIMATE_ON_DEMAND = [
   ClimateOverview,
   RainOverview,
   RainLegend,
+  HumidityOverview,
+  HumidityLegend,
   FireOverview,
   FireLegend,
   FireHotspotsLayer,
@@ -171,11 +181,13 @@ function ClimateApp({
     showClimate,
     showFireHotspots,
     showRainfall,
+    showHumidity,
     indicatorLayer,
     environmentLayer,
     weatherLayerActive,
     handleToggleClimate,
     handleToggleRainfall,
+    handleToggleHumidity,
     handleEnvironmentLayer,
   } = useAppPreferences(variant);
 
@@ -530,7 +542,23 @@ function ClimateApp({
     weatherEnabled: weatherLayerActive,
     weatherRevision: nationalWeather.data?.fetchedAt,
   });
+  const humidity = useHumidityPresentation({
+    active: showHumidity,
+    weatherByCode,
+    nationalByCode: nationalMunicipalData.weather?.byCode,
+    revision: nationalWeather.data?.fetchedAt,
+  });
+  const minHumidity = useMemo(
+    () => (showHumidity ? lowestHumidity(weatherCities) : undefined),
+    [showHumidity, weatherCities],
+  );
   const nationalMosaic = useMemo(() => {
+    if (showHumidity && nationalMunicipalData.weather && humidity.nationalPresentation) {
+      return {
+        mesh: nationalMunicipalData.weather.mesh,
+        presentation: humidity.nationalPresentation,
+      };
+    }
     if (weatherLayerActive && nationalMunicipalData.weather) {
       return {
         mesh: nationalMunicipalData.weather.mesh,
@@ -561,6 +589,8 @@ function ClimateApp({
     }
     return undefined;
   }, [
+    showHumidity,
+    humidity.nationalPresentation,
     indicatorLayer,
     environment.municipalPresentation,
     weatherLayerActive,
@@ -733,7 +763,7 @@ function ClimateApp({
         environment.fetching ||
         (showClimate && selectedWeather.isFetching)) && <TopProgress />}
       <MapView
-        presentation={environment.presentation}
+        presentation={environment.presentation ?? humidity.presentation}
         onNationalMosaicPublished={indicatorLayer ? environment.onNationalPublished : undefined}
         collection={collection}
         selectedCode={selectedCode}
@@ -741,7 +771,7 @@ function ClimateApp({
         onDrillDown={drillIntoState}
         weatherByCode={weatherByCode}
         stateOutline={selectedStateOutline}
-        discoveredMosaic={indicatorLayer ? undefined : discoveredMosaic}
+        discoveredMosaic={indicatorLayer || showHumidity ? undefined : discoveredMosaic}
         discoveredMosaicVersion={discoveredMosaicVersion}
         discoveredMosaicVersions={discoveredMosaicVersions}
         completeMosaicStates={completeMosaicStates}
@@ -774,12 +804,12 @@ function ClimateApp({
               onMapError={setFireMapError}
             />
           )}
-          {(showClimate || showRainfall) && (
+          {weatherLayerActive && (
             <WeatherLayer
               cities={knownWeather}
               selectedId={city?.id}
               municipal={isDrilledDown}
-              mode={showRainfall ? 'rainfall' : 'temperature'}
+              mode={showRainfall ? 'rainfall' : showHumidity ? 'humidity' : 'temperature'}
             />
           )}
         </Suspense>
@@ -820,6 +850,9 @@ function ClimateApp({
                   onToggleClimate={handleToggleClimate}
                   showRainfall={showRainfall}
                   onToggleRainfall={handleToggleRainfall}
+                  showHumidity={showHumidity}
+                  onToggleHumidity={handleToggleHumidity}
+                  minHumidity={minHumidity}
                   minTemperature={minTemperature}
                   maxTemperature={maxTemperature}
                   maxRainfall={maxRainfall}
@@ -913,6 +946,7 @@ function ClimateApp({
                   fireLoading={fireSummary.isFetching}
                   fireHours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
                   rainActive={showRainfall}
+                  humidityActive={showHumidity}
                 />
               ) : null}
             </Suspense>
@@ -931,6 +965,13 @@ function ClimateApp({
                   coldest={currentWeather?.summary?.coldest}
                   scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
                   isDrilledDown={isDrilledDown}
+                  onSelect={selectWeatherCity}
+                />
+              )}
+              {showHumidity && !selectedCode && (
+                <HumidityOverview
+                  cities={weatherCities}
+                  scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
                   onSelect={selectWeatherCity}
                 />
               )}
@@ -1032,6 +1073,12 @@ function ClimateApp({
               />
             ) : showRainfall ? (
               <RainLegend loading={isViewUpdating} error={weatherError != null} />
+            ) : showHumidity ? (
+              <HumidityLegend
+                loading={isViewUpdating}
+                error={weatherError != null}
+                notice={weatherNotice}
+              />
             ) : showClimate ? (
               <WeatherLegend notice={weatherNotice} />
             ) : null}

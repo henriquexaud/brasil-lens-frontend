@@ -5,6 +5,7 @@ import { Marker, Pane, useMap } from 'react-leaflet';
 import type { WeatherCity } from '@/api/types';
 import { colorForTemperature } from '@/features/map/colors';
 import { rainAmount, rainColor } from '@/features/rainfall/rainScale';
+import { humidityColor, humidityValue } from '@/features/humidity/humidityScale';
 import { WeatherIcon } from '@/features/weather/conditions';
 import { EstimateMark } from '@/features/weather/EstimateMark';
 
@@ -29,6 +30,7 @@ function samePill(a: WeatherCity, b: WeatherCity): boolean {
       a.weatherCode === b.weatherCode &&
       a.isInferred === b.isInferred &&
       a.rainingNow === b.rainingNow &&
+      a.humidityPct === b.humidityPct &&
       rainAmount(a) === rainAmount(b))
   );
 }
@@ -38,6 +40,7 @@ interface CityPillProps {
   selected: boolean;
   municipal: boolean;
   rain: boolean;
+  humidity: boolean;
   compact: boolean;
   stagger: number;
 }
@@ -45,7 +48,15 @@ interface CityPillProps {
 // A div icon is only translated on zoom and pan; a permanent tooltip would be
 // measured again on every zoom step and every re-render.
 const CityPill = memo(
-  function CityPill({ city, selected, municipal, rain, compact, stagger }: CityPillProps) {
+  function CityPill({
+    city,
+    selected,
+    municipal,
+    rain,
+    humidity,
+    compact,
+    stagger,
+  }: CityPillProps) {
     const position = useMemo<[number, number]>(
       () => [city.latitude, city.longitude],
       [city.latitude, city.longitude],
@@ -62,13 +73,26 @@ const CityPill = memo(
     // A later delay would send a pill that is already visible back to its first frame.
     const [entryDelay] = useState(stagger);
     const rainVal = rainAmount(city);
-    const color = rain ? rainColor(rainVal) : colorForTemperature(city.temperatureC);
+    const humidityPct = humidityValue(city);
+    const color = rain
+      ? rainColor(rainVal)
+      : humidity && humidityPct != null
+        ? humidityColor(humidityPct)
+        : colorForTemperature(city.temperatureC);
     // A unidade (mm) fica na legenda; a pílula leva só o número.
     const formattedRain =
       rainVal >= 10
         ? String(Math.round(rainVal))
         : rainVal.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-    const reading = rain ? (
+    const reading = humidity ? (
+      <>
+        <span className="weather-pill-dot" style={{ backgroundColor: color }} aria-hidden="true" />
+        <span className="weather-pill-temp">
+          <EstimateMark city={city} />
+          {humidityPct == null ? '–' : Math.round(humidityPct)}
+        </span>
+      </>
+    ) : rain ? (
       <>
         <span
           className={`weather-pill-dot${city.rainingNow ? ' is-raining' : ''}`}
@@ -133,6 +157,7 @@ const CityPill = memo(
     previous.selected === next.selected &&
     previous.municipal === next.municipal &&
     previous.rain === next.rain &&
+    previous.humidity === next.humidity &&
     previous.compact === next.compact,
 );
 
@@ -145,7 +170,7 @@ export const WeatherLayer = memo(function WeatherLayer({
   cities: WeatherCity[];
   selectedId?: string;
   municipal: boolean;
-  mode?: 'temperature' | 'rainfall';
+  mode?: 'temperature' | 'rainfall' | 'humidity';
 }) {
   const map = useMap();
   const [viewport, setViewport] = useState(() => ({ zoom: map.getZoom(), revision: 0 }));
@@ -163,6 +188,7 @@ export const WeatherLayer = memo(function WeatherLayer({
   }, [map]);
 
   const isRain = mode === 'rainfall';
+  const isHumidity = mode === 'humidity';
 
   const shownRef = useRef(new Set<string>());
 
@@ -170,7 +196,9 @@ export const WeatherLayer = memo(function WeatherLayer({
     const candidates = cities.filter((city) =>
       isRain
         ? !city.isInferred && rainAmount(city) >= 0.1
-        : city.temperatureC != null && Number.isFinite(city.temperatureC),
+        : isHumidity
+          ? humidityValue(city) != null
+          : city.temperatureC != null && Number.isFinite(city.temperatureC),
     );
     if (municipal) {
       const focused = Boolean(selectedId && selectedId.length === 7);
@@ -188,7 +216,8 @@ export const WeatherLayer = memo(function WeatherLayer({
         : STATE_LABELS;
       const measured = candidates.filter((city) => !city.isInferred || city.id === selectedId);
       // No estado, a temperatura mostra só leituras medidas; aproximações ficam na tinta do mapa.
-      const pool = !focused && !isRain ? measured : focused && measured.length > 0 ? measured : candidates;
+      const pool =
+        !focused && !isRain ? measured : focused && measured.length > 0 ? measured : candidates;
       const shown = shownRef.current;
       const priority = [...pool].sort((a, b) => {
         if (a.id === selectedId) return -1;
@@ -196,6 +225,8 @@ export const WeatherLayer = memo(function WeatherLayer({
         const kept = Number(shown.has(b.id)) - Number(shown.has(a.id));
         if (kept) return kept;
         if (isRain) return rainAmount(b) - rainAmount(a);
+        // Na umidade, o ar mais seco ganha o rótulo.
+        if (isHumidity) return humidityValue(a)! - humidityValue(b)!;
         return Number(Boolean(a.isInferred)) - Number(Boolean(b.isInferred));
       });
       const occupied: Array<{ x: number; y: number }> = [];
@@ -223,7 +254,7 @@ export const WeatherLayer = memo(function WeatherLayer({
       return 0;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cities, selectedId, municipal, isRain, map, viewport]);
+  }, [cities, selectedId, municipal, isRain, isHumidity, map, viewport]);
 
   const isCompact = !municipal && zoom < 4.8;
   const showAllPills = municipal ? zoom >= 6.0 : true;
@@ -242,6 +273,7 @@ export const WeatherLayer = memo(function WeatherLayer({
             selected={isSelected}
             municipal={municipal}
             rain={isRain}
+            humidity={isHumidity}
             compact={isCompact}
             stagger={index % 16}
           />

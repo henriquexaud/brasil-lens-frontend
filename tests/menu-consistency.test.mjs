@@ -76,13 +76,20 @@ test('clicar na aba climática ativa continua desligando a camada', async () => 
     showClimate: true,
     onToggleClimate: (value) => changes.push(['climate', value]),
     onToggleRainfall: (value) => changes.push(['rain', value]),
+    onToggleHumidity: (value) => changes.push(['humidity', value]),
   });
+  assert.deepEqual(
+    [...document.querySelectorAll('[role="tab"]')].map((item) => item.textContent),
+    ['Temperatura', 'Chuva', 'Umidade'],
+  );
   assert.equal(tab('Fogo'), undefined, 'focos ficam no Meio ambiente');
-  await act(async () => tab('Clima').click());
+  await act(async () => tab('Temperatura').click());
   await act(async () => tab('Chuva').click());
+  await act(async () => tab('Umidade').click());
   assert.deepEqual(changes, [
     ['climate', false],
     ['rain', true],
+    ['humidity', true],
   ]);
 });
 

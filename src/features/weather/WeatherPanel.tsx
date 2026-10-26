@@ -12,6 +12,7 @@ import { measurement, weatherDescription, WeatherIcon } from './conditions';
 import { Forecast, RainForecastSection } from './WeatherForecast';
 import { FireStatusSection, RainStatusSection } from './WeatherStatusSections';
 import { ESTIMATE_DESCRIPTION } from './EstimateMark';
+import { HumidityStatusSection } from '@/features/humidity/HumidityStatusSection';
 
 export interface WeatherPanelProps {
   code: string;
@@ -28,6 +29,7 @@ export interface WeatherPanelProps {
   fireLoading?: boolean;
   fireHours?: number;
   rainActive?: boolean;
+  humidityActive?: boolean;
 }
 
 export function WeatherPanel({
@@ -45,10 +47,11 @@ export function WeatherPanel({
   fireLoading = false,
   fireHours = 48,
   rainActive = false,
+  humidityActive = false,
 }: WeatherPanelProps) {
   const isState = territory?.level === 'state';
 
-  const showClimateDetails = climateActive && !fireActive && !rainActive;
+  const showClimateDetails = climateActive && !fireActive && !rainActive && !humidityActive;
   const weatherDetailsContent = showClimateDetails && city && (
     <>
       <div className="weather-current">
@@ -108,9 +111,11 @@ export function WeatherPanel({
           ? 'Focos de calor do local selecionado'
           : rainActive
             ? 'Quantidade de chuva do local selecionado'
-            : climateActive
-              ? 'Clima do local selecionado'
-              : 'Local selecionado'
+            : humidityActive
+              ? 'Umidade do local selecionado'
+              : climateActive
+                ? 'Clima do local selecionado'
+                : 'Local selecionado'
       }
     >
       <header className="detail-header">
@@ -121,7 +126,7 @@ export function WeatherPanel({
             className="detail-title"
             text={territory?.name ?? city?.name ?? fireMunicipality?.name ?? 'Carregando local…'}
           />
-          {isState && city && (showClimateDetails || rainActive) && (
+          {isState && city && (showClimateDetails || rainActive || humidityActive) && (
             <p className="detail-capital">{city.name} · capital</p>
           )}
         </div>
@@ -149,6 +154,8 @@ export function WeatherPanel({
           </Disclosure>
         </>
       )}
+
+      {humidityActive && <HumidityStatusSection city={city} loading={loading} />}
 
       {!city && loading && showClimateDetails && (
         <div className="weather-skeleton" role="status" aria-label="Carregando clima">

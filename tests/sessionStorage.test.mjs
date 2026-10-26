@@ -249,3 +249,8 @@ test('migra a sessão v4 e persiste Política com seleções válidas', () => {
   );
   assert.equal(loadSessionState().political, undefined);
 });
+
+test('a aba Umidade do Clima é persistida', () => {
+  saveSessionState({ dataContext: 'climate', activeThematicLayer: 'humidity' });
+  assert.deepEqual(loadSessionState(), { dataContext: 'climate', activeThematicLayer: 'humidity' });
+});

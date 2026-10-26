@@ -29,18 +29,23 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
   const climate = variant === 'climate';
   const showClimate = climate && climateLayer === 'climate';
   const showRainfall = climate && climateLayer === 'rainfall';
+  const showHumidity = climate && climateLayer === 'humidity';
   const showFireHotspots = !climate && environmentLayer === 'fire';
   const indicatorLayer =
     !climate && (environmentLayer === 'deforestation' || environmentLayer === 'forest')
       ? environmentLayer
       : null;
-  const weatherLayerActive = showClimate || showRainfall;
+  // Temperatura, chuva e umidade vêm da mesma leitura da Open-Meteo.
+  const weatherLayerActive = showClimate || showRainfall || showHumidity;
 
   const handleToggleClimate = useCallback((show: boolean) => {
     setClimateLayer(show ? 'climate' : 'none');
   }, []);
   const handleToggleRainfall = useCallback((show: boolean) => {
     setClimateLayer(show ? 'rainfall' : 'none');
+  }, []);
+  const handleToggleHumidity = useCallback((show: boolean) => {
+    setClimateLayer(show ? 'humidity' : 'none');
   }, []);
   const handleEnvironmentLayer = useCallback((layer: EnvironmentLayer) => {
     setEnvironmentLayer(layer);
@@ -63,11 +68,13 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
     showClimate,
     showFireHotspots,
     showRainfall,
+    showHumidity,
     indicatorLayer,
     environmentLayer,
     weatherLayerActive,
     handleToggleClimate,
     handleToggleRainfall,
+    handleToggleHumidity,
     handleEnvironmentLayer,
   };
 }

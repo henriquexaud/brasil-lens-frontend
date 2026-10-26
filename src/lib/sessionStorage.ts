@@ -23,7 +23,7 @@ export interface AppSessionState {
   environmentLayer?: EnvironmentLayer;
 }
 
-export type ClimateLayer = 'climate' | 'rainfall' | 'none';
+export type ClimateLayer = 'climate' | 'rainfall' | 'humidity' | 'none';
 export type EnvironmentLayer = 'deforestation' | 'forest' | 'fire' | 'none';
 const DATA_CONTEXTS: DataContext[] = ['climate', 'environment', 'socioeconomic', 'political'];
 
@@ -90,7 +90,7 @@ function climateState(value: unknown): AppSessionState {
     ...(typeof source.showHydrography === 'boolean'
       ? { showHydrography: source.showHydrography }
       : {}),
-    ...(['climate', 'rainfall', 'none'].includes(String(source.activeThematicLayer))
+    ...(['climate', 'rainfall', 'humidity', 'none'].includes(String(source.activeThematicLayer))
       ? { activeThematicLayer: source.activeThematicLayer as ClimateLayer }
       : {}),
     ...(['deforestation', 'forest', 'fire', 'none'].includes(String(environmentLayer))
