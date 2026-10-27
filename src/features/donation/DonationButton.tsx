@@ -11,7 +11,6 @@ import {
   thanks,
   type Piece,
 } from './donation';
-import './donation.css';
 
 function PixMark({ size = 20 }: { size?: number }) {
   // Losango com quatro pontas: lembra o símbolo do Pix sem copiar a marca.
