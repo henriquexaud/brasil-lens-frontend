@@ -4,6 +4,7 @@ import type { TerritoryPresentation } from '@/features/map/TerritoryPresentation
 import { ScopeHeader } from '@/components/ScopeHeader';
 import { ErrorMessage, TopProgress } from '@/components/Feedback';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
+import { DonationButton } from '@/features/donation/DonationButton';
 import { AccountMenu } from '@/features/auth/AccountMenu';
 import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
@@ -19,6 +20,7 @@ import { COLORS, DEFAULT_TRANSPORT, networkArea, networkDetail } from './layers'
 import { NetworkLayer } from './NetworkLayer';
 import { OsmTransportLayer } from './OsmTransportLayer';
 import { TransportControls } from './TransportControls';
+import { TransportLegend } from './TransportLegend';
 import { TransportPanel } from './TransportPanel';
 import { useTransportCatalog, useTransportNetwork, useTransportSummary } from './queries';
 import './transport.css';
@@ -225,6 +227,16 @@ export default function TransportApp({ contextControl }: { contextControl: React
           <AccountMenu />
         </aside>
       </div>
+      {!failure && (
+        <div className="legend-slot">
+          <TransportLegend
+            preferences={preferences}
+            zoom={viewport.zoom}
+            source={waterways ? 'IBGE · OSM' : 'OpenStreetMap'}
+          />
+        </div>
+      )}
+      <DonationButton />
       <ThemeSwitch />
     </div>
   );

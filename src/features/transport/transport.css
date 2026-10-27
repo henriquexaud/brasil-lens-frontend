@@ -5,3 +5,25 @@
 .transport-app .featured-indicator {
   margin-top: 4px;
 }
+
+.transport-legend-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 7px 0 1px;
+  padding: 0;
+  list-style: none;
+  color: var(--text-soft);
+  font-size: 10.5px;
+}
+
+.transport-legend-keys li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.transport-legend-keys svg {
+  flex: none;
+}

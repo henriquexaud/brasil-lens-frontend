@@ -19,6 +19,8 @@ interface Props {
   ticks: readonly LegendTick[];
   labels?: readonly { label: string; name: string; color: string }[];
   notice?: string;
+  /** Territórios sem dado na fonte: uma chave neutra, como as faixas, e não um aviso. */
+  missing?: number;
   loading?: boolean;
   unavailable?: boolean;
 }
@@ -29,6 +31,7 @@ export function ScaleLegend({
   bands,
   ticks,
   notice,
+  missing = 0,
   labels,
   loading = false,
   unavailable = false,
@@ -103,6 +106,16 @@ export function ScaleLegend({
             </span>
           ))}
         </div>
+      )}
+      {missing > 0 && !loading && !unavailable && (
+        <p
+          className="scale-legend-missing"
+          title="Território sem valor publicado pela fonte; aparece em cinza no mapa"
+        >
+          <span className="scale-legend-missing-swatch" aria-hidden="true" />
+          Sem dado na fonte · {missing.toLocaleString('pt-BR')}{' '}
+          {missing === 1 ? 'território' : 'territórios'}
+        </p>
       )}
       {notice && (
         <p className="scale-legend-notice" role="status">

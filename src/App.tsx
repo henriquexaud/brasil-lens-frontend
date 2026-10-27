@@ -52,6 +52,7 @@ import { useWeatherMapData } from '@/features/weather/useWeatherMapData';
 import { useAppPreferences, type MapVariant } from '@/app/useAppPreferences';
 import { useMobileSheet } from '@/app/useMobileSheet';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
+import { DonationButton } from '@/features/donation/DonationButton';
 import { AccountMenu } from '@/features/auth/AccountMenu';
 import type { ReactNode } from 'react';
 import { useDataContext } from '@/app/useDataContext';
@@ -1094,6 +1095,7 @@ function ClimateApp({
           </Suspense>
         </div>
       )}
+      <DonationButton />
       <ThemeSwitch />
     </div>
   );

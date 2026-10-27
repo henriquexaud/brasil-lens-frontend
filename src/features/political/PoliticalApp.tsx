@@ -6,6 +6,7 @@ import { ScopeHeader } from '@/components/ScopeHeader';
 import { ErrorMessage, TopProgress } from '@/components/Feedback';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
+import { DonationButton } from '@/features/donation/DonationButton';
 import { AccountMenu } from '@/features/auth/AccountMenu';
 import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
@@ -301,6 +302,7 @@ export default function PoliticalApp({ contextControl }: { contextControl: React
           />
         </div>
       )}
+      <DonationButton />
       <ThemeSwitch />
     </div>
   );

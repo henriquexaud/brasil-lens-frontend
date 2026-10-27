@@ -6,6 +6,7 @@ import {
   LineSymbolizer,
   leafletLayer,
   type Feature,
+  type LeafletLayerOptions,
   type PaintRule,
 } from 'protomaps-leaflet';
 import { COLORS, type TransportPreferences } from './layers';
@@ -171,6 +172,10 @@ export function OsmTransportLayer({
     const layer = leafletLayer({
       url,
       maxDataZoom,
+      // Nossos tiles são de 256 px (Planetiler). O padrão do protomaps-leaflet (1)
+      // supõe 512 px e desenhava cada tile com os dados de um zoom abaixo: ruas e
+      // estaduais entravam um zoom depois, com a geometria simplificada demais.
+      levelDiff: 0,
       maxZoom: MAX_ZOOM,
       pane: PANE,
       paintRules: rules,
@@ -180,7 +185,7 @@ export function OsmTransportLayer({
       updateWhenZooming: false,
       attribution:
         '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>',
-    });
+    } as LeafletLayerOptions);
     const unsharpen = sharpenGridLayer(layer as unknown as GridLayer, map);
     layer.addTo(map);
     layerRef.current = layer;

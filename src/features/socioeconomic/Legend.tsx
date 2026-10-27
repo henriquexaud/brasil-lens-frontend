@@ -37,13 +37,11 @@ export function Legend({ indicator, classification, statistics, loading = false 
         { label: formatCompact(classification.max), percent: 100 },
       ]
     : [];
-  const notice = !available
-    ? loading
+  const notice = available
+    ? undefined
+    : loading
       ? 'Carregando dados…'
-      : 'Sem dados para este recorte'
-    : statistics.missing > 0
-      ? `${statistics.missing.toLocaleString('pt-BR')} sem dado`
-      : undefined;
+      : 'Sem dados para este recorte';
 
   return (
     <ScaleLegend
@@ -53,6 +51,7 @@ export function Legend({ indicator, classification, statistics, loading = false 
       bands={bands}
       ticks={ticks}
       notice={notice}
+      missing={statistics?.missing ?? 0}
       loading={loading && !available}
       unavailable={!available}
     />
