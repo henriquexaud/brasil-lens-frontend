@@ -8,9 +8,18 @@ interface Props {
   classification: MapClassification | null;
   statistics: MapStatistics | null;
   loading?: boolean;
+  missingLabel?: string;
+  missingTitle?: string;
 }
 
-export function Legend({ indicator, classification, statistics, loading = false }: Props) {
+export function Legend({
+  indicator,
+  classification,
+  statistics,
+  loading = false,
+  missingLabel,
+  missingTitle,
+}: Props) {
   if (!indicator) return null;
   const palette = paletteForIndicator(indicator.key);
   const available = classification !== null && statistics !== null;
@@ -52,6 +61,8 @@ export function Legend({ indicator, classification, statistics, loading = false 
       ticks={ticks}
       notice={notice}
       missing={statistics?.missing ?? 0}
+      missingLabel={missingLabel}
+      missingTitle={missingTitle}
       loading={loading && !available}
       unavailable={!available}
     />

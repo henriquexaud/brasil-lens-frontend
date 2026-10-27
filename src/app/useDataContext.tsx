@@ -56,6 +56,7 @@ export function useDataContext(preload: Partial<Record<DataContext, () => Promis
           { value: 'socioeconomic', label: 'Socioeconômico' },
           { value: 'political', label: 'Política' },
           { value: 'transport', label: 'Transporte' },
+          { value: 'education', label: 'Educação' },
         ]}
         onChange={(value) => void change(value as DataContext)}
       />

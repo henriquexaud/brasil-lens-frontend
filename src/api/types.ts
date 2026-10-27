@@ -2,9 +2,10 @@ import type { FeatureCollection, Geometry, MultiPolygon, Point } from 'geojson';
 
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 
-export type DataContext = 'climate' | 'environment' | 'socioeconomic' | 'political' | 'transport';
+export type DataContext =
+  'climate' | 'environment' | 'socioeconomic' | 'political' | 'transport' | 'education';
 
-export type IndicatorContext = 'socioeconomic' | 'environment';
+export type IndicatorContext = 'socioeconomic' | 'environment' | 'education';
 
 export interface Indicator {
   key: string;
@@ -528,4 +529,62 @@ export interface TransportSummary {
   code: string;
   name: string;
   totals: { layer: TransportLayer; value: number | null }[];
+}
+
+// Educação (ADR-19 do backend): instituições públicas de ensino superior.
+export type EducationNetwork = 'public' | 'federal' | 'state' | 'municipal';
+export type EducationCategory = 'federal' | 'state' | 'municipal';
+export type EducationOrganization =
+  'university' | 'university_center' | 'college' | 'federal_institute' | 'cefet';
+
+export interface EducationPlace {
+  code: string;
+  name: string;
+  state: string | null;
+}
+
+export interface EducationInstitutionSummary {
+  code: number;
+  name: string;
+  acronym: string | null;
+  category: EducationCategory;
+  organization: EducationOrganization;
+  seat: EducationPlace | null;
+  enrollment: number;
+  courses: number;
+  municipalities: number;
+}
+
+export interface EducationTerritory {
+  code: string;
+  name: string;
+  year: number | null;
+  availableYears: number[];
+  network: EducationNetwork;
+  enrollment: number | null;
+  courses: number | null;
+  institutions: EducationInstitutionSummary[];
+}
+
+export interface EducationCampus extends EducationPlace {
+  enrollment: number;
+  courses: number;
+  entrants: number;
+  graduates: number;
+}
+
+export interface EducationInstitutionDetail {
+  code: number;
+  year: number;
+  name: string;
+  acronym: string | null;
+  category: EducationCategory;
+  organization: EducationOrganization;
+  seat: EducationPlace | null;
+  faculty: number | null;
+  staff: number | null;
+  enrollment: number;
+  distanceEnrollment: number;
+  courses: number;
+  campuses: EducationCampus[];
 }

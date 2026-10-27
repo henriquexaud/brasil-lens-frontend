@@ -21,6 +21,9 @@ interface Props {
   notice?: string;
   /** Territórios sem dado na fonte: uma chave neutra, como as faixas, e não um aviso. */
   missing?: number;
+  /** Rótulo da chave neutra quando a ausência tem um sentido próprio (ex.: sem oferta). */
+  missingLabel?: string;
+  missingTitle?: string;
   loading?: boolean;
   unavailable?: boolean;
 }
@@ -32,6 +35,8 @@ export function ScaleLegend({
   ticks,
   notice,
   missing = 0,
+  missingLabel = 'Sem dado na fonte',
+  missingTitle = 'Território sem valor publicado pela fonte; aparece em cinza no mapa',
   labels,
   loading = false,
   unavailable = false,
@@ -108,12 +113,9 @@ export function ScaleLegend({
         </div>
       )}
       {missing > 0 && !loading && !unavailable && (
-        <p
-          className="scale-legend-missing"
-          title="Território sem valor publicado pela fonte; aparece em cinza no mapa"
-        >
+        <p className="scale-legend-missing" title={missingTitle}>
           <span className="scale-legend-missing-swatch" aria-hidden="true" />
-          Sem dado na fonte · {missing.toLocaleString('pt-BR')}{' '}
+          {missingLabel} · {missing.toLocaleString('pt-BR')}{' '}
           {missing === 1 ? 'território' : 'territórios'}
         </p>
       )}

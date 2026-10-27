@@ -64,6 +64,19 @@ export const PALETTES = {
     '#265C27',
     '#17461D',
   ],
+  // Educação: violeta, distinto dos verdes, do azul de Outros e das cores do clima.
+  violetEducation: [
+    '#F3F0FA',
+    '#E6E0F5',
+    '#D7CDEF',
+    '#C2B3E6',
+    '#AA96DB',
+    '#917ACD',
+    '#7A60BD',
+    '#6449A9',
+    '#4F3792',
+    '#3C2878',
+  ],
 } as const;
 
 const DEFAULT_RAMP = PALETTES.greenBrasil;
@@ -78,6 +91,10 @@ const CATEGORY_PALETTES: Record<IndicatorCategoryId, PaletteKey> = {
 const INDICATOR_PALETTES: Record<string, PaletteKey> = {
   deforestation_prodes: 'earthDeforestation',
   forest_cover: 'mossForest',
+  higher_ed_public_enrollment: 'violetEducation',
+  higher_ed_federal_enrollment: 'violetEducation',
+  higher_ed_state_enrollment: 'violetEducation',
+  higher_ed_municipal_enrollment: 'violetEducation',
 };
 
 export function paletteForIndicator(key: string | null | undefined): readonly string[] {

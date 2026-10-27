@@ -11,6 +11,10 @@ const source = (await readFile(new URL('../src/lib/sessionStorage.ts', import.me
   .replace(
     '@/features/transport/layers',
     new URL('../src/features/transport/layers.ts', import.meta.url).href,
+  )
+  .replace(
+    '@/features/education/education',
+    new URL('../src/features/education/education.ts', import.meta.url).href,
   );
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
@@ -267,4 +271,15 @@ test('o contexto Transporte guarda aba e tipo de rodovia; valores inválidos cae
     JSON.stringify({ dataContext: 'transport', transport: { ...transport, roads: 'x' } }),
   );
   assert.deepEqual(loadSessionState(), { dataContext: 'transport' });
+});
+
+test('o contexto Educação guarda rede e ano; valores inválidos caem', () => {
+  const education = { network: 'state', year: '2022' };
+  saveSessionState({ dataContext: 'education', education });
+  assert.deepEqual(loadSessionState(), { dataContext: 'education', education });
+  mockStorage.setItem(
+    SESSION_STORAGE_KEY,
+    JSON.stringify({ dataContext: 'education', education: { network: 'private', year: '2022' } }),
+  );
+  assert.deepEqual(loadSessionState(), { dataContext: 'education' });
 });

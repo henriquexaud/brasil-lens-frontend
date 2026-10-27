@@ -11,6 +11,10 @@ const RANKING_TITLES: Record<string, string> = {
   unemployment_rate: 'Maior e menor desemprego',
   deforestation_prodes: 'Maior e menor desmatamento',
   forest_cover: 'Maior e menor cobertura florestal',
+  higher_ed_public_enrollment: 'Mais e menos matrículas',
+  higher_ed_federal_enrollment: 'Mais e menos matrículas',
+  higher_ed_state_enrollment: 'Mais e menos matrículas',
+  higher_ed_municipal_enrollment: 'Mais e menos matrículas',
 };
 
 export function IndicatorRanking({

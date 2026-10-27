@@ -7,6 +7,7 @@ const UNIT_SUFFIX: Record<string, string> = {
   '%': '%',
   '%/year': '% a.a.',
   'people/100k': '/100 mil hab.',
+  enrollments: 'matrículas',
 };
 
 const UNIT_LABEL: Record<string, string> = {
@@ -17,6 +18,7 @@ const UNIT_LABEL: Record<string, string> = {
   '%': '%',
   '%/year': '% ao ano',
   'people/100k': 'pessoas por 100 mil habitantes',
+  enrollments: 'matrículas',
 };
 
 const ATTACHED_SUFFIXES = new Set(['%']);
