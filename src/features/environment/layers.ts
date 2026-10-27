@@ -14,7 +14,8 @@ export interface IndicatorLayerConfig {
 export const INDICATOR_LAYERS: Record<IndicatorLayer, IndicatorLayerConfig> = {
   deforestation: {
     indicatorKey: 'deforestation_prodes',
-    label: 'Desmatamento',
+    // Rótulo curto da aba; legenda e ranking dizem "desmatamento".
+    label: 'Perda',
     unit: 'km² · ano PRODES',
     source: {
       label: 'INPE',

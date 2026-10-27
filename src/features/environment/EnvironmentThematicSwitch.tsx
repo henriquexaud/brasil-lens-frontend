@@ -5,7 +5,7 @@ import { FireMetadata } from '@/features/fire/FireMetadata';
 import type { EnvironmentLayer } from '@/lib/sessionStorage';
 import { INDICATOR_LAYERS } from './layers';
 
-// Do estoque para a perda: Florestas, o Desmatamento e o Fogo.
+// Do estoque para a perda: Florestas, a Perda (desmatamento) e o Fogo.
 const OPTIONS: { value: EnvironmentLayer; label: string }[] = [
   { value: 'forest', label: INDICATOR_LAYERS.forest.label },
   { value: 'deforestation', label: INDICATOR_LAYERS.deforestation.label },

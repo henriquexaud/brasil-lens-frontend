@@ -112,7 +112,7 @@ test('Meio ambiente alterna Florestas, Desmatamento e Fogo e desliga a aba ativa
   });
   assert.deepEqual(
     [...document.querySelectorAll('[role="tab"]')].map((item) => item.textContent),
-    ['Florestas', 'Desmatamento', 'Fogo'],
+    ['Florestas', 'Perda', 'Fogo'],
   );
   assert.equal(document.querySelector('.source-tag').textContent, 'INPE');
   assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² · ano PRODES');
@@ -121,7 +121,7 @@ test('Meio ambiente alterna Florestas, Desmatamento e Fogo e desliga a aba ativa
     [...select.options].map((option) => option.textContent),
     ['2025 · Último', '2025', '2017', '2014'],
   );
-  await act(async () => tab('Desmatamento').click());
+  await act(async () => tab('Perda').click());
   await act(async () => tab('Florestas').click());
   assert.deepEqual(changes, ['none', 'forest']);
   await render(EnvironmentThematicSwitch, { ...environmentProps, layer: 'forest' });
