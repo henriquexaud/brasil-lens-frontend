@@ -10,10 +10,10 @@ test('o valor só sobe e para em R$ 200', () => {
   assert.equal(raise(19000, 19000 + 5000), MAX_CENTS);
 });
 
-test('moedas e cédulas vão de 5 centavos a 200 reais, em ordem', () => {
+test('as cédulas vão de 5 a 200 reais, em ordem', () => {
   assert.deepEqual(
     PIECES.map((piece) => piece.cents),
-    [5, 10, 25, 50, 100, 500, 1000, 2000, 5000, 10000, 20000],
+    [500, 1000, 2000, 5000, 10000, 20000],
   );
   assert.equal(LADDER[0], 5);
   assert.equal(LADDER.at(-1), MAX_CENTS);

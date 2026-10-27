@@ -8,24 +8,18 @@ export const MAX_CENTS = 20000;
 export interface Piece {
   cents: number;
   label: string;
-  kind: 'coin' | 'note';
-  /** Cor de fundo, de longe parecida com a da moeda ou da cédula real. */
+  /** Cor de fundo, de longe parecida com a da cédula real. */
   tone: string;
   ink: string;
 }
 
 export const PIECES: Piece[] = [
-  { cents: 5, label: '5¢', kind: 'coin', tone: '#C98B4A', ink: '#3B2510' },
-  { cents: 10, label: '10¢', kind: 'coin', tone: '#D6B25A', ink: '#3A2C0C' },
-  { cents: 25, label: '25¢', kind: 'coin', tone: '#D9B95F', ink: '#3A2C0C' },
-  { cents: 50, label: '50¢', kind: 'coin', tone: '#C9CDD2', ink: '#2B3036' },
-  { cents: 100, label: 'R$ 1', kind: 'coin', tone: '#D8C27A', ink: '#33290F' },
-  { cents: 500, label: 'R$ 5', kind: 'note', tone: '#B9A3D6', ink: '#2E1F45' },
-  { cents: 1000, label: 'R$ 10', kind: 'note', tone: '#E4A9A0', ink: '#4A1D17' },
-  { cents: 2000, label: 'R$ 20', kind: 'note', tone: '#F2D27A', ink: '#4A3A0B' },
-  { cents: 5000, label: 'R$ 50', kind: 'note', tone: '#E6B07D', ink: '#4A2A0E' },
-  { cents: 10000, label: 'R$ 100', kind: 'note', tone: '#9EC3E6', ink: '#123A5C' },
-  { cents: 20000, label: 'R$ 200', kind: 'note', tone: '#C9C1B2', ink: '#3A342A' },
+  { cents: 500, label: 'R$ 5', tone: '#B9A3D6', ink: '#2E1F45' },
+  { cents: 1000, label: 'R$ 10', tone: '#E4A9A0', ink: '#4A1D17' },
+  { cents: 2000, label: 'R$ 20', tone: '#F2D27A', ink: '#4A3A0B' },
+  { cents: 5000, label: 'R$ 50', tone: '#E6B07D', ink: '#4A2A0E' },
+  { cents: 10000, label: 'R$ 100', tone: '#9EC3E6', ink: '#123A5C' },
+  { cents: 20000, label: 'R$ 200', tone: '#C9C1B2', ink: '#3A342A' },
 ];
 
 /** Degraus do controle deslizante: finos nos centavos, largos nas notas. */
@@ -69,8 +63,7 @@ const THANKS = [
 export function thanks(raises: number, cents: number): string {
   if (cents >= MAX_CENTS)
     return 'R$ 200! Teto alcançado e coração lotado. Obrigado por acreditar no Brasil Lens.';
-  if (raises === 0)
-    return 'Escolha uma moeda, uma nota ou deslize o controle. Aqui o valor só sobe.';
+  if (raises === 0) return 'Escolha uma cédula ou deslize o controle. Aqui o valor só sobe.';
   return (
     THANKS[raises - 1] ?? `Mais um degrau: ${formatCents(cents)}. Obrigado de novo, de verdade!`
   );

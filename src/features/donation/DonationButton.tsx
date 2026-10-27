@@ -13,13 +13,11 @@ import {
 } from './donation';
 
 function PixMark({ size = 20 }: { size?: number }) {
-  // Losango com quatro pontas: lembra o símbolo do Pix sem copiar a marca.
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <path
-        d="M12 2.6 15.7 6.3 12 10 8.3 6.3ZM17.7 8.3 21.4 12 17.7 15.7 14 12ZM12 14l3.7 3.7L12 21.4 8.3 17.7ZM6.3 8.3 10 12l-3.7 3.7L2.6 12Z"
+        d="M5.283 18.36a3.505 3.505 0 0 0 2.493-1.032l3.6-3.6a.684.684 0 0 1 .946 0l3.613 3.613a3.504 3.504 0 0 0 2.493 1.032h.71l-4.56 4.56a3.647 3.647 0 0 1-5.156 0L4.85 18.36ZM18.428 5.627a3.505 3.505 0 0 0-2.493 1.032l-3.613 3.614a.67.67 0 0 1-.946 0l-3.6-3.6A3.505 3.505 0 0 0 5.283 5.64h-.434l4.573-4.572a3.646 3.646 0 0 1 5.156 0l4.559 4.559ZM1.068 9.422 3.79 6.699h1.492a2.483 2.483 0 0 1 1.744.722l3.6 3.6a1.73 1.73 0 0 0 2.443 0l3.614-3.613a2.482 2.482 0 0 1 1.744-.723h1.767l2.737 2.737a3.646 3.646 0 0 1 0 5.156l-2.736 2.736h-1.768a2.482 2.482 0 0 1-1.744-.722l-3.613-3.613a1.77 1.77 0 0 0-2.444 0l-3.6 3.6a2.483 2.483 0 0 1-1.744.722H3.791l-2.723-2.723a3.646 3.646 0 0 1 0-5.156"
         fill="currentColor"
-        strokeLinejoin="round"
       />
     </svg>
   );
@@ -56,7 +54,7 @@ function PieceButton({
   return (
     <button
       type="button"
-      className={`donation-piece is-${piece.kind}`}
+      className="donation-piece"
       style={{ ['--piece-tone' as string]: piece.tone, ['--piece-ink' as string]: piece.ink }}
       disabled={disabled}
       title={`Somar ${formatCents(piece.cents)}`}
@@ -150,7 +148,7 @@ function DonationDialog({ onClose }: { onClose: () => void }) {
           </span>
         </label>
 
-        <div className="donation-pieces" role="group" aria-label="Somar moedas e cédulas">
+        <div className="donation-pieces" role="group" aria-label="Somar cédulas">
           {PIECES.map((piece) => (
             <PieceButton
               key={piece.cents}
