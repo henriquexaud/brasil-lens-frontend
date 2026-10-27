@@ -1,7 +1,7 @@
 import type { MapScopeState } from '@/features/map/useMapScope';
 import { validSelection } from '@/features/political/selection';
 import type { PoliticalSelection, DataContext } from '@/api/types';
-import { validTransport, type TransportPreferences } from '@/features/transport/layers';
+import { normalizeTransport, type TransportPreferences } from '@/features/transport/layers';
 
 export const SESSION_STORAGE_KEY = 'brasil_lens_session_v6';
 const LEGACY_STORAGE_KEYS = [
@@ -104,7 +104,9 @@ function climateState(value: unknown): AppSessionState {
     ...(['deforestation', 'forest', 'fire', 'none'].includes(String(environmentLayer))
       ? { environmentLayer: environmentLayer as EnvironmentLayer }
       : {}),
-    ...(validTransport(source.transport) ? { transport: source.transport } : {}),
+    ...(normalizeTransport(source.transport)
+      ? { transport: normalizeTransport(source.transport) }
+      : {}),
   };
 }
 

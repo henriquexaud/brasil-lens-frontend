@@ -258,13 +258,13 @@ test('a aba Umidade do Clima é persistida', () => {
   assert.deepEqual(loadSessionState(), { dataContext: 'climate', activeThematicLayer: 'humidity' });
 });
 
-test('o contexto Transporte guarda aba, tipo de rodovia e ruas; valores inválidos caem', () => {
-  const transport = { tab: 'waterways', roads: 'road_state', showStreets: true };
+test('o contexto Transporte guarda aba e tipo de rodovia; valores inválidos caem', () => {
+  const transport = { tab: 'waterways', roads: 'state' };
   saveSessionState({ dataContext: 'transport', transport });
   assert.deepEqual(loadSessionState(), { dataContext: 'transport', transport });
   mockStorage.setItem(
     SESSION_STORAGE_KEY,
-    JSON.stringify({ dataContext: 'transport', transport: { ...transport, roads: 'road_x' } }),
+    JSON.stringify({ dataContext: 'transport', transport: { ...transport, roads: 'x' } }),
   );
   assert.deepEqual(loadSessionState(), { dataContext: 'transport' });
 });

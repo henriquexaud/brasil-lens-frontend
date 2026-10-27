@@ -4,12 +4,14 @@ import { test } from 'node:test';
 const {
   attributeRows,
   formatTotal,
-  lineLayer,
   networkArea,
   networkDetail,
-  validTransport,
+  normalizeTransport,
+  summaryLayers,
   DEFAULT_TRANSPORT,
 } = await import('../src/features/transport/layers.ts');
+const { describe, isFederal, isState, roadWidth } =
+  await import('../src/features/transport/osm.ts');
 
 test('o detalhe da malha segue as faixas de zoom da API', () => {
   assert.deepEqual(
@@ -36,11 +38,16 @@ test('dentro de uma UF a área não passa da UF, e sem interseção não há ped
   assert.equal(networkArea(6, '-40.00,-10.00,-36.00,-6.00', saoPaulo), undefined);
 });
 
-test('cada aba desenha a sua linha; Rodovias segue o tipo escolhido', () => {
-  assert.equal(lineLayer(DEFAULT_TRANSPORT), 'road_federal');
-  assert.equal(lineLayer({ ...DEFAULT_TRANSPORT, roads: 'road_local' }), 'road_local');
-  assert.equal(lineLayer({ ...DEFAULT_TRANSPORT, tab: 'rail', roads: 'road_local' }), 'rail');
-  assert.equal(lineLayer({ ...DEFAULT_TRANSPORT, tab: 'waterways' }), 'waterway');
+test('o painel destaca a extensão oficial da aba; Todas soma as três classes', () => {
+  assert.deepEqual(summaryLayers(DEFAULT_TRANSPORT), ['road_federal']);
+  assert.deepEqual(summaryLayers({ ...DEFAULT_TRANSPORT, roads: 'state' }), ['road_state']);
+  assert.deepEqual(summaryLayers({ ...DEFAULT_TRANSPORT, roads: 'all' }), [
+    'road_federal',
+    'road_state',
+    'road_local',
+  ]);
+  assert.deepEqual(summaryLayers({ tab: 'rail', roads: 'all' }), ['rail']);
+  assert.deepEqual(summaryLayers({ tab: 'waterways', roads: 'all' }), ['waterway']);
 });
 
 test('extensão em km e portos por contagem; ausência não vira zero', () => {
@@ -60,9 +67,56 @@ test('o detalhe do trecho mostra só atributos conhecidos, com rótulo em pt-BR'
   assert.deepEqual(attributeRows(null), []);
 });
 
-test('preferências do Transporte inválidas são recusadas', () => {
-  assert.equal(validTransport(DEFAULT_TRANSPORT), true);
-  assert.equal(validTransport({ ...DEFAULT_TRANSPORT, tab: 'air' }), false);
-  assert.equal(validTransport({ ...DEFAULT_TRANSPORT, showStreets: 'yes' }), false);
-  assert.equal(validTransport(null), false);
+test('preferências do Transporte: valores da primeira versão migram, inválidos caem', () => {
+  assert.deepEqual(normalizeTransport(DEFAULT_TRANSPORT), DEFAULT_TRANSPORT);
+  assert.deepEqual(normalizeTransport({ tab: 'rail', roads: 'road_local', showStreets: true }), {
+    tab: 'rail',
+    roads: 'all',
+  });
+  assert.equal(normalizeTransport({ ...DEFAULT_TRANSPORT, tab: 'air' }), undefined);
+  assert.equal(normalizeTransport({ ...DEFAULT_TRANSPORT, roads: 'x' }), undefined);
+  assert.equal(normalizeTransport(null), undefined);
+});
+
+test('a sigla da via separa federais e estaduais, inclusive em trechos coincidentes', () => {
+  assert.equal(isFederal({ ref: 'BR-116' }), true);
+  assert.equal(isFederal({ ref: 'SP-070' }), false);
+  assert.equal(isState({ ref: 'SP-070' }), true);
+  assert.equal(isState({ ref: 'BR-101' }), false);
+  const shared = { ref: 'BR-364;MT-170' };
+  assert.equal(isFederal(shared) && isState(shared), true);
+  assert.equal(isFederal({}), false);
+});
+
+test('a largura cresce com o zoom e respeita a hierarquia', () => {
+  assert.ok(roadWidth('motorway', 12) > roadWidth('primary', 12));
+  assert.ok(roadWidth('primary', 12) > roadWidth('residential', 12));
+  assert.ok(roadWidth('residential', 16) > roadWidth('residential', 12));
+  assert.equal(roadWidth('trunk_link', 13), roadWidth('primary_link', 13));
+  assert.equal(roadWidth('motorway', 2), roadWidth('motorway', 4));
+});
+
+test('o popup descreve a feição em pt-BR, com a sigla antes do nome', () => {
+  assert.deepEqual(
+    describe('roads', {
+      class: 'trunk',
+      ref: 'BR-116',
+      name: 'Rodovia Presidente Dutra',
+      surface: 'asphalt',
+    }),
+    {
+      title: 'BR-116',
+      kind: 'Rodovia principal',
+      rows: [
+        { label: 'Superfície', value: 'Asfalto' },
+        { label: 'Nome', value: 'Rodovia Presidente Dutra' },
+      ],
+    },
+  );
+  assert.equal(describe('cycle', { class: 'lane' }).title, 'Ciclofaixa');
+  assert.equal(describe('rail', { class: 'subway', name: 'Linha 4' }).kind, 'Metrô');
+  assert.deepEqual(describe('rail', { class: 'rail', usage: 'main', operator: 'Rumo' }).rows, [
+    { label: 'Uso', value: 'Linha principal' },
+    { label: 'Operação', value: 'Rumo' },
+  ]);
 });

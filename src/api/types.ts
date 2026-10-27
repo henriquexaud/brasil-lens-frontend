@@ -502,8 +502,7 @@ export interface TransportFeatureProperties {
   attributes?: Record<string, string> | null;
 }
 
-export interface TransportNetwork
-  extends FeatureCollection<Geometry, TransportFeatureProperties> {
+export interface TransportNetwork extends FeatureCollection<Geometry, TransportFeatureProperties> {
   metadata: {
     layer: TransportLayer;
     detail: 'overview' | 'regional' | 'local' | 'street';
@@ -515,13 +514,14 @@ export interface TransportCatalog {
   version: number;
   layers: { key: TransportLayer; label: string; source: 'dnit' | 'ibge'; minZoom: number }[];
   sources: {
-    key: 'dnit' | 'ibge';
+    key: 'dnit' | 'ibge' | 'osm';
     label: string;
     edition?: string | null;
     description: string;
     url?: string | null;
   }[];
-  streets: { url: string; layer: string; minZoom: number; description: string };
+  /** Tiles OSM de transporte; `url` é relativo à API, com {z}/{x}/{y}. */
+  tiles: { url: string; minZoom: number; maxZoom: number; description: string } | null;
 }
 
 export interface TransportSummary {

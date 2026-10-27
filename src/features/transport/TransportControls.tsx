@@ -1,29 +1,28 @@
 import type { TransportCatalog } from '@/api/types';
-import { LayerMetadata } from '@/components/LayerMetadata';
+import { LayerMetadata, type DataSource } from '@/components/LayerMetadata';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import {
-  ROAD_OPTIONS,
-  TAB_OPTIONS,
-  lineLayer,
-  type TransportPreferences,
-  type TransportTab,
-} from './layers';
+import { ROAD_OPTIONS, TAB_OPTIONS, type TransportPreferences, type TransportTab } from './layers';
 
 export function TransportControls({
   preferences,
   onChange,
   catalog,
-  zoom,
 }: {
   preferences: TransportPreferences;
   onChange: (next: TransportPreferences) => void;
   catalog?: TransportCatalog;
-  zoom: number;
 }) {
-  const layer = lineLayer(preferences);
-  const info = catalog?.layers.find((item) => item.key === layer);
-  const source = catalog?.sources.find((item) => item.key === info?.source);
-  const hidden = info !== undefined && zoom < info.minZoom;
+  const source = (key: 'osm' | 'ibge'): DataSource | null => {
+    const item = catalog?.sources.find((entry) => entry.key === key);
+    return item
+      ? { label: key === 'osm' ? 'OSM' : item.label, description: item.description }
+      : null;
+  };
+  // O traçado de vias e trilhos é do OpenStreetMap; hidrovias e portos, do IBGE.
+  const map = preferences.tab === 'waterways' ? source('ibge') : source('osm');
+  const edition = catalog?.sources.find(
+    (entry) => entry.key === (preferences.tab === 'waterways' ? 'ibge' : 'osm'),
+  )?.edition;
   return (
     <section className="panel-section indicator-controls" aria-label="Malha de transporte">
       <SegmentedControl
@@ -34,7 +33,7 @@ export function TransportControls({
         onChange={(value) => onChange({ ...preferences, tab: value as TransportTab })}
       />
       {preferences.tab === 'roads' && (
-        <div className="indicator-pills-row" role="group" aria-label="Tipos de rodovia">
+        <div className="indicator-pills-row" role="group" aria-label="Rodovias no mapa">
           {ROAD_OPTIONS.map((option) => {
             const active = option.value === preferences.roads;
             return (
@@ -52,18 +51,8 @@ export function TransportControls({
           })}
         </div>
       )}
-      <LayerMetadata
-        sources={[
-          {
-            label: source?.label ?? (info?.source === 'dnit' ? 'DNIT' : 'IBGE'),
-            description: source?.description,
-          },
-        ]}
-        unit="traçado"
-      >
-        <span className="indicator-year-label">
-          {hidden ? 'Aproxime o mapa' : (source?.edition ?? '')}
-        </span>
+      <LayerMetadata sources={map ? [map] : []} unit="traçado">
+        <span className="indicator-year-label">{edition ?? ''}</span>
       </LayerMetadata>
     </section>
   );

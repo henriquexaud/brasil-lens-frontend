@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { LeafletMouseEvent, PathOptions, WMSParams } from 'leaflet';
-import { CircleMarker, GeoJSON, Pane, Popup, WMSTileLayer, useMapEvents } from 'react-leaflet';
-import type {
-  TransportCatalog,
-  TransportFeatureProperties,
-  TransportLayer,
-  TransportNetwork,
-} from '@/api/types';
+import type { LeafletMouseEvent, PathOptions } from 'leaflet';
+import { CircleMarker, GeoJSON, Pane, Popup, useMapEvents } from 'react-leaflet';
+import type { TransportFeatureProperties, TransportLayer, TransportNetwork } from '@/api/types';
 import { LAYER_LABEL, LAYER_STYLE, attributeRows } from './layers';
 import { useTransportIdentify, type TransportLocation } from './queries';
 
@@ -25,10 +20,6 @@ function responseId(network: TransportNetwork): number {
   return id;
 }
 const MIN_IDENTIFY_ZOOM = 6;
-
-// Ruas do IBGE em traço fino e neutro, legível sobre o terreno nos dois temas.
-const STREETS_SLD = (layer: string) =>
-  `<StyledLayerDescriptor version='1.0.0' xmlns='http://www.opengis.net/sld'><NamedLayer><Name>${layer}</Name><UserStyle><FeatureTypeStyle><Rule><LineSymbolizer><Stroke><CssParameter name='stroke'>#7A8597</CssParameter><CssParameter name='stroke-width'>0.6</CssParameter></Stroke></LineSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>`;
 
 function FeaturePopup({
   position,
@@ -156,35 +147,5 @@ export function NetworkLayer({
         />
       )}
     </>
-  );
-}
-
-export function StreetsLayer({ streets }: { streets: TransportCatalog['streets'] }) {
-  const params = useMemo(
-    () =>
-      ({
-        layers: streets.layer,
-        format: 'image/png',
-        transparent: true,
-        version: '1.1.1',
-        SLD_BODY: STREETS_SLD(streets.layer),
-      }) as WMSParams & { SLD_BODY: string },
-    [streets.layer],
-  );
-  return (
-    <Pane name="transport-streets" style={{ zIndex: 415, pointerEvents: 'none' }}>
-      <WMSTileLayer
-        url={streets.url}
-        params={params}
-        minZoom={streets.minZoom}
-        // O WMS do IBGE leva ~1,7 s por imagem: tiles de 512 px pedem um quarto das imagens.
-        tileSize={512}
-        uppercase
-        updateWhenIdle
-        keepBuffer={1}
-        opacity={0.85}
-        attribution='Ruas: <a href="https://www.ibge.gov.br/">IBGE</a>, Censo 2022'
-      />
-    </Pane>
   );
 }
