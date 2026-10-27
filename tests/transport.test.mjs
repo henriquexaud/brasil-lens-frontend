@@ -120,3 +120,9 @@ test('o popup descreve a feição em pt-BR, com a sigla antes do nome', () => {
     { label: 'Operação', value: 'Rumo' },
   ]);
 });
+
+test('o nível do tile é sempre o de cima: nunca amplia um tile de nível menor', async () => {
+  const { tileZoomFor } = await import('../src/features/transport/sharpTiles.ts');
+  assert.deepEqual([15, 15.25, 15.5, 15.75, 16].map(tileZoomFor), [15, 16, 16, 16, 16]);
+  assert.equal(tileZoomFor(12.0000001), 12);
+});

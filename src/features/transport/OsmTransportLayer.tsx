@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { LeafletMouseEvent } from 'leaflet';
+import type { GridLayer, LeafletMouseEvent } from 'leaflet';
 import { Popup, useMapEvents } from 'react-leaflet';
 import {
   CircleSymbolizer,
@@ -9,6 +9,7 @@ import {
   type PaintRule,
 } from 'protomaps-leaflet';
 import { COLORS, type TransportPreferences } from './layers';
+import { sharpenGridLayer } from './sharpTiles';
 import { MAJOR_ROADS, describe, isFederal, isState, roadWidth, type OsmDetail } from './osm';
 
 const PANE = 'transport-osm';
@@ -174,12 +175,17 @@ export function OsmTransportLayer({
       pane: PANE,
       paintRules: rules,
       labelRules: [],
+      // Tiles só depois do gesto: durante a animação, níveis intermediários
+      // eram pedidos e abandonados.
+      updateWhenZooming: false,
       attribution:
         '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>',
     });
+    const unsharpen = sharpenGridLayer(layer as unknown as GridLayer, map);
     layer.addTo(map);
     layerRef.current = layer;
     return () => {
+      unsharpen();
       layer.remove();
       layerRef.current = null;
     };
