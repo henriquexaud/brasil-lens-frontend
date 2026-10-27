@@ -3,6 +3,12 @@ import { AnimatedText } from '@/components/AnimatedText';
 import { ErrorMessage } from '@/components/Feedback';
 import { LAYER_LABEL, formatTotal, summaryLayers, type TransportPreferences } from './layers';
 
+const NOTE: Record<TransportPreferences['tab'], string> = {
+  roads: 'Extensão oficial dentro do território: federais do DNIT; as demais, do IBGE.',
+  rail: 'Extensão oficial dentro do território, do IBGE (BC250).',
+  waterways: 'Extensão oficial dentro do território e portos, do IBGE (BC250).',
+};
+
 const SIBLINGS: Record<TransportPreferences['tab'], TransportLayer[]> = {
   roads: ['road_federal', 'road_state', 'road_local'],
   rail: [],
@@ -58,9 +64,7 @@ export function TransportPanel({
           ))}
         </dl>
       )}
-      <p className="source-note">
-        Extensão oficial dentro do território: federais do DNIT; as demais, do IBGE.
-      </p>
+      <p className="source-note">{NOTE[preferences.tab]}</p>
     </section>
   );
 }

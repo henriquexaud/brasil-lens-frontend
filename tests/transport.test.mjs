@@ -83,6 +83,19 @@ test('a sigla da via separa federais e estaduais, inclusive em trechos coinciden
   assert.equal(isFederal({ ref: 'SP-070' }), false);
   assert.equal(isState({ ref: 'SP-070' }), true);
   assert.equal(isState({ ref: 'BR-101' }), false);
+  for (const ref of [
+    'ERS-118',
+    'RSC-287',
+    'VRS-813',
+    'LMG-754',
+    'AMG-0900',
+    'MGC-262',
+    'SPA 078/070',
+    'DF-001',
+  ])
+    assert.equal(isState({ ref }), true, ref);
+  for (const ref of ['PLN-030', 'CDR-120', 'DER-MG', 'IBGE'])
+    assert.equal(isState({ ref }), false, ref);
   const shared = { ref: 'BR-364;MT-170' };
   assert.equal(isFederal(shared) && isState(shared), true);
   assert.equal(isFederal({}), false);

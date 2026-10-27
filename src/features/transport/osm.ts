@@ -13,9 +13,14 @@ export function refs(props: OsmProps): string[] {
     .filter(Boolean);
 }
 
-export const isFederal = (props: OsmProps) => refs(props).some((ref) => /^BR-?\d/.test(ref));
-export const isState = (props: OsmProps) =>
-  refs(props).some((ref) => /^[A-Z]{2}-?\d/.test(ref) && !ref.startsWith('BR'));
+// Sigla estadual: a UF, às vezes com uma letra antes ou depois, que alguns estados
+// usam para acessos e trechos coincidentes (ERS e RSC no RS, LMG, AMG e MGC em MG,
+// SPA e SPI em SP). Siglas municipais (PLN, CDR…) ficam de fora.
+const STATE_REF =
+  /^[AELV]?(?:AC|AL|AM|AP|BA|CE|DF|ES|GO|MA|MG|MS|MT|PA|PB|PE|PI|PR|RJ|RN|RO|RR|RS|SC|SE|SP|TO)[ACIT]?[- ]?\d/;
+
+export const isFederal = (props: OsmProps) => refs(props).some((ref) => /^BR[- ]?\d/.test(ref));
+export const isState = (props: OsmProps) => refs(props).some((ref) => STATE_REF.test(ref));
 
 export const MAJOR_ROADS = new Set([
   'motorway',
