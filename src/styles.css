@@ -141,6 +141,9 @@ body,
 }
 
 body {
+  /* Sem "puxar para atualizar" nem quique da página: o gesto é do mapa. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
   background: var(--surface-muted);
   color: var(--text);
   font-family: var(--font);
@@ -1827,14 +1830,31 @@ body {
  * mesmo usado lá.
  */
 @media (max-width: 900px) {
+  /* Gaveta colada na base, de ponta a ponta, como nos apps nativos; a curva é a
+     das folhas do iOS (rápida no começo, assentando sem quicar). */
   .panel-slot {
     top: auto;
-    /* A atribuição precisa de folga no rodapé. */
-    bottom: calc(28px + env(safe-area-inset-bottom));
-    left: 8px;
-    right: 8px;
+    bottom: 0;
+    left: 0;
+    right: 0;
     width: auto;
-    transition: max-height var(--motion-ui) var(--ease-out);
+    transition: max-height 420ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .panel-slot .panel {
+    border-width: 1px 0 0;
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -6px 24px rgb(15 30 36 / 10%);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* A atribuição do mapa acompanha o topo da gaveta. */
+  .leaflet-bottom {
+    bottom: var(--sheet-height, 0px);
+  }
+
+  .leaflet-control-attribution {
+    font-size: 9px;
   }
 
   /* No mobile, oculta o componente flutuante de legenda conforme solicitado */
@@ -2839,16 +2859,16 @@ body {
     align-items: center;
     justify-content: center;
     width: calc(100% + 32px);
-    margin: -12px -16px 4px;
-    padding: 8px 0 10px;
+    margin: -12px -16px 2px;
+    padding: 7px 0 9px;
     background: none;
     border: none;
     cursor: grab;
   }
 
   .mobile-sheet-bar {
-    width: 32px;
-    height: 4px;
+    width: 36px;
+    height: 5px;
     border-radius: 999px;
     background: var(--border-strong);
     transition: background-color var(--motion-fast) var(--ease-out);
@@ -2859,12 +2879,14 @@ body {
     background: var(--text-soft);
   }
 
-  .panel-slot {
-    --sheet-max: 52%;
-    max-height: var(--sheet-max);
+  /* Três paradas (ver useMobileSheet): recolhida até o título do recorte,
+     meia tela e cheia até logo abaixo da busca. */
+  .panel-slot,
+  .panel-slot[data-detent='half'] {
+    max-height: 50%;
   }
-  .panel-slot:has(.disclosure[open]) {
-    --sheet-max: 62%;
+  .panel-slot[data-detent='full'] {
+    max-height: calc(100% - var(--sheet-top-gap, 72px));
   }
   .panel-slot.is-peek {
     max-height: var(--sheet-peek, 132px);
@@ -3649,10 +3671,13 @@ body {
 }
 
 @media (max-width: 900px) {
+  /* Tema e doação ficam fixos abaixo da busca: não pulam junto com a gaveta,
+     e a gaveta cheia os cobre. */
   .app:not(.auth-page) .theme-switch {
-    top: auto;
-    right: max(8px, env(safe-area-inset-right));
-    bottom: calc(28px + env(safe-area-inset-bottom) + var(--sheet-height, 0px) + 8px);
+    top: calc(max(var(--gutter), env(safe-area-inset-top)) + 44px);
+    right: max(var(--gutter), env(safe-area-inset-right));
+    bottom: auto;
+    z-index: 590;
     width: 64px;
     height: 34px;
   }
@@ -3765,8 +3790,10 @@ body {
 
 @media (max-width: 900px) {
   .donation-button {
-    right: max(8px, env(safe-area-inset-right));
-    bottom: calc(28px + env(safe-area-inset-bottom) + var(--sheet-height, 0px) + 8px + 34px + 8px);
+    top: calc(max(var(--gutter), env(safe-area-inset-top)) + 44px + 34px + 8px);
+    right: max(var(--gutter), env(safe-area-inset-right));
+    bottom: auto;
+    z-index: 590;
     width: 34px;
     height: 34px;
   }
@@ -4034,5 +4061,26 @@ body {
     grid-template-columns: 1fr;
     justify-items: center;
     text-align: center;
+  }
+}
+
+/* Toque: sem atraso de duplo toque nos controles e com retorno imediato ao
+   pressionar, como nos apps nativos. Só em telas de toque. */
+@media (hover: none) and (pointer: coarse) {
+  .app button,
+  .app select,
+  .app [role='tab'] {
+    touch-action: manipulation;
+  }
+
+  .app button:not(:disabled):active,
+  .app [role='tab']:active {
+    opacity: 0.6;
+    transition: opacity 0s;
+  }
+
+  .app .panel {
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
