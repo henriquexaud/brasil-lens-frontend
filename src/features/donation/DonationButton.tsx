@@ -1,16 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  LADDER,
-  MAX_CENTS,
-  MIN_CENTS,
-  PIECES,
-  fakeQr,
-  formatCents,
-  ladderIndex,
-  raise,
-  thanks,
-  type Piece,
-} from './donation';
+import { useEffect, useRef, useState } from 'react';
 
 function PixMark({ size = 20 }: { size?: number }) {
   return (
@@ -23,68 +11,27 @@ function PixMark({ size = 20 }: { size?: number }) {
   );
 }
 
-function FakeQr({ cents }: { cents: number }) {
-  const modules = useMemo(() => fakeQr(`brasil-lens:${cents}`), [cents]);
-  const size = modules.length;
-  const path = modules
-    .flatMap((row, r) => row.map((on, c) => (on ? `M${c} ${r}h1v1h-1z` : '')))
-    .join('');
-  return (
-    <div className="donation-qr" aria-label="QR Code ilustrativo, não é um Pix válido" role="img">
-      <svg viewBox={`-2 -2 ${size + 4} ${size + 4}`} shapeRendering="crispEdges">
-        <rect x="-2" y="-2" width={size + 4} height={size + 4} fill="#ffffff" />
-        <path d={path} fill="#0F2530" />
-      </svg>
-      <span className="donation-qr-mark">
-        <PixMark size={26} />
-      </span>
-    </div>
-  );
-}
-
-function PieceButton({
-  piece,
-  disabled,
-  onAdd,
-}: {
-  piece: Piece;
-  disabled: boolean;
-  onAdd: (cents: number) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="donation-piece"
-      style={{ ['--piece-tone' as string]: piece.tone, ['--piece-ink' as string]: piece.ink }}
-      disabled={disabled}
-      title={`Somar ${formatCents(piece.cents)}`}
-      aria-label={`Somar ${formatCents(piece.cents)}`}
-      onClick={() => onAdd(piece.cents)}
-    >
-      <span>{piece.label}</span>
-    </button>
-  );
-}
+// QR estático gerado no app do banco, sem valor fixo: quem doa escolhe quanto.
+const PIX_QR_SRC = '/pix-qr.png';
+// O mesmo Pix em "copia e cola", para quem abre o site no celular e não tem como escanear.
+const PIX_CODE =
+  '00020126670014br.gov.bcb.pix0124xxhenriquexaud@gmail.com0217Doacao_Voluntaria5204000053039865802BR5925HENRIQUE_ABRAHIM_RAMALHO_6015SAO_JOSE_DOS_CA62290525hFhKFMRm0Ds1BBuR6j4VJijrz6304C76E';
 
 function DonationDialog({ onClose }: { onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [cents, setCents] = useState(MIN_CENTS);
-  const [raises, setRaises] = useState(0);
-  const full = cents >= MAX_CENTS;
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
 
   useEffect(() => {
     // Sem `close()` na limpeza: ao sair do DOM o diálogo deixa a camada do topo, e o
     // `close()` dispararia `onClose` (no StrictMode, logo depois de abrir).
     if (dialog.current && !dialog.current.open) dialog.current.showModal();
   }, []);
-
-  const update = (next: number) => {
-    const value = raise(cents, next);
-    if (value === cents) return;
-    setCents(value);
-    setRaises((count) => count + 1);
-  };
-  const step = ladderIndex(cents);
 
   return (
     <dialog
@@ -116,52 +63,17 @@ function DonationDialog({ onClose }: { onClose: () => void }) {
           </button>
         </header>
 
-        <div className="donation-body">
-          <FakeQr cents={cents} />
-          <div className="donation-amount">
-            <span className="donation-amount-label">Valor da doação</span>
-            <output className="donation-value" aria-live="polite">
-              {formatCents(cents)}
-            </output>
-            <p className="donation-thanks" aria-live="polite" key={raises}>
-              {thanks(raises, cents)}
-            </p>
-          </div>
-        </div>
-
-        <label className="donation-slider">
-          <span className="sr-only">Valor da doação</span>
-          <input
-            type="range"
-            min={0}
-            max={LADDER.length - 1}
-            step={1}
-            value={step}
-            disabled={full}
-            style={{ ['--fill' as string]: `${(step / (LADDER.length - 1)) * 100}%` }}
-            aria-valuetext={formatCents(cents)}
-            onChange={(event) => update(LADDER[Number(event.target.value)] ?? cents)}
-          />
-          <span className="donation-slider-ends" aria-hidden="true">
-            <span>R$ 0,05</span>
-            <span>R$ 200</span>
-          </span>
-        </label>
-
-        <div className="donation-pieces" role="group" aria-label="Somar cédulas">
-          {PIECES.map((piece) => (
-            <PieceButton
-              key={piece.cents}
-              piece={piece}
-              disabled={full}
-              onAdd={(value) => update(cents + value)}
-            />
-          ))}
-        </div>
-
-        <p className="donation-note">
-          Demonstração: o QR Code é ilustrativo e ainda não recebe doações.
-        </p>
+        <img className="donation-qr" src={PIX_QR_SRC} alt="QR Code Pix para doação" />
+        <p className="donation-note">Aponte a câmera do app do banco. Qualquer valor ajuda.</p>
+        <button
+          type="button"
+          className="donation-copy"
+          onClick={() => {
+            void navigator.clipboard.writeText(PIX_CODE).then(() => setCopied(true));
+          }}
+        >
+          {copied ? 'Código copiado' : 'Copiar código Pix'}
+        </button>
       </div>
     </dialog>
   );
