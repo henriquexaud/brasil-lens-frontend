@@ -1,32 +1,48 @@
-import type { EducationCategory, EducationNetwork, EducationOrganization } from '@/api/types';
+import type {
+  EducationCategory,
+  EducationKind,
+  EducationNetwork,
+  EducationOrganization,
+} from '@/api/types';
 
 export interface EducationPreferences {
   network: EducationNetwork;
+  kind: EducationKind;
   year: string;
 }
 
-export const DEFAULT_EDUCATION: EducationPreferences = { network: 'public', year: 'latest' };
-
-const NETWORKS: EducationNetwork[] = ['public', 'federal', 'state', 'municipal'];
-
-export function normalizeEducation(value: unknown): EducationPreferences | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
-  const item = value as Record<string, unknown>;
-  if (!NETWORKS.includes(item.network as EducationNetwork)) return undefined;
-  if (typeof item.year !== 'string' || !/^(latest|(19|20)\d{2})$/.test(item.year)) return undefined;
-  return { network: item.network as EducationNetwork, year: item.year };
-}
+export const DEFAULT_EDUCATION: EducationPreferences = {
+  network: 'federal',
+  kind: 'all',
+  year: 'latest',
+};
 
 export const NETWORK_OPTIONS: { value: EducationNetwork; label: string }[] = [
-  { value: 'public', label: 'Públicas' },
   { value: 'federal', label: 'Federais' },
   { value: 'state', label: 'Estaduais' },
   { value: 'municipal', label: 'Municipais' },
 ];
 
-// Cada rede é um indicador do motor do backend (context=education).
-export function indicatorKey(network: EducationNetwork): string {
-  return `higher_ed_${network}_enrollment`;
+export const KIND_OPTIONS: { value: EducationKind; label: string; title: string }[] = [
+  { value: 'all', label: 'Todas', title: 'Todas as instituições da rede' },
+  { value: 'university', label: 'Universidades', title: 'Universidades' },
+  { value: 'institute', label: 'Institutos', title: 'Institutos federais e CEFETs' },
+  { value: 'college', label: 'Faculdades', title: 'Faculdades e centros universitários' },
+];
+
+export function normalizeEducation(value: unknown): EducationPreferences | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const item = value as Record<string, unknown>;
+  const network = NETWORK_OPTIONS.find((option) => option.value === item.network)?.value;
+  const kind = KIND_OPTIONS.find((option) => option.value === item.kind)?.value;
+  if (!network || !kind) return undefined;
+  if (typeof item.year !== 'string' || !/^(latest|(19|20)\d{2})$/.test(item.year)) return undefined;
+  return { network, kind, year: item.year };
+}
+
+// Cada rede e tipo é um indicador do motor do backend (context=education).
+export function indicatorKey(network: EducationNetwork, kind: EducationKind): string {
+  return `higher_ed_${network}_${kind === 'all' ? '' : `${kind}_`}enrollment`;
 }
 
 export const CATEGORY_LABEL: Record<EducationCategory, string> = {
@@ -41,13 +57,6 @@ export const ORGANIZATION_LABEL: Record<EducationOrganization, string> = {
   college: 'Faculdade',
   federal_institute: 'Instituto federal',
   cefet: 'CEFET',
-};
-
-export const NETWORK_LIST_TITLE: Record<EducationNetwork, string> = {
-  public: 'Instituições públicas',
-  federal: 'Instituições federais',
-  state: 'Instituições estaduais',
-  municipal: 'Instituições municipais',
 };
 
 const CONNECTORS = new Set([
@@ -86,16 +95,27 @@ export function institutionName(name: string, acronym: string | null): string {
   if (suffix && acronym && acronym.toUpperCase().startsWith(suffix[1]!.toUpperCase())) {
     clean = clean.slice(0, suffix.index);
   }
-  if (clean !== clean.toLocaleUpperCase('pt-BR')) return clean;
-  return clean
-    .toLocaleLowerCase('pt-BR')
-    .split(' ')
-    .map((word, index) => (index > 0 && CONNECTORS.has(word) ? word : capitalize(word)))
-    .join(' ');
+  const readable =
+    clean !== clean.toLocaleUpperCase('pt-BR')
+      ? clean
+      : clean
+          .toLocaleLowerCase('pt-BR')
+          .split(' ')
+          .map((word, index) => (index > 0 && CONNECTORS.has(word) ? word : capitalize(word)))
+          .join(' ');
+  // Como os próprios institutos se apresentam: "Instituto Federal do Ceará".
+  return readable.replace(
+    /^Instituto Federal de Educação, Ciência e Tecnologia\b/i,
+    'Instituto Federal',
+  );
 }
 
 const countFormat = new Intl.NumberFormat('pt-BR');
 
 export function formatCount(value: number): string {
   return countFormat.format(value);
+}
+
+export function plural(value: number, one: string, many: string): string {
+  return `${formatCount(value)} ${value === 1 ? one : many}`;
 }

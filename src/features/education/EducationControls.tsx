@@ -1,17 +1,29 @@
-import type { EducationNetwork, Indicator } from '@/api/types';
+import type { EducationKind, EducationNetwork, Indicator } from '@/api/types';
 import { LayerMetadata } from '@/components/LayerMetadata';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { NETWORK_OPTIONS, type EducationPreferences } from './education';
+import {
+  KIND_OPTIONS,
+  NETWORK_OPTIONS,
+  indicatorKey,
+  type EducationPreferences,
+} from './education';
 
 export function EducationControls({
   preferences,
   onChange,
-  indicator,
+  indicators,
 }: {
   preferences: EducationPreferences;
   onChange: (next: EducationPreferences) => void;
-  indicator?: Indicator;
+  indicators?: Indicator[];
 }) {
+  const find = (network: EducationNetwork, kind: EducationKind) =>
+    indicators?.find((item) => item.key === indicatorKey(network, kind));
+  const indicator = find(preferences.network, preferences.kind);
+  // Só aparece o tipo que a rede tem: não há instituto estadual nem municipal.
+  const kinds = KIND_OPTIONS.filter(
+    (option) => option.value === 'all' || find(preferences.network, option.value)?.latestYear,
+  );
   const years = indicator?.availableYears ?? [];
   const latestLabel = indicator?.latestYear
     ? `${indicator.latestYear} · Último`
@@ -20,11 +32,34 @@ export function EducationControls({
     <section className="panel-section indicator-controls" aria-label="Rede de ensino no mapa">
       <SegmentedControl
         className="indicator-segmented-control"
-        label="Redes de ensino superior"
+        label="Redes públicas de ensino superior"
         value={preferences.network}
         options={NETWORK_OPTIONS}
-        onChange={(value) => onChange({ ...preferences, network: value as EducationNetwork })}
+        onChange={(value) => {
+          const network = value as EducationNetwork;
+          const kind = find(network, preferences.kind)?.latestYear ? preferences.kind : 'all';
+          onChange({ ...preferences, network, kind });
+        }}
       />
+      {kinds.length > 2 && (
+        <div className="indicator-pills-row" role="group" aria-label="Tipo de instituição">
+          {kinds.map((option) => {
+            const active = option.value === preferences.kind;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={`indicator-pill-btn ${active ? 'is-active' : ''}`}
+                aria-pressed={active}
+                title={option.title}
+                onClick={() => onChange({ ...preferences, kind: option.value })}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <LayerMetadata
         sources={[{ label: 'INEP', description: indicator?.description ?? undefined }]}
         unit="matrículas presenciais"

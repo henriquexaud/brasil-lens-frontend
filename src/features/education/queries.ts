@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/api/client';
 import type {
   EducationInstitutionDetail,
+  EducationKind,
   EducationNetwork,
   EducationTerritory,
   IndicatorListResponse,
@@ -51,14 +52,15 @@ export function useEducationTerritory(
   code: string,
   year: string,
   network: EducationNetwork,
+  kind: EducationKind,
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: ['education', 'territory', code, year, network],
+    queryKey: ['education', 'territory', code, year, network, kind],
     queryFn: ({ signal }) =>
       apiGet<EducationTerritory>(
         `/education/territories/${encodeURIComponent(code)}`,
-        { year, network },
+        { year, network, kind },
         signal,
       ),
     enabled,

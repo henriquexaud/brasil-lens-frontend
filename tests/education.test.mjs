@@ -29,12 +29,17 @@ const {
   '@/app/useMobileSheet': `export const useMobileSheet = () => ({ slotRef: null, headerRef: null, headerProps: {}, collapsed: false, toggle() {} });`,
 } });
 
-const KEYS = ['public', 'federal', 'state', 'municipal'].map((network) => `higher_ed_${network}_enrollment`);
-const catalog = KEYS.map((key) => ({
-  key, name: `Matrículas ${key}`, description: 'Censo da Educação Superior (INEP)', unit: 'enrollments',
-  origin: 'sourced', decimalPlaces: 0, availableYears: [2023, 2024], latestYear: 2024,
-  supportedLevels: ['country', 'region', 'state', 'municipality'],
-}));
+const KEYS = ['federal', 'state', 'municipal'].flatMap((network) =>
+  ['', 'university_', 'institute_', 'college_'].map((kind) => `higher_ed_${network}_${kind}enrollment`));
+// Como no Censo: não há instituto estadual nem municipal.
+const catalog = KEYS.map((key) => {
+  const empty = /(state|municipal)_institute/.test(key);
+  return {
+    key, name: `Matrículas ${key}`, description: 'Censo da Educação Superior (INEP)', unit: 'enrollments',
+    origin: 'sourced', decimalPlaces: 0, availableYears: empty ? [] : [2023, 2024], latestYear: empty ? null : 2024,
+    supportedLevels: ['country', 'region', 'state', 'municipality'],
+  };
+});
 const values = (key, year = 'latest') => ({
   level: 'state', parent: null, version: '1',
   indicator: { ...catalog.find((item) => item.key === key), year: 2024, requestedYear: year },
@@ -51,8 +56,8 @@ const institution = (code, name, acronym, category, enrollment) => ({
   code, name, acronym, category, organization: 'university',
   seat: { code: '3106200', name: 'Belo Horizonte', state: 'MG' }, enrollment, courses: 3, municipalities: 1,
 });
-const territory = (network) => ({
-  code: 'BR', name: 'Brasil', year: 2024, availableYears: [2023, 2024], network,
+const territory = (network, kind) => ({
+  code: 'BR', name: 'Brasil', year: 2024, availableYears: [2023, 2024], network, kind,
   enrollment: 1500, courses: 40,
   institutions: [
     institution(1, 'UNIVERSIDADE FEDERAL DE MINAS GERAIS - UFMG', 'UFMG', 'federal', 1000),
@@ -82,7 +87,7 @@ beforeEach(() => {
     let body;
     if (parsed.pathname.endsWith('/indicators')) body = { indicators: catalog, version: '1' };
     else if (parsed.pathname.endsWith('/values')) body = values(parsed.searchParams.get('indicator'), parsed.searchParams.get('year'));
-    else if (parsed.pathname.includes('/education/territories/')) body = territory(parsed.searchParams.get('network'));
+    else if (parsed.pathname.includes('/education/territories/')) body = territory(parsed.searchParams.get('network'), parsed.searchParams.get('kind'));
     else if (parsed.pathname.includes('/education/institutions/')) body = detail;
     else throw new Error(`rota inesperada ${parsed.pathname}`);
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -95,11 +100,13 @@ after(async () => { dom.window.close(); await disposeHarness(); });
 async function settle() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 35)); }); }
 async function render() { await act(async () => root.render(h(QueryClientProvider, { client }, h(EducationApp, { contextControl: null })))); await settle(); await settle(); }
 async function click(text) { const button = [...document.querySelectorAll('button')].find((item) => item.textContent.includes(text)); assert.ok(button, text); await act(async () => button.click()); await settle(); }
+const pills = () => [...document.querySelectorAll('.indicator-pill-btn')].map((item) => item.textContent);
 
 test('nomes em maiúsculas viram nome próprio, sem repetir a sigla; os mistos ficam como vêm', () => {
   assert.equal(institutionName('UNIVERSIDADE FEDERAL DE MINAS GERAIS - UFMG', 'UFMG'), 'Universidade Federal de Minas Gerais');
   assert.equal(institutionName('INSTITUTO FEDERAL DE EDUCAÇÃO, CIÊNCIA E TECNOLOGIA  DO RIO GRANDE DO NORTE', 'IFRN'),
-    'Instituto Federal de Educação, Ciência e Tecnologia do Rio Grande do Norte');
+    'Instituto Federal do Rio Grande do Norte');
+  assert.equal(institutionName('INSTITUTO FEDERAL DE EDUCAÇÃO, CIÊNCIA E TECNOLOGIA BAIANO', 'IF BAIANO'), 'Instituto Federal Baiano');
   assert.equal(institutionName('UNIVERSIDADE FEDERAL RURAL DO SEMI-ÁRIDO', 'UFERSA'), 'Universidade Federal Rural do Semi-Árido');
   // Depois do hífen vem uma cidade, não a sigla: fica.
   assert.equal(institutionName('FACULDADE DE TECNOLOGIA NILO DE STÉFANI - JABOTICABAL', 'FATEC JBL'),
@@ -107,10 +114,13 @@ test('nomes em maiúsculas viram nome próprio, sem repetir a sigla; os mistos f
   assert.equal(institutionName('Academia Militar das Agulhas Negras', 'AMAN'), 'Academia Militar das Agulhas Negras');
 });
 
-test('preferências guardadas só valem com rede e ano conhecidos', () => {
-  assert.deepEqual(normalizeEducation({ network: 'federal', year: '2023' }), { network: 'federal', year: '2023' });
-  assert.equal(normalizeEducation({ network: 'private', year: 'latest' }), undefined);
-  assert.equal(normalizeEducation({ network: 'state', year: 'ontem' }), undefined);
+test('preferências guardadas só valem com rede, tipo e ano conhecidos', () => {
+  assert.deepEqual(normalizeEducation({ network: 'federal', kind: 'institute', year: '2023' }),
+    { network: 'federal', kind: 'institute', year: '2023' });
+  // A rede "public" saiu do switch: sessão antiga volta ao padrão.
+  assert.equal(normalizeEducation({ network: 'public', kind: 'all', year: 'latest' }), undefined);
+  assert.equal(normalizeEducation({ network: 'state', year: '2023' }), undefined);
+  assert.equal(normalizeEducation({ network: 'state', kind: 'all', year: 'ontem' }), undefined);
 });
 
 test('sem valor é sem oferta presencial, não falta de dado; a instituição apaga o resto do mapa', () => {
@@ -130,7 +140,8 @@ test('sem valor é sem oferta presencial, não falta de dado; a instituição ap
 test('o contexto pinta matrículas, lista instituições e abre o detalhe de uma delas', async () => {
   await render();
   assert.deepEqual([...document.querySelectorAll('[role=tab]')].map((item) => item.textContent),
-    ['Públicas', 'Federais', 'Estaduais', 'Municipais']);
+    ['Federais', 'Estaduais', 'Municipais']);
+  assert.deepEqual(pills(), ['Todas', 'Universidades', 'Institutos', 'Faculdades']);
   assert.equal(document.querySelector('.source-tag').textContent, 'INEP');
   assert.ok(calls.some((url) => url.pathname.endsWith('/values') && url.searchParams.get('context') === 'education'
     && url.searchParams.get('indicator') === KEYS[0]));
@@ -138,20 +149,31 @@ test('o contexto pinta matrículas, lista instituições e abre o detalhe de uma
   assert.equal(calls.some((url) => /weather|fire-hotspots|hydrography|transport/.test(url.pathname)), false);
   assert.match(document.querySelector('.scale-legend-missing').textContent, /Sem oferta presencial · 1 território/);
   const names = [...document.querySelectorAll('.education-institution-name')].map((item) => item.textContent);
-  assert.deepEqual(names, ['Universidade Federal de Minas Gerais', 'Universidade de São Paulo']);
+  assert.deepEqual(names, ['Universidade Federal de Minas GeraisUFMG', 'Universidade de São PauloUSP']);
+  assert.match(document.querySelector('.education-summary').textContent, /2 instituições · 40 cursos/);
+  // A lista de instituições substitui o ranking de territórios.
+  assert.equal(document.querySelector('.territory-ranking'), null);
 
   await click('Universidade Federal de Minas Gerais');
   assert.ok(calls.some((url) => url.pathname.endsWith('/education/institutions/1')));
   assert.match(document.querySelector('.detail-kicker').textContent, /Federal · Universidade · UFMG/);
-  assert.match(document.body.textContent, /Montes Claros · MG/);
+  assert.match(document.body.textContent, /Montes ClarosMG/);
+  assert.match(document.querySelector('.education-summary').textContent, /90 cursos · 2 municípios/);
   assert.match(document.body.textContent, /Matrículas a distância/);
   assert.match(globalThis.mapProps.presentation.key, /institution:1$/);
 
   await act(async () => document.querySelector('[aria-label="Fechar instituição"]').click());
   await settle();
   assert.doesNotMatch(globalThis.mapProps.presentation.key, /institution/);
-  await click('Federais');
-  assert.ok(calls.some((url) => url.searchParams.get('indicator') === KEYS[1]));
-  assert.ok(calls.some((url) => url.pathname.includes('/education/territories/BR') && url.searchParams.get('network') === 'federal'));
-  assert.deepEqual(stored().education, { network: 'federal', year: 'latest' });
+  await click('Institutos');
+  assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'higher_ed_federal_institute_enrollment'));
+  assert.ok(calls.some((url) => url.pathname.includes('/education/territories/BR')
+    && url.searchParams.get('network') === 'federal' && url.searchParams.get('kind') === 'institute'));
+  assert.deepEqual(stored().education, { network: 'federal', kind: 'institute', year: 'latest' });
+
+  // Estaduais não têm instituto: o filtro some e volta a Todas.
+  await click('Estaduais');
+  assert.deepEqual(pills(), ['Todas', 'Universidades', 'Faculdades']);
+  assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'higher_ed_state_enrollment'));
+  assert.deepEqual(stored().education, { network: 'state', kind: 'all', year: 'latest' });
 });

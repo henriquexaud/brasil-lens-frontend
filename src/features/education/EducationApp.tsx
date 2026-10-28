@@ -16,7 +16,6 @@ import { useNationalMunicipalData } from '@/features/map/useNationalMunicipalDat
 import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
 import { Legend } from '@/features/socioeconomic/Legend';
-import { IndicatorRanking } from '@/features/socioeconomic/IndicatorRanking';
 import { paletteForIndicator } from '@/features/socioeconomic/colors';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
@@ -59,8 +58,14 @@ export default function EducationApp({ contextControl }: { contextControl: React
   const sheet = useMobileSheet();
   useEffect(() => saveSessionState({ education: preferences }), [preferences]);
 
-  const key = indicatorKey(preferences.network);
   const catalog = useEducationIndicators(scope.level);
+  // Tipo sem dado na rede (ex.: sessão antiga) volta a Todas.
+  const kind = catalog.data?.indicators.find(
+    (item) => item.key === indicatorKey(preferences.network, preferences.kind),
+  )?.latestYear
+    ? preferences.kind
+    : 'all';
+  const key = indicatorKey(preferences.network, kind);
   const current = catalog.data?.indicators.find((item) => item.key === key);
   // Um ano guardado que a ingestão não tem mais volta ao último disponível.
   const year =
@@ -131,6 +136,7 @@ export default function EducationApp({ contextControl }: { contextControl: React
     detailCode,
     year,
     preferences.network,
+    kind,
     pageVisible && institutionCode === null,
   );
 
@@ -279,9 +285,9 @@ export default function EducationApp({ contextControl }: { contextControl: React
               backAriaLabel={onBack ? `Voltar a ${backLabel}` : undefined}
             />
             <EducationControls
-              preferences={{ ...preferences, year }}
+              preferences={{ ...preferences, kind, year }}
               onChange={setPreferences}
-              indicator={current}
+              indicators={catalog.data?.indicators}
             />
           </div>
           {(failure || dataError) && (
@@ -308,10 +314,10 @@ export default function EducationApp({ contextControl }: { contextControl: React
               />
             ) : (
               <EducationPanel
-                network={preferences.network}
                 data={
                   territory.data?.code === detailCode &&
-                  territory.data.network === preferences.network
+                  territory.data.network === preferences.network &&
+                  territory.data.kind === kind
                     ? territory.data
                     : undefined
                 }
@@ -324,18 +330,6 @@ export default function EducationApp({ contextControl }: { contextControl: React
               />
             )}
           </ErrorBoundary>
-          {institutionCode === null &&
-            !selectedCode &&
-            scopeReady &&
-            !values.error &&
-            values.data &&
-            mapLayer.data && (
-              <IndicatorRanking
-                data={values.data}
-                collection={mapLayer.data}
-                onSelect={selectMapTerritory}
-              />
-            )}
           {!isDrilledDown && (national.meshError || municipalValues.error) && (
             <div className="panel-section">
               <ErrorMessage error={national.meshError ?? municipalValues.error} />

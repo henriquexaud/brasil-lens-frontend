@@ -273,13 +273,13 @@ test('o contexto Transporte guarda aba e tipo de rodovia; valores inválidos cae
   assert.deepEqual(loadSessionState(), { dataContext: 'transport' });
 });
 
-test('o contexto Educação guarda rede e ano; valores inválidos caem', () => {
-  const education = { network: 'state', year: '2022' };
+test('o contexto Educação guarda rede, tipo e ano; valores inválidos caem', () => {
+  const education = { network: 'state', kind: 'college', year: '2022' };
   saveSessionState({ dataContext: 'education', education });
   assert.deepEqual(loadSessionState(), { dataContext: 'education', education });
   mockStorage.setItem(
     SESSION_STORAGE_KEY,
-    JSON.stringify({ dataContext: 'education', education: { network: 'private', year: '2022' } }),
+    JSON.stringify({ dataContext: 'education', education: { network: 'public', kind: 'all', year: '2022' } }),
   );
   assert.deepEqual(loadSessionState(), { dataContext: 'education' });
 });

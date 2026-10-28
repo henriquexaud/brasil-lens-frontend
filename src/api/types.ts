@@ -532,7 +532,9 @@ export interface TransportSummary {
 }
 
 // Educação (ADR-19 do backend): instituições públicas de ensino superior.
-export type EducationNetwork = 'public' | 'federal' | 'state' | 'municipal';
+export type EducationNetwork = 'federal' | 'state' | 'municipal';
+// Filtro por tipo: institutos juntam os CEFETs; faculdades, os centros universitários.
+export type EducationKind = 'all' | 'university' | 'institute' | 'college';
 export type EducationCategory = 'federal' | 'state' | 'municipal';
 export type EducationOrganization =
   'university' | 'university_center' | 'college' | 'federal_institute' | 'cefet';
@@ -561,6 +563,7 @@ export interface EducationTerritory {
   year: number | null;
   availableYears: number[];
   network: EducationNetwork;
+  kind: EducationKind;
   enrollment: number | null;
   courses: number | null;
   institutions: EducationInstitutionSummary[];

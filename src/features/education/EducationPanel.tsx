@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type {
   EducationInstitutionSummary,
-  EducationNetwork,
   EducationTerritory,
   MapFeatureProperties,
 } from '@/api/types';
@@ -9,24 +8,16 @@ import { AnimatedText } from '@/components/AnimatedText';
 import { DrillDownButton } from '@/components/DrillDownButton';
 import { ErrorMessage } from '@/components/Feedback';
 import { levelLabel } from '@/features/socioeconomic/format';
-import {
-  CATEGORY_LABEL,
-  NETWORK_LIST_TITLE,
-  ORGANIZATION_LABEL,
-  formatCount,
-  institutionName,
-} from './education';
+import { formatCount, institutionName, plural } from './education';
 import { NO_OFFER } from './presentation';
 
-// O bastante para as maiores de uma UF; o resto fica a um clique.
-const VISIBLE = 6;
+// As maiores de uma UF cabem sem rolar; o resto fica a um clique.
+const VISIBLE = 5;
 
 function InstitutionList({
-  network,
   institutions,
   onSelect,
 }: {
-  network: EducationNetwork;
   institutions: EducationInstitutionSummary[];
   onSelect: (code: number) => void;
 }) {
@@ -34,11 +25,7 @@ function InstitutionList({
   const shown = expanded ? institutions : institutions.slice(0, VISIBLE);
   return (
     <div className="education-institutions">
-      <p className="education-list-title">
-        {NETWORK_LIST_TITLE[network]}
-        <span>{formatCount(institutions.length)}</span>
-      </p>
-      <ol>
+      <ol aria-label="Instituições por matrículas">
         {shown.map((item) => (
           <li key={item.code}>
             <button
@@ -48,17 +35,9 @@ function InstitutionList({
             >
               <span className="education-institution-name">
                 {institutionName(item.name, item.acronym)}
+                {item.acronym && <small>{item.acronym}</small>}
               </span>
               <strong>{formatCount(item.enrollment)}</strong>
-              <span className="education-institution-meta">
-                {[
-                  item.acronym,
-                  CATEGORY_LABEL[item.category],
-                  ORGANIZATION_LABEL[item.organization],
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
             </button>
           </li>
         ))}
@@ -73,7 +52,6 @@ function InstitutionList({
 }
 
 export function EducationPanel({
-  network,
   data,
   loading,
   error,
@@ -82,7 +60,6 @@ export function EducationPanel({
   onDrillDown,
   onSelectInstitution,
 }: {
-  network: EducationNetwork;
   data?: EducationTerritory;
   loading: boolean;
   error: Error | null;
@@ -92,6 +69,7 @@ export function EducationPanel({
   onSelectInstitution: (code: number) => void;
 }) {
   const empty = data && data.year === null;
+  const institutions = data?.institutions ?? [];
   return (
     <section
       className="panel-section territory-detail"
@@ -142,30 +120,23 @@ export function EducationPanel({
                   : formatCount(data.enrollment)
           }
         />
+        {institutions.length > 0 && data?.courses != null && (
+          <dd className="education-summary">
+            {plural(institutions.length, 'instituição', 'instituições')} ·{' '}
+            {plural(data.courses, 'curso', 'cursos')}
+          </dd>
+        )}
       </dl>
-      {data?.courses != null && (
-        <dl className="indicator-list territory-details">
-          <div className="indicator-row">
-            <dt className="indicator-label">Cursos de graduação presenciais</dt>
-            <dd className="indicator-value">{formatCount(data.courses)}</dd>
-          </div>
-        </dl>
-      )}
       {territory?.level === 'state' && onClose && (
         <DrillDownButton onClick={() => onDrillDown(territory.ibgeCode, territory.name)} />
       )}
-      {data && data.institutions.length > 0 && (
+      {data && institutions.length > 0 && (
         <InstitutionList
-          key={`${data.code}:${data.year}:${network}`}
-          network={network}
-          institutions={data.institutions}
+          key={`${data.code}:${data.year}:${data.network}:${data.kind}`}
+          institutions={institutions}
           onSelect={onSelectInstitution}
         />
       )}
-      <p className="source-note">
-        Graduação presencial, pelo município onde o curso é oferecido. Censo da Educação Superior
-        (INEP).
-      </p>
     </section>
   );
 }

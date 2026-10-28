@@ -2,9 +2,15 @@ import { useState } from 'react';
 import type { EducationInstitutionDetail } from '@/api/types';
 import { AnimatedText } from '@/components/AnimatedText';
 import { ErrorMessage } from '@/components/Feedback';
-import { CATEGORY_LABEL, ORGANIZATION_LABEL, formatCount, institutionName } from './education';
+import {
+  CATEGORY_LABEL,
+  ORGANIZATION_LABEL,
+  formatCount,
+  institutionName,
+  plural,
+} from './education';
 
-const VISIBLE = 8;
+const VISIBLE = 5;
 
 export function InstitutionDetail({
   data,
@@ -21,22 +27,15 @@ export function InstitutionDetail({
   const campuses = data ? (expanded ? data.campuses : data.campuses.slice(0, VISIBLE)) : [];
   const rows = data
     ? [
-        { label: 'Cursos de graduação presenciais', value: formatCount(data.courses) },
-        { label: 'Municípios com oferta', value: formatCount(data.campuses.length) },
-        ...(data.distanceEnrollment > 0
-          ? [{ label: 'Matrículas a distância', value: formatCount(data.distanceEnrollment) }]
-          : []),
         ...(data.faculty !== null
-          ? [{ label: 'Docentes em exercício', value: formatCount(data.faculty) }]
+          ? [{ label: 'Docentes', value: formatCount(data.faculty), title: undefined }]
           : []),
-        ...(data.staff !== null
-          ? [{ label: 'Técnicos administrativos', value: formatCount(data.staff) }]
-          : []),
-        ...(data.seat
+        ...(data.distanceEnrollment > 0
           ? [
               {
-                label: 'Sede',
-                value: `${data.seat.name}${data.seat.state ? ` · ${data.seat.state}` : ''}`,
+                label: 'Matrículas a distância',
+                value: formatCount(data.distanceEnrollment),
+                title: 'Fora do mapa: o INEP não atribui o ensino a distância a um município',
               },
             ]
           : []),
@@ -85,19 +84,24 @@ export function InstitutionDetail({
               className="featured-value"
               text={formatCount(data.enrollment)}
             />
+            <dd className="education-summary">
+              {plural(data.courses, 'curso', 'cursos')} ·{' '}
+              {plural(data.campuses.length, 'município', 'municípios')}
+            </dd>
           </dl>
-          <dl className="indicator-list territory-details">
-            {rows.map((row) => (
-              <div key={row.label} className="indicator-row">
-                <dt className="indicator-label">{row.label}</dt>
-                <dd className="indicator-value">{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-          {data.campuses.length > 0 && (
+          {rows.length > 0 && (
+            <dl className="indicator-list territory-details">
+              {rows.map((row) => (
+                <div key={row.label} className="indicator-row" title={row.title}>
+                  <dt className="indicator-label">{row.label}</dt>
+                  <dd className="indicator-value">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {data.campuses.length > 1 && (
             <div className="education-institutions">
-              <p className="education-list-title">Onde oferece cursos presenciais</p>
-              <ol>
+              <ol aria-label="Municípios com cursos presenciais">
                 {campuses.map((campus) => (
                   <li key={campus.code}>
                     <button
@@ -107,12 +111,9 @@ export function InstitutionDetail({
                     >
                       <span className="education-institution-name">
                         {campus.name}
-                        {campus.state && ` · ${campus.state}`}
+                        {campus.state && <small>{campus.state}</small>}
                       </span>
                       <strong>{formatCount(campus.enrollment)}</strong>
-                      <span className="education-institution-meta">
-                        {campus.courses === 1 ? '1 curso' : `${formatCount(campus.courses)} cursos`}
-                      </span>
                     </button>
                   </li>
                 ))}
@@ -130,10 +131,6 @@ export function InstitutionDetail({
               )}
             </div>
           )}
-          <p className="source-note">
-            Docentes e técnicos de toda a instituição. Matrículas a distância contam só no total: o
-            INEP não as atribui a um município.
-          </p>
         </>
       )}
     </section>

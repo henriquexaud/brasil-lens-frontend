@@ -91,14 +91,12 @@ const CATEGORY_PALETTES: Record<IndicatorCategoryId, PaletteKey> = {
 const INDICATOR_PALETTES: Record<string, PaletteKey> = {
   deforestation_prodes: 'earthDeforestation',
   forest_cover: 'mossForest',
-  higher_ed_public_enrollment: 'violetEducation',
-  higher_ed_federal_enrollment: 'violetEducation',
-  higher_ed_state_enrollment: 'violetEducation',
-  higher_ed_municipal_enrollment: 'violetEducation',
 };
 
 export function paletteForIndicator(key: string | null | undefined): readonly string[] {
   if (!key) return DEFAULT_RAMP;
+  // Toda rede e tipo da Educação (higher_ed_*) usa a mesma paleta.
+  if (key.startsWith('higher_ed_')) return PALETTES.violetEducation;
   return PALETTES[INDICATOR_PALETTES[key] ?? CATEGORY_PALETTES[indicatorCategoryId(key)]];
 }
 
