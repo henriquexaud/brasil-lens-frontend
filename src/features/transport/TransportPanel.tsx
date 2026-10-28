@@ -34,13 +34,14 @@ export function TransportPanel({
     ? null
     : values.reduce<number>((total, item) => total + (item ?? 0), 0);
   const label = layers.length > 1 ? 'Rodovias' : LAYER_LABEL[layers[0]!];
+  // Zero não informa nada no painel (ex.: UF sem porto); some a linha.
   const others = SIBLINGS[preferences.tab].filter(
-    (key) => layers.length > 1 || !layers.includes(key),
+    (key) => (layers.length > 1 || !layers.includes(key)) && value(key) !== 0,
   );
   return (
     <section className="panel-section" aria-label="Extensão da malha">
       {error && !summary && <ErrorMessage error={error} />}
-      <dl className="featured-indicator">
+      <dl className="featured-indicator" title={NOTE[preferences.tab]}>
         <dt className="indicator-label">
           {label}
           <span className="indicator-year">extensão</span>
@@ -64,7 +65,6 @@ export function TransportPanel({
           ))}
         </dl>
       )}
-      <p className="source-note">{NOTE[preferences.tab]}</p>
     </section>
   );
 }
