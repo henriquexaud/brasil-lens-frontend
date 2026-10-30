@@ -842,7 +842,10 @@ function ClimateApp({
             />
           )}
           {environmentLayer === 'deforestation' && environment.indicator?.year && (
-            <DeforestationTiles year={environment.indicator.year} />
+            <DeforestationTiles
+              year={environment.indicator.year}
+              visible={activeFireMode === 'points'}
+            />
           )}
           {weatherLayerActive && (
             <WeatherLayer

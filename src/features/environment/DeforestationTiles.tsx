@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { WMSOptions } from 'leaflet';
-import { Pane, useMap, useMapEvents } from 'react-leaflet';
+import { Pane, useMap } from 'react-leaflet';
 
 import { FireTileLayer } from '@/features/fire/fireTileLayer';
 
@@ -21,17 +21,18 @@ const WMS_LAYERS = WMS_LAYER_LIST.join(',');
 // longe o traço engrossa e cada desmate pequeno vira uma mancha visível; de perto volta fino e os
 // polígonos aparecem com a forma real. O limite é o dos focos (1:5.000.000, ≈ zoom 6,8).
 const AREA_COLOR = '#7C3D22';
+const FAR_COLOR = '#5F2E1B';
 const FAR_SCALE = 5_000_000;
-const rule = (scale: string, width: number) =>
-  `<Rule>${scale}<PolygonSymbolizer><Fill><CssParameter name="fill">${AREA_COLOR}</CssParameter></Fill><Stroke><CssParameter name="stroke">${AREA_COLOR}</CssParameter><CssParameter name="stroke-width">${width}</CssParameter></Stroke></PolygonSymbolizer></Rule>`;
-const RULES = `${rule(`<MinScaleDenominator>${FAR_SCALE}</MinScaleDenominator>`, 2)}${rule(`<MaxScaleDenominator>${FAR_SCALE}</MaxScaleDenominator>`, 0.5)}`;
+const rule = (scale: string, color: string, width: number) =>
+  `<Rule>${scale}<PolygonSymbolizer><Fill><CssParameter name="fill">${color}</CssParameter></Fill><Stroke><CssParameter name="stroke">${color}</CssParameter><CssParameter name="stroke-width">${width}</CssParameter></Stroke></PolygonSymbolizer></Rule>`;
+const RULES = `${rule(`<MinScaleDenominator>${FAR_SCALE}</MinScaleDenominator>`, FAR_COLOR, 1)}${rule(`<MaxScaleDenominator>${FAR_SCALE}</MaxScaleDenominator>`, AREA_COLOR, 0.5)}`;
 const AREA_SLD = `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">${WMS_LAYER_LIST.map(
   (name) =>
     `<NamedLayer><Name>${name}</Name><UserStyle><FeatureTypeStyle>${RULES}</FeatureTypeStyle></UserStyle></NamedLayer>`,
 ).join('')}</StyledLayerDescriptor>`;
-// Com o filtro de ano, um tile leva ~1 s a partir do zoom 5 e ~10 s no zoom 4 (o país inteiro):
-// abaixo disto quem fala é o mosaico municipal.
-const MIN_ZOOM = 5;
+// Quem decide quando os polígonos entram é o chamador, com o mesmo corte dos pontos de focos
+// (`fireMode`): antes disso o mosaico municipal fala sozinho. No zoom 5 do país eram milhares de
+// manchas sobre cada município, e cada tile leva ~10 s no zoom 4.
 const ATTRIBUTION = 'Desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/">INPE/PRODES</a>';
 
 function Tiles({ year }: { year: number }) {
@@ -58,13 +59,10 @@ function Tiles({ year }: { year: number }) {
   return null;
 }
 
-export function DeforestationTiles({ year }: { year: number }) {
-  const map = useMap();
-  const [zoom, setZoom] = useState(() => map.getZoom());
-  useMapEvents({ zoomend: () => setZoom(map.getZoom()) });
+export function DeforestationTiles({ year, visible }: { year: number; visible: boolean }) {
   return (
     <Pane name="deforestation-areas" style={{ zIndex: 428, pointerEvents: 'none' }}>
-      {zoom >= MIN_ZOOM && <Tiles year={year} />}
+      {visible && <Tiles year={year} />}
     </Pane>
   );
 }
