@@ -3,6 +3,8 @@ import type { WMSOptions } from 'leaflet';
 import { Pane, useMap } from 'react-leaflet';
 
 import { FireTileLayer } from '@/features/fire/fireTileLayer';
+import { StateClippedTileLayer } from './clippedTileLayer';
+import type { StateGeometry } from './stateClip';
 
 // Protótipo: polígonos do PRODES (um ano por vez) pelo WMS do TerraBrasilis/INPE, sobre o mosaico
 // municipal. Seis biomas num só pedido (as camadas do painel têm nomes diferentes por bioma).
@@ -35,10 +37,11 @@ const AREA_SLD = `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.openg
 // manchas sobre cada município, e cada tile leva ~10 s no zoom 4.
 const ATTRIBUTION = 'Desmatamento: <a href="https://terrabrasilis.dpi.inpe.br/">INPE/PRODES</a>';
 
-function Tiles({ year }: { year: number }) {
+function Tiles({ year, outline }: { year: number; outline?: StateGeometry }) {
   const map = useMap();
   useEffect(() => {
-    const layer = new FireTileLayer(WMS_URL, {
+    const Layer = outline ? StateClippedTileLayer : FireTileLayer;
+    const layer = new Layer(WMS_URL, {
       layers: WMS_LAYERS,
       format: 'image/png',
       transparent: true,
@@ -51,18 +54,28 @@ function Tiles({ year }: { year: number }) {
       updateWhenIdle: false,
       attribution: ATTRIBUTION,
     } as WMSOptions);
+    if (outline && layer instanceof StateClippedTileLayer) layer.setOutline(outline);
     layer.addTo(map);
     return () => {
       layer.remove();
     };
-  }, [map, year]);
+  }, [map, year, outline]);
   return null;
 }
 
-export function DeforestationTiles({ year, visible }: { year: number; visible: boolean }) {
+// `outline` é o estado aberto: no Brasil não há recorte, dentro de um estado só o que cai nele.
+export function DeforestationTiles({
+  year,
+  visible,
+  outline,
+}: {
+  year: number;
+  visible: boolean;
+  outline?: StateGeometry;
+}) {
   return (
     <Pane name="deforestation-areas" style={{ zIndex: 428, pointerEvents: 'none' }}>
-      {visible && <Tiles year={year} />}
+      {visible && <Tiles year={year} outline={outline} />}
     </Pane>
   );
 }

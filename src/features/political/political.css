@@ -29,7 +29,7 @@
   border-radius: 50%;
 }
 .political-app .featured-indicator {
-  margin: 14px 0 10px;
+  margin: 4px 0 10px;
 }
 @media (max-width: 900px) {
   .political-app .political-options .field-control {
@@ -62,7 +62,7 @@
 }
 
 .political-app .political-candidate-votes {
-  margin-top: 12px;
+  margin-top: 4px;
 }
 
 .political-app .political-candidate-votes .indicator-row.is-emphasized {

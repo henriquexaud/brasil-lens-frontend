@@ -1,5 +1,5 @@
 .socioeconomic-app .featured-indicator {
-  margin: 18px 0 0;
+  margin: 4px 0 0;
   animation: content-reveal var(--motion-ui) var(--ease-out);
 }
 

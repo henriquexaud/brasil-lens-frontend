@@ -963,13 +963,26 @@ body {
  * Seções separadas por espaço, não por fio: um painel com cinco blocos e
  * cada um com sua própria borda inferior lia como uma pilha de formulários.
  * A superfície continua sendo uma só — só o respiro entre seções cresce.
+ *
+ * Ritmo vertical, igual em todos os contextos: 12px entre blocos, 10px do
+ * escopo ao seletor, 16px do seletor ao valor em destaque, 8px entre cartões
+ * de opção empilhados (são um grupo só) e 12px antes do menu da conta. A
+ * folga vem do padding da seção; margens de componentes não somam por cima.
  */
 .panel-section {
   padding: 12px 16px;
 }
 
 .panel-section + .panel-section {
-  padding-top: 8px;
+  padding-top: 0;
+}
+
+.panel > .panel-section:first-child {
+  padding-bottom: 12px;
+}
+
+.disclosure:has(+ .panel-section) {
+  margin-bottom: 0;
 }
 
 /* ------------------------------------------------------- escopo e filtros -- */
@@ -1999,7 +2012,6 @@ body {
 /* Switch temático de clima logo após o cabeçalho territorial */
 .thematic-switch-wrapper {
   margin-top: 10px;
-  margin-bottom: 2px;
 }
 .panel-disclosure {
   padding-top: 4px;
@@ -2173,7 +2185,7 @@ body {
   font-weight: 400;
 }
 .weather-alerts-container {
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 /* 1. Visão Nacional: Resumo Agregado Compacto */
@@ -2522,7 +2534,7 @@ body {
 
 /* Seletor Segmentado de Camadas Temáticas */
 .weather-thematic-selector {
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .segmented-control {
@@ -2586,11 +2598,24 @@ body {
 }
 
 /* Painel limpo de camadas interativas */
+/* Cartão de opção e o que ele explica abaixo: 8px. Duas seções de opção seguidas
+   (Alertas e Rios, no Meio ambiente) viram um grupo, com 8px entre os cartões. */
 .weather-layers-panel {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin-bottom: 8px;
+}
+
+.weather-layers-panel + .weather-alerts-container {
+  margin-top: 8px;
+}
+
+.weather-options-section + .weather-options-section {
+  padding-top: 8px;
+}
+
+.weather-options-section:has(+ .weather-options-section) {
+  padding-bottom: 0;
 }
 
 .weather-layer-card {

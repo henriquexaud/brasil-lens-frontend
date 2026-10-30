@@ -27,6 +27,7 @@ import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
 import { DeforestationAlertsOption } from '@/features/environment/DeforestationAlertsOption';
 import { useDeforestationAlerts } from '@/features/environment/queries';
+import { pointInState } from '@/features/environment/stateClip';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
 import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
@@ -333,14 +334,18 @@ function ClimateApp({
   );
   // Como nos focos, os pontos são do estado aberto; no Brasil só o mosaico fica.
   const alertStateCode = isDrilledDown ? scope.parent : null;
+  const stateOutlineGeometry = isDrilledDown ? selectedStateOutline?.geometry : undefined;
+  // Pelo município e pela fronteira: o centro de um alerta na divisa pode cair do outro lado.
   const stateAlertPoints = useMemo(
     () =>
-      alertStateCode
-        ? (deforestationAlerts.data?.points ?? []).filter((point) =>
-            point.ibgeCode?.startsWith(alertStateCode),
+      alertStateCode && stateOutlineGeometry
+        ? (deforestationAlerts.data?.points ?? []).filter(
+            (point) =>
+              point.ibgeCode?.startsWith(alertStateCode) &&
+              pointInState(point.longitude, point.latitude, stateOutlineGeometry),
           )
         : [],
-    [alertStateCode, deforestationAlerts.data],
+    [alertStateCode, stateOutlineGeometry, deforestationAlerts.data],
   );
 
   const fireHotspotQuery: FireHotspotQuery = useMemo(
@@ -868,7 +873,10 @@ function ClimateApp({
           {environmentLayer === 'deforestation' && environment.indicator?.year && (
             <DeforestationTiles
               year={environment.indicator.year}
-              visible={activeFireMode === 'points'}
+              visible={
+                activeFireMode === 'points' && (!isDrilledDown || Boolean(stateOutlineGeometry))
+              }
+              outline={stateOutlineGeometry}
             />
           )}
           {showDeforestationAlerts && alertStateCode && deforestationAlerts.data && (
