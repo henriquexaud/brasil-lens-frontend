@@ -372,6 +372,8 @@ export interface DeforestationAlerts {
   totalKm2: number;
   unassignedCount: number;
   biomes: string[];
+  // Um dos biomas não respondeu agora: `biomes` lista só os que responderam.
+  partial: boolean;
   municipalities: DeforestationAlertTerritory[];
   states: DeforestationAlertTerritory[];
   rankedMunicipalities: DeforestationAlertTerritory[];

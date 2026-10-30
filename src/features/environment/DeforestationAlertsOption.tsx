@@ -67,6 +67,11 @@ export function DeforestationAlertsOption({
             {' · '}Amazônia e Cerrado
             {inState && scopeName ? ` · ${scopeName}` : ''}
           </p>
+          {alerts.partial && (
+            <p className="source-note">
+              Parcial: só {alerts.biomes.join(' e ')} respondeu agora; o INPE está instável.
+            </p>
+          )}
           {!inState && <p className="source-note">Abra um estado para ver os alertas no mapa.</p>}
           <p className="source-note">
             Alertas de fiscalização, não a taxa oficial de desmatamento; o INPE publica com cerca de

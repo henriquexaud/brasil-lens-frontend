@@ -154,6 +154,11 @@ test('o checkbox de alertas do DETER segue o do Clima: fonte, contagem e como ch
   await render(DeforestationAlertsOption, { ...props, inState: true, count: 1, scopeName: 'Pará' });
   assert.equal(badge(), '1 alerta');
   assert.ok(!notes().some((text) => /Abra um estado/.test(text)));
+  await render(DeforestationAlertsOption, {
+    ...props,
+    alerts: { ...deterAlerts, partial: true, biomes: ['Amazônia'] },
+  });
+  assert.ok(notes().some((text) => /Parcial: só Amazônia respondeu agora/.test(text)));
   await render(DeforestationAlertsOption, { ...props, checked: false });
   assert.equal(document.querySelector('.source-note'), null, 'desligado não explica nada');
 });
