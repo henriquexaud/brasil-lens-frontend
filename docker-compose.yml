@@ -17,4 +17,4 @@ services:
         # É a URL que o *navegador* usa para chamar a API; fica assada no bundle.
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
     ports:
-      - "${WEB_PORT:-5173}:80"
+      - "${BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-5173}:80"
