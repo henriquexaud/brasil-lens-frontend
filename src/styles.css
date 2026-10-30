@@ -2933,6 +2933,16 @@ body {
   border-radius: 50%;
   background: #c8462a;
 }
+.fire-points {
+  --fire-fade: 0.662;
+}
+.fire-ring {
+  box-sizing: border-box;
+  border: 1.5px solid #c8462a;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.75);
+  pointer-events: none;
+}
 .fire-popup .leaflet-popup-content-wrapper {
   background: var(--surface);
   color: var(--text);

@@ -37,6 +37,18 @@ interface MapViewMemory {
 // recomeçava do Brasil inteiro e voava de novo até o recorte.
 let lastView: MapViewMemory | null = null;
 
+// Com os pontos sobre o mapa, o mosaico pintado esmaece por `--fire-fade` (ver `mosaicFill`), sem
+// refazer os milhares de caminhos ao cruzar o zoom.
+function FirePointsClass({ active }: { active: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    container.classList.toggle('fire-points', active);
+    return () => container.classList.remove('fire-points');
+  }, [map, active]);
+  return null;
+}
+
 function RememberView({ scopeKey }: { scopeKey: string }) {
   const map = useMap();
   useEffect(() => {
@@ -242,6 +254,7 @@ export function MapView({
       </Pane>
       <WheelGestures />
       <RendererSync />
+      <FirePointsClass active={fireMode === 'points'} />
       <RememberView scopeKey={scopeKey} />
       {onViewportChange && <ViewportObserver onChange={onViewportChange} scopeKey={scopeKey} />}
       <Pane name="territory-hover" style={{ zIndex: 470, pointerEvents: 'none' }} />

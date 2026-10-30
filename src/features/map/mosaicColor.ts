@@ -25,14 +25,16 @@ export function mosaicColor({
   if (fireMode) {
     measured = fire?.density != null;
     color = measured ? densityColor(fire?.density) : 'var(--map-fire-neutral, #edf0ee)';
-    opacity = measured ? (fireMode === 'points' ? 0.45 : 0.68) : 0.35;
+    opacity = measured ? 0.68 : 0.35;
+    // Com os pontos sobre o mapa a cor esmaece por `--fire-fade`, não por outra pintura.
+    if (measured && complete) return mosaicFill(color, opacity, measured, '--fire-fade');
   } else if (rainMode) {
     const amount = weather ? rainAmount(weather) : 0;
     measured = Boolean(
       weather &&
-        (weather.precipitation48hMm != null ||
-          weather.precipitationSumMm != null ||
-          weather.precipitationMm != null),
+      (weather.precipitation48hMm != null ||
+        weather.precipitationSumMm != null ||
+        weather.precipitationMm != null),
     );
     color = measured ? rainColor(amount) : color;
     opacity = amount > 0 ? 0.72 : 0.12;

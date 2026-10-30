@@ -13,10 +13,12 @@ export function FireLegend({
   loading,
   error,
   hours = 48,
+  zoomHint = false,
 }: {
   loading: boolean;
   error: boolean;
   hours?: number;
+  zoomHint?: boolean;
 }) {
   return (
     <ScaleLegend
@@ -25,7 +27,13 @@ export function FireLegend({
       bands={FIRE_DENSITY_SCALE}
       ticks={TICKS}
       notice={
-        error ? 'Resumo de focos indisponível' : loading ? 'Atualizando densidade…' : undefined
+        error
+          ? 'Resumo de focos indisponível'
+          : loading
+            ? 'Atualizando densidade…'
+            : zoomHint
+              ? 'Aproxime o mapa para ver cada foco'
+              : undefined
       }
     />
   );

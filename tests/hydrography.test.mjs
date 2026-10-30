@@ -17,7 +17,8 @@ test('rios mantêm hierarquia e ficam mais discretos quando o fogo está ativo',
 });
 
 test('detalhe muda somente nas faixas de zoom; foco e densidade não se sobrepõem', () => {
-  assert.deepEqual([4, 5.75, 6, 8.75, 9, 12].map(fireMode), ['territorial', 'territorial', 'territorial', 'territorial', 'points', 'points']);
+  assert.deepEqual([4, 5.75, 6, 8.75, 9, 12].map((zoom) => fireMode(zoom)), ['territorial', 'territorial', 'points', 'points', 'points', 'points']);
+  assert.deepEqual([4, 4.75, 5, 5.5].map((zoom) => fireMode(zoom, true)), ['territorial', 'territorial', 'points', 'points']);
   assert.deepEqual([4, 5.75, 6, 7.75, 8, 9.75, 10, 12].map(hydroZoom), [4, 4, 6, 6, 8, 8, 10, 10]);
   assert.equal(densityColor(0), densityColor(null));
   assert.notEqual(densityColor(0), densityColor(0.5));

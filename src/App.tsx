@@ -211,7 +211,7 @@ function ClimateApp({
   } = useAppPreferences(variant);
 
   const [viewport, setViewport] = useState<MapViewport>({ zoom: 4 });
-  const activeFireMode = fireMode(viewport.zoom);
+  const activeFireMode = fireMode(viewport.zoom, isDrilledDown);
   const [locationTarget, setLocationTarget] = useState<{
     code: string;
     latitude: number;
@@ -817,7 +817,6 @@ function ClimateApp({
           )}
           {showFireHotspots && activeFireMode === 'points' && fireHotspotsLayer.data && (
             <FireHotspotsLayer
-              key={`${fireHotspotQuery.level}:${fireHotspotQuery.parent ?? 'BR'}:${fireHotspotsLayer.data.metadata.windowEnd}`}
               collection={fireHotspotsLayer.data}
               query={fireHotspotQuery}
               onMapError={setFireMapError}
@@ -1089,6 +1088,7 @@ function ClimateApp({
                 loading={fireSummary.isFetching || fireHotspotsLayer.isFetching}
                 error={fireSummary.error != null}
                 hours={fireHotspotsLayer.data?.metadata.hours ?? FIRE_HOTSPOT_HOURS}
+                zoomHint={activeFireMode === 'territorial'}
               />
             ) : showRainfall ? (
               <RainLegend loading={isViewUpdating} error={weatherError != null} />

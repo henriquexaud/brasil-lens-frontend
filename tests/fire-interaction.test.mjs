@@ -32,7 +32,7 @@ const frontend = fileURLToPath(new URL('..', import.meta.url));
 const scratch = await mkdtemp(join(frontend, 'node_modules', '.fire-tests-'));
 const compiled = await build({
   stdin: {
-    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { dataFill } from './src/features/map/dataFill'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { SyncStatus } from './src/features/weather/SyncStatus'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget, WeatherLayer } from './src/features/weather/WeatherLayer'; export { HydrographyLayer } from './src/features/map/HydrographyLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
+    contents: `export { FireHotspotsLayer } from './src/features/fire/FireHotspotsLayer'; export { cachedFireTiles, clearFireTileCache } from './src/features/fire/fireTileLayer'; export { formatFireValue, formatFireDate } from './src/features/fire/fireStyles'; export { TerritoryLayer } from './src/features/map/TerritoryLayer'; export { densityColor } from './src/features/fire/fireDensity'; export { colorForTemperature } from './src/features/map/colors'; export { dataFill } from './src/features/map/dataFill'; export { WeatherPanel } from './src/features/weather/WeatherPanel'; export { FireOverview } from './src/features/fire/FireOverview'; export { WeatherOptions } from './src/features/weather/WeatherOptions'; export { SyncStatus } from './src/features/weather/SyncStatus'; export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch'; export { ApiError } from './src/api/client'; export { focusLabelBudget, WeatherLayer } from './src/features/weather/WeatherLayer'; export { HydrographyLayer } from './src/features/map/HydrographyLayer'; export { ScopeHeader } from './src/components/ScopeHeader';`,
     resolveDir: frontend,
     loader: 'tsx',
   },
@@ -50,6 +50,8 @@ await writeFile(path, compiled.outputFiles[0].text);
 const {
   ApiError,
   FireHotspotsLayer,
+  cachedFireTiles,
+  clearFireTileCache,
   formatFireValue,
   formatFireDate,
   TerritoryLayer,
@@ -66,7 +68,7 @@ const {
   HydrographyLayer,
   ScopeHeader,
 } = await import(pathToFileURL(path).href);
-let root, client, map, requests;
+let root, client, map, requests, tileRequests;
 function CaptureMap() {
   map = useMap();
   return null;
@@ -108,7 +110,7 @@ const feature = {
 async function tick(ms = 30) {
   await act(() => new Promise((resolve) => setTimeout(resolve, ms)));
 }
-async function render() {
+async function render(zoom = 9, data = collection) {
   await act(async () =>
     root.render(
       h(
@@ -116,9 +118,9 @@ async function render() {
         { client },
         h(
           MapContainer,
-          { center: [-11, -54], zoom: 9, zoomControl: false, doubleClickZoom: false },
+          { center: [-11, -54], zoom, zoomControl: false, doubleClickZoom: false },
           h(CaptureMap),
-          h(FireHotspotsLayer, { collection, query, onMapError: () => {} }),
+          h(FireHotspotsLayer, { collection: data, query, onMapError: () => {} }),
         ),
       ),
     ),
@@ -126,8 +128,15 @@ async function render() {
 }
 beforeEach(() => {
   requests = [];
+  tileRequests = [];
+  clearFireTileCache();
   globalThis.fetch = async (url) => {
-    requests.push(new URL(url));
+    const target = new URL(url);
+    if (target.origin === 'https://inpe.test') {
+      tileRequests.push(target);
+      return new Response(new Blob(['png'], { type: 'image/png' }), { status: 200 });
+    }
+    requests.push(target);
     return new Response(
       JSON.stringify({ type: 'FeatureCollection', matchedCount: 63, features: [feature] }),
       { status: 200 },
@@ -147,11 +156,15 @@ after(async () => {
 
 test('camada WMS preserva filtro e um clique carrega o popup sem criar milhares de marcadores', async () => {
   await render();
+  await tick();
   assert.equal(requests.length, 0);
-  const tile = document.querySelector('.leaflet-fire-hotspots-pane img');
-  assert.ok(tile);
-  assert.equal(new URL(tile.src).searchParams.get('CQL_FILTER'), 'id_0=33');
-  assert.match(new URL(tile.src).searchParams.get('SLD_BODY'), /#c8462a/);
+  assert.ok(document.querySelector('.leaflet-fire-hotspots-pane img'));
+  assert.ok(tileRequests.length > 0);
+  assert.equal(tileRequests[0].searchParams.get('CQL_FILTER'), 'id_0=33');
+  const sld = tileRequests[0].searchParams.get('SLD_BODY');
+  assert.match(sld, /#c8462a/);
+  // Ponto menor de longe e o de sempre de perto, pela escala do pedido (sem refazer o SLD por zoom).
+  assert.match(sld, /MinScaleDenominator>5000000.*<Size>3<.*MaxScaleDenominator>5000000.*<Size>4</);
   await act(async () =>
     map.fire('click', { latlng: latLng(-11, -54), containerPoint: point(200, 200) }),
   );
@@ -165,6 +178,56 @@ test('camada WMS preserva filtro e um clique carrega o popup sem criar milhares 
   assert.match(popup.textContent, /233,5 MW/);
   assert.match(popup.textContent, /07:50 UTC/);
   assert.doesNotMatch(popup.textContent, /Índice de risco de fogo|Precipitação|Dias sem chuva/);
+});
+
+test('tiles já baixados voltam do cache e a camada nova só assume depois de carregar', async () => {
+  await render();
+  await tick();
+  const first = tileRequests.length;
+  assert.ok(first > 0);
+  assert.equal(cachedFireTiles(), first);
+  await act(async () => root.unmount());
+  root = createRoot(document.getElementById('root'));
+  await render();
+  await tick();
+  assert.equal(tileRequests.length, first);
+  for (const tile of document.querySelectorAll('.leaflet-fire-hotspots-pane img'))
+    assert.match(tile.getAttribute('src'), /^blob:/);
+  const layers = () => document.querySelectorAll('.leaflet-fire-hotspots-pane .leaflet-layer').length;
+  assert.equal(layers(), 1);
+  await render(9, {
+    ...collection,
+    metadata: { ...collection.metadata, cqlFilter: "id_0=33 AND data_hora_gmt >= '2026-09-20'" },
+  });
+  await tick();
+  assert.equal(layers(), 2);
+  assert.ok(tileRequests.length > first);
+  for (const tile of document.querySelectorAll('.leaflet-fire-hotspots-pane img'))
+    tile.dispatchEvent(new dom.window.Event('load'));
+  await tick();
+  assert.equal(layers(), 1);
+});
+
+test('abaixo do zoom 7 o clique é do território; o foco só é identificado de perto', async () => {
+  await render(9);
+  for (const zoom of [4, 6]) {
+    await act(async () => map.setZoom(zoom, { animate: false }));
+    await act(async () =>
+      map.fire('click', { latlng: latLng(-11, -54), containerPoint: point(200, 200) }),
+    );
+    await tick(280);
+    assert.equal(requests.length, 0);
+    assert.equal(document.querySelector('.fire-popup'), null);
+  }
+  await act(async () => map.setZoom(7, { animate: false }));
+  await act(async () =>
+    map.fire('click', { latlng: latLng(-11, -54), containerPoint: point(200, 200) }),
+  );
+  await tick(280);
+  await tick();
+  assert.equal(requests.length, 1);
+  assert.ok(document.querySelector('.fire-popup'));
+  assert.ok(document.querySelector('.fire-ring'));
 });
 
 test('no mapa do país o clique não consulta detalhes nem abre popup', async () => {
@@ -191,7 +254,9 @@ test('no mapa do país o clique não consulta detalhes nem abre popup', async ()
 });
 
 test('detecção fora do ponto clicado não substitui a navegação territorial', async () => {
+  const tiles = globalThis.fetch;
   globalThis.fetch = async (url) => {
+    if (new URL(url).origin === 'https://inpe.test') return tiles(url);
     requests.push(new URL(url));
     return new Response(
       JSON.stringify({

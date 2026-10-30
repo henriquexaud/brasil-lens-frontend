@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { LeafletMouseEvent, Map as LeafletMap, WMSParams } from 'leaflet';
-import { Pane, Popup, WMSTileLayer, useMapEvents } from 'react-leaflet';
+import { divIcon, type LeafletMouseEvent, type Map as LeafletMap, type WMSOptions } from 'leaflet';
+import { Marker, Pane, Popup, useMap, useMapEvents } from 'react-leaflet';
 
 import type {
   FireHotspotCollection,
   FireHotspotFeature,
   FireHotspotLocation,
+  FireHotspotMetadata,
   FireHotspotQuery,
 } from '@/api/types';
 import { useFireHotspotDetails } from '@/api/queries';
 import { Disclosure } from '@/components/Disclosure';
 import { FIRE_SLD, formatFireDate, formatFireValue } from './fireStyles';
+import { FireTileLayer } from './fireTileLayer';
 
 interface Props {
   collection: FireHotspotCollection;
@@ -18,8 +20,13 @@ interface Props {
   onMapError: (error: boolean) => void;
 }
 
-const MIN_IDENTIFY_ZOOM = 9;
-const IDENTIFY_PIXELS = 10;
+// Abaixo disto o ponto tem 3 px e a caixa do clique cobriria dezenas de focos (a API devolve só os 20
+// mais recentes dela), então o clique volta a ser do território.
+const MIN_IDENTIFY_ZOOM = 7;
+const IDENTIFY_PIXELS = 8;
+const MAX_TOLERANCE = 0.15;
+const FIRE_ATTRIBUTION = 'Focos: <a href="https://data.inpe.br/queimadas/">INPE</a>';
+const RING = divIcon({ className: 'fire-ring', iconSize: [20, 20], iconAnchor: [10, 10] });
 
 function nearClick(
   feature: FireHotspotFeature,
@@ -36,6 +43,66 @@ function nearClick(
         map.latLngToContainerPoint({ lat: location.latitude, lng: location.longitude }),
       ) <= IDENTIFY_PIXELS
   );
+}
+
+function FireTiles({
+  metadata,
+  onMapError,
+}: {
+  metadata: FireHotspotMetadata;
+  onMapError: (error: boolean) => void;
+}) {
+  const map = useMap();
+  const generation = useRef(0);
+  const layers = useRef(new Map<FireTileLayer, number>());
+  const current = useRef<string>();
+  const { wmsUrl, wmsLayer, cqlFilter } = metadata;
+  useEffect(() => {
+    const key = `${wmsUrl}|${wmsLayer}|${cqlFilter}`;
+    if (current.current === key) return;
+    current.current = key;
+    const options = {
+      layers: wmsLayer,
+      format: 'image/png',
+      transparent: true,
+      version: '1.1.1',
+      CQL_FILTER: cqlFilter,
+      SLD_BODY: FIRE_SLD,
+      uppercase: true,
+      pane: 'fire-hotspots',
+      opacity: 0.85,
+      keepBuffer: 3,
+      updateWhenIdle: false,
+      attribution: FIRE_ATTRIBUTION,
+    } as WMSOptions;
+    const layer = new FireTileLayer(wmsUrl, options);
+    const order = ++generation.current;
+    layers.current.set(layer, order);
+    // O recorte ou a janela anterior só sai quando a nova camada terminou de carregar.
+    const retire = () => {
+      for (const [other, otherOrder] of layers.current) {
+        if (otherOrder < order) {
+          other.remove();
+          layers.current.delete(other);
+        }
+      }
+    };
+    layer.on('loading', () => onMapError(false));
+    layer.on('tileerror', () => onMapError(true));
+    layer.once('load', retire);
+    const fallback = window.setTimeout(retire, 10_000);
+    layer.addTo(map);
+    return () => window.clearTimeout(fallback);
+  }, [map, wmsUrl, wmsLayer, cqlFilter, onMapError]);
+  useEffect(() => {
+    const all = layers.current;
+    return () => {
+      for (const layer of all.keys()) layer.remove();
+      all.clear();
+      current.current = undefined;
+    };
+  }, []);
+  return null;
 }
 
 export function FireHotspotsLayer({ collection, query, onMapError }: Props) {
@@ -61,7 +128,7 @@ export function FireHotspotsLayer({ collection, query, onMapError }: Props) {
             longitude: point.lng,
             at: metadata.windowEnd,
             tolerance: Math.min(
-              0.05,
+              MAX_TOLERANCE,
               Math.max(0.0001, Math.abs(nearby.lat - point.lat), Math.abs(nearby.lng - point.lng)),
             ),
           }),
@@ -78,29 +145,24 @@ export function FireHotspotsLayer({ collection, query, onMapError }: Props) {
     },
   });
   useEffect(() => () => window.clearTimeout(timer.current), []);
-  const params = useMemo(
-    () =>
-      ({
-        layers: metadata.wmsLayer,
-        format: 'image/png',
-        transparent: true,
-        version: '1.1.1',
-        CQL_FILTER: metadata.cqlFilter,
-        SLD_BODY: FIRE_SLD,
-      }) as WMSParams & { CQL_FILTER: string; SLD_BODY: string },
-    [metadata.wmsLayer, metadata.cqlFilter],
-  );
-  const events = useMemo(
-    () => ({
-      loading: () => onMapError(false),
-      tileerror: () => onMapError(true),
-    }),
-    [onMapError],
-  );
+  useEffect(() => {
+    window.clearTimeout(timer.current);
+    setLocation(null);
+  }, [query.level, query.parent, metadata.windowEnd]);
   const feature = details.data?.features.find(
     (item) => location !== null && nearClick(item, location, map),
   );
   const properties = feature?.properties;
+  const [longitude, latitude] = feature?.geometry.coordinates ?? [];
+  // O Popup do react-leaflet reabre a cada mudança de identidade do `position`.
+  const anchor = useMemo<[number, number] | undefined>(
+    () => (latitude != null && longitude != null ? [latitude, longitude] : undefined),
+    [latitude, longitude],
+  );
+  const clicked = useMemo<[number, number] | undefined>(
+    () => (location ? [location.latitude, location.longitude] : undefined),
+    [location],
+  );
   const values = properties
     ? [
         ['Potência radiativa', formatFireValue(properties.frp, ' MW')],
@@ -113,21 +175,21 @@ export function FireHotspotsLayer({ collection, query, onMapError }: Props) {
   return (
     <>
       <Pane name="fire-hotspots" style={{ zIndex: 435, pointerEvents: 'none' }}>
-        <WMSTileLayer
-          url={metadata.wmsUrl}
-          params={params}
-          eventHandlers={events}
-          uppercase
-          updateWhenIdle
-          keepBuffer={1}
-          opacity={0.85}
-          attribution='Focos: <a href="https://data.inpe.br/queimadas/">INPE</a>'
-        />
+        <FireTiles metadata={metadata} onMapError={onMapError} />
+        {feature && (
+          <Marker
+            position={anchor!}
+            icon={RING}
+            interactive={false}
+            keyboard={false}
+            pane="fire-hotspots"
+          />
+        )}
       </Pane>
       {location && (feature || details.error) && (
         <Popup
-          key={`${location.latitude}:${location.longitude}`}
-          position={[location.latitude, location.longitude]}
+          key={feature?.id ?? `${location.latitude}:${location.longitude}`}
+          position={anchor ?? clicked!}
           className="fire-popup"
           maxWidth={285}
           autoPan={false}

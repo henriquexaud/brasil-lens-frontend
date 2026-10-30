@@ -19,10 +19,18 @@ export function isDataFill(style: { color?: string }): boolean {
 }
 
 // Mosaico: sempre opaco. Dado medido fica sobre a terra clara, igual nos dois
-// temas; ausência, sobre a terra do tema.
-export function mosaicFill(color: string, opacity: number, measured: boolean): string {
+// temas; ausência, sobre a terra do tema. `fade` é uma variável CSS (0–1) que
+// multiplica a opacidade: mudá-la na raiz do mapa reclareia o mosaico pronto
+// sem refazer os caminhos.
+export function mosaicFill(
+  color: string,
+  opacity: number,
+  measured: boolean,
+  fade?: string,
+): string {
   const land = measured ? 'var(--map-data-land, #f4f5f5)' : 'var(--map-land, #f4f5f5)';
-  return `color-mix(in srgb, ${color} ${percent(opacity)}, ${land})`;
+  const share = fade ? `calc(${percent(opacity)} * var(${fade}, 1))` : percent(opacity);
+  return `color-mix(in srgb, ${color} ${share}, ${land})`;
 }
 
 function percent(opacity: number): string {

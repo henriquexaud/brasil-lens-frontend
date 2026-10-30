@@ -1,7 +1,12 @@
 export type FireMode = 'territorial' | 'points';
 
-export function fireMode(zoom: number): FireMode {
-  return zoom < 9 ? 'territorial' : 'points';
+// Os pontos entram logo depois do enquadramento nacional (zoom 4). Dentro de uma UF entram um
+// passo antes, porque as maiores só cabem numa tela de celular perto do zoom 5,5.
+const POINTS_MIN_ZOOM = 6;
+const POINTS_MIN_ZOOM_IN_STATE = 5;
+
+export function fireMode(zoom: number, inState = false): FireMode {
+  return zoom < (inState ? POINTS_MIN_ZOOM_IN_STATE : POINTS_MIN_ZOOM) ? 'territorial' : 'points';
 }
 
 export const FIRE_DENSITY_SCALE = [

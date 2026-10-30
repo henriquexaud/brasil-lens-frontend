@@ -86,7 +86,7 @@ export function NationalMunicipalLayer({
   const [build, setBuild] = useState<Build>();
   const mode =
     data?.presentation?.key ??
-    (fireMode ? `fire:${fireMode}` : rainMode ? 'rainfall' : climateMode ? 'climate' : 'none');
+    (fireMode ? 'fire' : rainMode ? 'rainfall' : climateMode ? 'climate' : 'none');
 
   useLayoutEffect(() => {
     if (!visible || displayed.current?.mode !== mode) {

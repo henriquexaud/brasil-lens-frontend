@@ -18,4 +18,10 @@ export function formatFireValue(value: number | null, unit = ''): string | null 
     : null;
 }
 
-export const FIRE_SLD = `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld"><NamedLayer><Name>bdqueimadas:focos</Name><UserStyle><FeatureTypeStyle><Rule><PointSymbolizer><Graphic><Mark><WellKnownName>circle</WellKnownName><Fill><CssParameter name="fill">${FIRE_COLOR}</CssParameter><CssParameter name="fill-opacity">0.8</CssParameter></Fill></Mark><Size>4</Size></Graphic></PointSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>`;
+// Abaixo de ~1:5.000.000 (zoom ≈ 6,8) há dezenas de milhares de pontos por tela: o ponto encolhe.
+const FAR_SCALE = 5_000_000;
+
+const dot = (scale: string, size: number) =>
+  `<Rule>${scale}<PointSymbolizer><Graphic><Mark><WellKnownName>circle</WellKnownName><Fill><CssParameter name="fill">${FIRE_COLOR}</CssParameter><CssParameter name="fill-opacity">0.8</CssParameter></Fill></Mark><Size>${size}</Size></Graphic></PointSymbolizer></Rule>`;
+
+export const FIRE_SLD = `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld"><NamedLayer><Name>bdqueimadas:focos</Name><UserStyle><FeatureTypeStyle>${dot(`<MinScaleDenominator>${FAR_SCALE}</MinScaleDenominator>`, 3)}${dot(`<MaxScaleDenominator>${FAR_SCALE}</MaxScaleDenominator>`, 4)}</FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>`;

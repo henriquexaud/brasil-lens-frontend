@@ -217,7 +217,12 @@ test('mosaico usa as escalas existentes e mantém ausência diferente de zero', 
   assert.notEqual(mosaicColor({ weather: city('3500001'), rainMode: true }), mosaicColor({ rainMode: true }));
   assert.match(mosaicColor({ fire: { density: 0 }, fireMode: 'territorial' }), /68%/);
   assert.match(mosaicColor({ fire: { density: null }, fireMode: 'territorial' }), /35%/);
-  assert.match(mosaicColor({ fire: { density: 1 }, fireMode: 'points' }), /45%/);
+  // Os pontos esmaecem o mosaico por `--fire-fade`; a cor pintada é a mesma nos dois modos.
+  assert.match(mosaicColor({ fire: { density: 1 }, fireMode: 'points' }), /calc\(68% \* var\(--fire-fade, 1\)\)/);
+  assert.equal(
+    mosaicColor({ fire: { density: 1 }, fireMode: 'points' }),
+    mosaicColor({ fire: { density: 1 }, fireMode: 'territorial' }),
+  );
 });
 
 test('dado medido mantém a cor nos dois temas; só a ausência acompanha a terra do tema', () => {
@@ -225,7 +230,7 @@ test('dado medido mantém a cor nos dois temas; só a ausência acompanha a terr
   const themeLand = /var\(--map-land, #f4f5f5\)\)$/;
   assert.match(mosaicColor({ weather: city('3500001'), climateMode: true }), dataLand);
   assert.match(mosaicColor({ weather: city('3500001'), rainMode: true }), dataLand);
-  assert.match(mosaicColor({ fire: { density: 0 }, fireMode: 'territorial' }), /#edf0ee 68%/);
+  assert.match(mosaicColor({ fire: { density: 0 }, fireMode: 'territorial' }), /#edf0ee calc\(68% \* var\(--fire-fade, 1\)\)/);
   assert.match(mosaicColor({ fire: { density: 0 }, fireMode: 'territorial' }), dataLand);
   assert.match(mosaicColor({ climateMode: true }), themeLand);
   assert.match(mosaicColor({ rainMode: true }), themeLand);
