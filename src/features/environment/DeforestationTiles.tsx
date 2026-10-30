@@ -17,11 +17,17 @@ const WMS_LAYER_LIST = [
 ];
 const WMS_LAYERS = WMS_LAYER_LIST.join(',');
 // Terra escura da escala do desmatamento (`earthDeforestation`), igual nos seis biomas: a cor padrão
-// do INPE muda por bioma e some sobre o relevo. O traço mantém visíveis os polígonos pequenos.
+// do INPE muda por bioma e some sobre o relevo. Como nos focos, o desenho abstrai pela escala: de
+// longe o traço engrossa e cada desmate pequeno vira uma mancha visível; de perto volta fino e os
+// polígonos aparecem com a forma real. O limite é o dos focos (1:5.000.000, ≈ zoom 6,8).
 const AREA_COLOR = '#7C3D22';
+const FAR_SCALE = 5_000_000;
+const rule = (scale: string, width: number) =>
+  `<Rule>${scale}<PolygonSymbolizer><Fill><CssParameter name="fill">${AREA_COLOR}</CssParameter></Fill><Stroke><CssParameter name="stroke">${AREA_COLOR}</CssParameter><CssParameter name="stroke-width">${width}</CssParameter></Stroke></PolygonSymbolizer></Rule>`;
+const RULES = `${rule(`<MinScaleDenominator>${FAR_SCALE}</MinScaleDenominator>`, 2)}${rule(`<MaxScaleDenominator>${FAR_SCALE}</MaxScaleDenominator>`, 0.5)}`;
 const AREA_SLD = `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">${WMS_LAYER_LIST.map(
   (name) =>
-    `<NamedLayer><Name>${name}</Name><UserStyle><FeatureTypeStyle><Rule><PolygonSymbolizer><Fill><CssParameter name="fill">${AREA_COLOR}</CssParameter><CssParameter name="fill-opacity">0.9</CssParameter></Fill><Stroke><CssParameter name="stroke">${AREA_COLOR}</CssParameter><CssParameter name="stroke-width">0.6</CssParameter></Stroke></PolygonSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer>`,
+    `<NamedLayer><Name>${name}</Name><UserStyle><FeatureTypeStyle>${RULES}</FeatureTypeStyle></UserStyle></NamedLayer>`,
 ).join('')}</StyledLayerDescriptor>`;
 // Com o filtro de ano, um tile leva ~1 s a partir do zoom 5 e ~10 s no zoom 4 (o país inteiro):
 // abaixo disto quem fala é o mosaico municipal.
