@@ -169,6 +169,11 @@ test('ano padrão vem do catálogo mais recente por cargo, independentemente da 
   const available = [future, releases[1], releases[0], releases[2]];
   assert.equal(latestSelection(DEFAULT_SELECTION, available).year, 2030);
   assert.equal(latestSelection({ ...DEFAULT_SELECTION, office: 'mayor' }, available).year, 2024);
+  assert.equal(latestSelection({ ...DEFAULT_SELECTION, office: 'mayor' }, available).round, 2);
+  assert.equal(
+    latestSelection({ ...DEFAULT_SELECTION, year: 2022 }, [releases[0]]).round,
+    2,
+  );
   assert.equal(normalizeSelection({ ...DEFAULT_SELECTION, year: 2028 }, available).year, 2030);
   assert.equal(
     latestSelection(
@@ -282,6 +287,7 @@ test('menu abre no pleito mais recente, mantém categorias e não consulta clima
   });
   await settle();
   assert.equal(document.querySelector('[aria-label="Ano da eleição"]').value, '2022');
+  assert.equal(document.querySelector('[aria-label="Turno"]').value, '2');
   assert.equal(JSON.parse(window.sessionStorage.getItem(SESSION_STORAGE_KEY)).political.year, 2022);
   const officeButton = (name) =>
     [...document.querySelectorAll('.indicator-pill-btn')].find(

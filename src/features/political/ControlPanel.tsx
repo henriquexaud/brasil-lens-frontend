@@ -9,7 +9,14 @@ import { LayerMetadata } from '@/components/LayerMetadata';
 import { Select } from '@/components/Select';
 import { electionRefreshInterval } from './liveElection';
 import { useElectionWindow } from './useElectionWindow';
-import { isExecutive, latestSelection, METRICS, OFFICES, normalizeSelection } from './selection';
+import {
+  isExecutive,
+  latestSelection,
+  METRICS,
+  OFFICES,
+  normalizeSelection,
+  withLatestRound,
+} from './selection';
 
 export function ControlPanel({
   selection,
@@ -24,7 +31,11 @@ export function ControlPanel({
     const next = { ...selection, ...patch };
     onChange(
       normalizeSelection(
-        patch.office || patch.category ? latestSelection(next, releases) : next,
+        patch.office || patch.category
+          ? latestSelection(next, releases)
+          : patch.year
+            ? withLatestRound(next, releases)
+            : next,
         releases,
       ),
     );

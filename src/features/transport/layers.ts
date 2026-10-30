@@ -8,7 +8,7 @@ export interface TransportPreferences {
   roads: RoadMode;
 }
 
-export const DEFAULT_TRANSPORT: TransportPreferences = { tab: 'roads', roads: 'federal' };
+export const DEFAULT_TRANSPORT: TransportPreferences = { tab: 'roads', roads: 'all' };
 
 const TABS: TransportTab[] = ['roads', 'rail', 'waterways'];
 // A primeira versão guardava a camada oficial (`road_federal`…) e as ruas do IBGE.
@@ -34,13 +34,13 @@ export const TAB_OPTIONS: { value: TransportTab; label: string }[] = [
 ];
 
 export const ROAD_OPTIONS: { value: RoadMode; label: string; title: string }[] = [
-  { value: 'federal', label: 'Federais', title: 'Rodovias federais (BR)' },
-  { value: 'state', label: 'Estaduais', title: 'Rodovias estaduais e distritais' },
   {
     value: 'all',
     label: 'Todas',
     title: 'Toda a malha viária; ruas e ciclovias aparecem ao aproximar o mapa',
   },
+  { value: 'federal', label: 'Federais', title: 'Rodovias federais (BR)' },
+  { value: 'state', label: 'Estaduais', title: 'Rodovias estaduais e distritais' },
 ];
 
 // Cores do traçado, iguais nos dois temas e fora das famílias de alerta e fogo.

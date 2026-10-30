@@ -5,15 +5,54 @@ import { ThemeSwitch } from '@/components/ThemeSwitch';
 import { useAuth } from './AuthContext';
 import { AuthLens } from './AuthLens';
 
+type Field = 'name' | 'email' | 'password';
+
+// Mensagens próprias: as do navegador mudam de idioma e de estilo a cada sistema.
+function fieldError(input: HTMLInputElement): string | undefined {
+  const value = input.value.trim();
+  if (input.name === 'name') {
+    if (!value) return 'Informe seu nome.';
+    if (value.length < 2) return 'Use pelo menos 2 caracteres.';
+  }
+  if (input.name === 'email') {
+    if (!value) return 'Informe seu e-mail.';
+    if (input.validity.typeMismatch || !value.includes('.'))
+      return 'Confira o e-mail, por exemplo nome@email.com.';
+  }
+  if (input.name === 'password') {
+    if (!input.value) return 'Informe sua senha.';
+    if (input.value.length < input.minLength)
+      return `A senha precisa de pelo menos ${input.minLength} caracteres.`;
+  }
+  return undefined;
+}
+
 export function AuthScreen() {
   const auth = useAuth()!;
   const [registering, setRegistering] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (auth.submitting) return;
-    const fields = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const inputs = (['name', 'email', 'password'] as const)
+      .map((name) => form.elements.namedItem(name) as HTMLInputElement | null)
+      .filter((input): input is HTMLInputElement => input !== null);
+    const found = Object.fromEntries(
+      inputs.flatMap((input) => {
+        const message = fieldError(input);
+        return message ? [[input.name, message]] : [];
+      }),
+    );
+    setErrors(found);
+    const invalid = inputs.find((input) => found[input.name]);
+    if (invalid) {
+      invalid.focus();
+      return;
+    }
+    const fields = new FormData(form);
     const credentials = {
       email: String(fields.get('email')).trim(),
       password: String(fields.get('password')),
@@ -36,36 +75,53 @@ export function AuthScreen() {
             </span>
           </div>
           <section className="auth-card" aria-labelledby="auth-title">
-            <h1 id="auth-title">{registering ? 'Crie sua conta' : 'Bem-vindo de volta'}</h1>
-            <form onSubmit={submit} key={registering ? 'register' : 'login'}>
+            <h1 id="auth-title">{registering ? 'Crie sua conta' : 'Acesse sua conta'}</h1>
+            <form
+              onSubmit={submit}
+              onInput={(event) => {
+                const name = (event.target as HTMLInputElement).name as Field;
+                if (errors[name]) setErrors({ ...errors, [name]: undefined });
+              }}
+              key={registering ? 'register' : 'login'}
+              noValidate
+            >
               <fieldset disabled={auth.submitting}>
                 {registering && (
-                  <label className="auth-field">
-                    Nome
+                  <div className="auth-field">
+                    <label htmlFor="auth-name">Nome</label>
                     <input
+                      id="auth-name"
                       name="name"
                       autoComplete="name"
+                      autoCapitalize="words"
                       required
                       minLength={2}
                       maxLength={80}
-                      placeholder="Como podemos chamar você?"
+                      placeholder="Seu nome"
+                      aria-invalid={Boolean(errors.name)}
+                      aria-describedby={errors.name ? 'auth-name-error' : undefined}
                     />
-                  </label>
+                    <FieldError id="auth-name-error" message={errors.name} />
+                  </div>
                 )}
-                <label className="auth-field">
-                  E-mail
+                <div className="auth-field">
+                  <label htmlFor="auth-email">E-mail</label>
                   <input
+                    id="auth-email"
                     name="email"
                     type="email"
-                    autoComplete="email"
+                    autoComplete={registering ? 'email' : 'username'}
                     inputMode="email"
                     autoCapitalize="none"
                     spellCheck={false}
                     required
                     maxLength={254}
-                    placeholder="voce@exemplo.com"
+                    placeholder="nome@email.com"
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'auth-email-error' : undefined}
                   />
-                </label>
+                  <FieldError id="auth-email-error" message={errors.email} />
+                </div>
                 <div className="auth-field">
                   <label htmlFor="auth-password">Senha</label>
                   <span className="auth-password">
@@ -77,7 +133,15 @@ export function AuthScreen() {
                       required
                       minLength={registering ? 8 : 1}
                       maxLength={128}
-                      aria-describedby={registering ? 'password-hint' : undefined}
+                      placeholder={registering ? 'Crie uma senha' : 'Sua senha'}
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={
+                        errors.password
+                          ? 'auth-password-error'
+                          : registering
+                            ? 'password-hint'
+                            : undefined
+                      }
                     />
                     <button
                       type="button"
@@ -101,10 +165,14 @@ export function AuthScreen() {
                       </svg>
                     </button>
                   </span>
-                  {registering && (
-                    <span id="password-hint" className="auth-hint">
-                      Use pelo menos 8 caracteres.
-                    </span>
+                  {errors.password ? (
+                    <FieldError id="auth-password-error" message={errors.password} />
+                  ) : (
+                    registering && (
+                      <span id="password-hint" className="auth-hint">
+                        Mínimo de 8 caracteres.
+                      </span>
+                    )
                   )}
                 </div>
                 {auth.submitError && (
@@ -115,6 +183,7 @@ export function AuthScreen() {
                   </p>
                 )}
                 <button type="submit" className="auth-submit">
+                  {auth.submitting && <span className="auth-spinner" aria-hidden="true" />}
                   {auth.submitting
                     ? registering
                       ? 'Criando conta…'
@@ -134,6 +203,7 @@ export function AuthScreen() {
                 onClick={() => {
                   setRegistering(!registering);
                   setShowPassword(false);
+                  setErrors({});
                   auth.resetSubmit();
                 }}
               >
@@ -142,9 +212,9 @@ export function AuthScreen() {
             </p>
           </section>
           {registering && (
-            <p className="auth-hint">
-              Seu e-mail é usado para acessar a conta. Notificações são opcionais: ative pelo sino
-              em Municípios seguidos e autorize neste dispositivo. Desative quando quiser.
+            <p className="auth-hint auth-note">
+              Seu e-mail serve só para acessar a conta. Notificações são opcionais: ative pelo sino
+              em Municípios seguidos, quando quiser.
             </p>
           )}
         </div>
@@ -154,5 +224,14 @@ export function AuthScreen() {
       </div>
       <ThemeSwitch />
     </main>
+  );
+}
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <span id={id} className="auth-field-error">
+      {message}
+    </span>
   );
 }

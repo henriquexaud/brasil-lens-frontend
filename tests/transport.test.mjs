@@ -39,7 +39,7 @@ test('dentro de uma UF a área não passa da UF, e sem interseção não há ped
 });
 
 test('o painel destaca a extensão oficial da aba; Todas soma as três classes', () => {
-  assert.deepEqual(summaryLayers(DEFAULT_TRANSPORT), ['road_federal']);
+  assert.deepEqual(summaryLayers({ ...DEFAULT_TRANSPORT, roads: 'federal' }), ['road_federal']);
   assert.deepEqual(summaryLayers({ ...DEFAULT_TRANSPORT, roads: 'state' }), ['road_state']);
   assert.deepEqual(summaryLayers({ ...DEFAULT_TRANSPORT, roads: 'all' }), [
     'road_federal',

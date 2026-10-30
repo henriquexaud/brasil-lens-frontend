@@ -69,7 +69,19 @@ export function latestSelection(
       undefined,
     );
   if (!release) return selection;
-  return { ...selection, year: release.year };
+  return withLatestRound({ ...selection, year: release.year }, releases);
+}
+
+/** O turno mais recente publicado: o 2º, quando já houver, é o que decide o cargo. */
+export function withLatestRound(
+  selection: PoliticalSelection,
+  releases: PoliticalRelease[],
+): PoliticalSelection {
+  const rounds =
+    releases
+      .find((r) => r.year === selection.year)
+      ?.contests.find((c) => c.office === selection.office)?.rounds ?? [];
+  return rounds.length ? { ...selection, round: Math.max(...rounds) } : selection;
 }
 
 export function normalizeSelection(

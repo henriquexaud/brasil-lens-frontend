@@ -147,6 +147,18 @@ test('cadastro usa o tema escolhido e erros podem ser corrigidos sem sair da tel
   assert.equal(document.documentElement.dataset.theme, 'dark');
 });
 
+test('campos inválidos mostram a mensagem em pt-BR sem chamar a API', async () => {
+  await render();
+  await until(() => document.querySelector('form'));
+  const before = requests.length;
+  await submit('ana@', '');
+  assert.equal(requests.length, before);
+  assert.match(document.body.textContent, /Confira o e-mail/);
+  assert.match(document.body.textContent, /Informe sua senha/);
+  assert.equal(document.querySelector('[name=email]').getAttribute('aria-invalid'), 'true');
+  assert.equal(document.activeElement, document.querySelector('[name=email]'));
+});
+
 test('a sessão é retomada ao abrir, e um 401 privado volta ao login sem dados antigos', async () => {
   server.user = server.accounts.get(alice.email);
   await render();
