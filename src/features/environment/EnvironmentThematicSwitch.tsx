@@ -38,7 +38,7 @@ export function EnvironmentThematicSwitch({
   fireLoading: boolean;
   fireError: boolean;
   scopeName?: string;
-  // "14 dias até 16/10/2026": a janela dos alertas, no lugar do seletor de ano.
+  // "14 dias até 16/10/2026": a janela dos alertas, numa linha própria no lugar do seletor de ano.
   alertsLabel?: string;
 }) {
   const indicator =
@@ -58,9 +58,7 @@ export function EnvironmentThematicSwitch({
       />
       {indicator && (
         <LayerMetadata sources={[indicator.source]} unit={indicator.unit}>
-          {layer === 'alerts' ? (
-            <span className="indicator-year-label">{alertsLabel ?? 'Carregando…'}</span>
-          ) : years.length > 1 ? (
+          {layer === 'alerts' ? null : years.length > 1 ? (
             <select
               className="indicator-year-select"
               aria-label="Ano de referência"
@@ -82,6 +80,11 @@ export function EnvironmentThematicSwitch({
             </span>
           )}
         </LayerMetadata>
+      )}
+      {layer === 'alerts' && (
+        <p className="source-note indicator-window">
+          {alertsLabel ? `${alertsLabel} · Amazônia e Cerrado` : 'Carregando…'}
+        </p>
       )}
       {layer === 'fire' && (
         <FireMetadata

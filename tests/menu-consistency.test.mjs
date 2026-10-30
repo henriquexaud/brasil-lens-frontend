@@ -137,7 +137,10 @@ test('Alertas do DETER dizem a janela, a fonte e que não são a taxa oficial', 
   assert.equal(document.querySelector('.source-tag').textContent, 'INPE DETER');
   assert.match(document.querySelector('.source-tag').title, /não a taxa oficial/);
   assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² / 1.000 km²');
-  assert.equal(document.querySelector('.indicator-year-label').textContent, '14 dias até 16/10/2026');
+  assert.equal(
+    document.querySelector('.indicator-window').textContent,
+    '14 dias até 16/10/2026 · Amazônia e Cerrado',
+  );
   assert.equal(document.querySelector('.indicator-year-select'), null, 'sem seletor de ano');
 });
 

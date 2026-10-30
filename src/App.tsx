@@ -984,9 +984,9 @@ function ClimateApp({
                   territory={selectedFeature?.properties}
                   indicator={environment.indicator}
                   value={
-                    selectedCode
+                    selectedCode || indicatorLayer === 'alerts'
                       ? environment.values.data?.values.find(
-                          (item) => item.ibgeCode === selectedCode,
+                          (item) => item.ibgeCode === (selectedCode ?? scope.parent ?? 'BR'),
                         )
                       : undefined
                   }
