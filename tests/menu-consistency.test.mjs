@@ -104,7 +104,7 @@ const environmentProps = {
   fireError: false,
 };
 
-test('Meio ambiente alterna Florestas, Desmatamento e Fogo e desliga a aba ativa', async () => {
+test('Meio ambiente alterna Florestas, Desmatamento, Alertas e Fogo e desliga a aba ativa', async () => {
   const changes = [];
   await render(EnvironmentThematicSwitch, {
     ...environmentProps,
@@ -112,7 +112,7 @@ test('Meio ambiente alterna Florestas, Desmatamento e Fogo e desliga a aba ativa
   });
   assert.deepEqual(
     [...document.querySelectorAll('[role="tab"]')].map((item) => item.textContent),
-    ['Florestas', 'Perda', 'Fogo'],
+    ['Florestas', 'Perda', 'Alertas', 'Fogo'],
   );
   assert.equal(document.querySelector('.source-tag').textContent, 'INPE');
   assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² · ano PRODES');
@@ -126,6 +126,19 @@ test('Meio ambiente alterna Florestas, Desmatamento e Fogo e desliga a aba ativa
   assert.deepEqual(changes, ['none', 'forest']);
   await render(EnvironmentThematicSwitch, { ...environmentProps, layer: 'forest' });
   assert.equal(document.querySelector('.source-tag').textContent, 'MapBiomas');
+});
+
+test('Alertas do DETER dizem a janela, a fonte e que não são a taxa oficial', async () => {
+  await render(EnvironmentThematicSwitch, {
+    ...environmentProps,
+    layer: 'alerts',
+    alertsLabel: '14 dias até 16/10/2026',
+  });
+  assert.equal(document.querySelector('.source-tag').textContent, 'INPE DETER');
+  assert.match(document.querySelector('.source-tag').title, /não a taxa oficial/);
+  assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² / 1.000 km²');
+  assert.equal(document.querySelector('.indicator-year-label').textContent, '14 dias até 16/10/2026');
+  assert.equal(document.querySelector('.indicator-year-select'), null, 'sem seletor de ano');
 });
 
 test('chuva mantém zero válido, período e fonte; ausência, carga e falha têm estados próprios', async () => {

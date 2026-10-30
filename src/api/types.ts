@@ -340,6 +340,47 @@ export interface FireHotspotFeature {
   geometry: Point;
 }
 
+export interface DeforestationAlertTerritory {
+  ibgeCode: string;
+  name: string;
+  state: string;
+  areaKm2: number | null;
+  count: number;
+  alertKm2: number;
+  density: number | null;
+  latestViewDate: string | null;
+}
+
+export interface DeforestationAlertPoint {
+  longitude: number;
+  latitude: number;
+  areaKm2: number;
+  viewDate: string;
+  municipality: string;
+  state: string;
+  biome: string;
+}
+
+// Alertas do DETER (INPE) dos últimos `days` dias até o último publicado.
+export interface DeforestationAlerts {
+  windowStart: string | null;
+  windowEnd: string | null;
+  days: number;
+  fetchedAt: string;
+  total: number;
+  totalKm2: number;
+  unassignedCount: number;
+  biomes: string[];
+  municipalities: DeforestationAlertTerritory[];
+  states: DeforestationAlertTerritory[];
+  rankedMunicipalities: DeforestationAlertTerritory[];
+  points: DeforestationAlertPoint[];
+  source: string;
+  sourceUrl: string;
+  areaSource: string;
+  notice: string;
+}
+
 export interface FireHotspotMetadata {
   level: FireHotspotQuery['level'];
   parentCode: string | null;

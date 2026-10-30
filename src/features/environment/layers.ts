@@ -1,6 +1,6 @@
 import type { DataSource } from '@/components/LayerMetadata';
 
-export type IndicatorLayer = 'deforestation' | 'forest';
+export type IndicatorLayer = 'deforestation' | 'alerts' | 'forest';
 
 export interface IndicatorLayerConfig {
   indicatorKey: string;
@@ -21,6 +21,17 @@ export const INDICATOR_LAYERS: Record<IndicatorLayer, IndicatorLayerConfig> = {
       label: 'INPE',
       description:
         'PRODES: perda de vegetação nativa (desmatamento) entre agosto e julho, nos seis biomas.',
+    },
+  },
+  // Não vem do catálogo do banco: a API monta os valores dos alertas do DETER na hora.
+  alerts: {
+    indicatorKey: 'deforestation_alerts',
+    label: 'Alertas',
+    unit: 'km² / 1.000 km²',
+    source: {
+      label: 'INPE DETER',
+      description:
+        'Alertas de desmatamento do DETER, só Amazônia e Cerrado. São alertas de fiscalização, não a taxa oficial (PRODES), e o INPE publica com cerca de duas semanas de atraso.',
     },
   },
   forest: {

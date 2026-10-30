@@ -3,7 +3,12 @@ import { apiGet } from '@/api/client';
 import { loadSessionState } from '@/lib/sessionStorage';
 import { CATALOG_GC } from '@/features/socioeconomic/queries';
 import { INDICATOR_LAYERS, type IndicatorLayer } from './layers';
-import type { IndicatorListResponse, MapValuesResponse, TerritoryLevel } from '@/api/types';
+import type {
+  DeforestationAlerts,
+  IndicatorListResponse,
+  MapValuesResponse,
+  TerritoryLevel,
+} from '@/api/types';
 
 // Mesmo frescor do Socioeconômico: a API publica os dois contextos com 5 min.
 const FRESHNESS = 5 * 60 * 1000;
@@ -39,6 +44,31 @@ function valuesOptions(
     staleTime: FRESHNESS,
     gcTime: 30 * 60 * 1000,
   };
+}
+
+// Alertas do DETER: a API guarda a janela por 2 h e manda `max-age` de 10 min.
+const ALERTS_FRESHNESS = 10 * 60 * 1000;
+
+export function useAlertValues(level: TerritoryLevel, parent: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['environment', 'alerts', 'values', level, parent] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      apiGet<MapValuesResponse>('/deforestation-alerts/values', { level, parent }, signal),
+    staleTime: ALERTS_FRESHNESS,
+    gcTime: 30 * 60 * 1000,
+    enabled,
+  });
+}
+
+export function useDeforestationAlerts(enabled: boolean) {
+  return useQuery({
+    queryKey: ['environment', 'alerts', 'points'] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      apiGet<DeforestationAlerts>('/deforestation-alerts', undefined, signal),
+    staleTime: ALERTS_FRESHNESS,
+    gcTime: 30 * 60 * 1000,
+    enabled,
+  });
 }
 
 export function useEnvironmentIndicators(level: TerritoryLevel, enabled: boolean) {

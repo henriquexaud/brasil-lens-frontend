@@ -28,7 +28,7 @@ export interface AppSessionState {
 }
 
 export type ClimateLayer = 'climate' | 'rainfall' | 'humidity' | 'none';
-export type EnvironmentLayer = 'deforestation' | 'forest' | 'fire' | 'none';
+export type EnvironmentLayer = 'deforestation' | 'alerts' | 'forest' | 'fire' | 'none';
 const DATA_CONTEXTS: DataContext[] = [
   'climate',
   'environment',
@@ -104,7 +104,7 @@ function climateState(value: unknown): AppSessionState {
     ...(['climate', 'rainfall', 'humidity', 'none'].includes(String(source.activeThematicLayer))
       ? { activeThematicLayer: source.activeThematicLayer as ClimateLayer }
       : {}),
-    ...(['deforestation', 'forest', 'fire', 'none'].includes(String(environmentLayer))
+    ...(['deforestation', 'alerts', 'forest', 'fire', 'none'].includes(String(environmentLayer))
       ? { environmentLayer: environmentLayer as EnvironmentLayer }
       : {}),
     ...(normalizeTransport(source.transport)

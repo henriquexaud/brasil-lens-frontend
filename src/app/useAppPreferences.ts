@@ -32,7 +32,10 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
   const showHumidity = climate && climateLayer === 'humidity';
   const showFireHotspots = !climate && environmentLayer === 'fire';
   const indicatorLayer =
-    !climate && (environmentLayer === 'deforestation' || environmentLayer === 'forest')
+    !climate &&
+    (environmentLayer === 'deforestation' ||
+      environmentLayer === 'alerts' ||
+      environmentLayer === 'forest')
       ? environmentLayer
       : null;
   // Temperatura, chuva e umidade vêm da mesma leitura da Open-Meteo.

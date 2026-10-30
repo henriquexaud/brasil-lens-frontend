@@ -25,6 +25,8 @@ import { EmptyState, ErrorMessage, TopProgress } from '@/components/Feedback';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
+import { formatAlertDate } from '@/features/environment/alerts';
+import { useDeforestationAlerts } from '@/features/environment/queries';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
 import { WeatherThematicSwitch } from '@/features/weather/WeatherThematicSwitch';
@@ -102,6 +104,11 @@ const FireHotspotsLayer = lazyPreload(() =>
 const DeforestationTiles = lazyPreload(() =>
   import('@/features/environment/DeforestationTiles').then((module) => ({
     default: module.DeforestationTiles,
+  })),
+);
+const DeforestationAlertPoints = lazyPreload(() =>
+  import('@/features/environment/DeforestationAlertPoints').then((module) => ({
+    default: module.DeforestationAlertPoints,
   })),
 );
 const WeatherPanel = lazyPreload(() =>
@@ -318,6 +325,15 @@ function ClimateApp({
     territoryReady,
     pageVisible,
   });
+
+  const deforestationAlerts = useDeforestationAlerts(
+    indicatorLayer === 'alerts' && territoryReady && pageVisible,
+  );
+  const alertsLabel = deforestationAlerts.data?.windowEnd
+    ? `${deforestationAlerts.data.days} dias até ${formatAlertDate(deforestationAlerts.data.windowEnd)}`
+    : deforestationAlerts.data
+      ? 'Sem alertas recentes'
+      : undefined;
 
   const fireHotspotQuery: FireHotspotQuery = useMemo(
     () => ({
@@ -847,6 +863,11 @@ function ClimateApp({
               visible={activeFireMode === 'points'}
             />
           )}
+          {indicatorLayer === 'alerts' &&
+            activeFireMode === 'points' &&
+            deforestationAlerts.data && (
+              <DeforestationAlertPoints alerts={deforestationAlerts.data} />
+            )}
           {weatherLayerActive && (
             <WeatherLayer
               cities={knownWeather}
@@ -909,6 +930,7 @@ function ClimateApp({
                   layer={environmentLayer}
                   onChange={handleEnvironmentLayer}
                   onIntent={environment.prefetchLayer}
+                  alertsLabel={alertsLabel}
                   years={environment.availableYears}
                   year={environment.year}
                   onYearChange={environment.setYear}

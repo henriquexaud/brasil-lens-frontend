@@ -94,6 +94,13 @@ test('loadSessionState trata JSON corrompido sem quebrar', () => {
   assert.deepEqual(state, {});
 });
 
+test('a aba Alertas do Meio ambiente é guardada e um valor desconhecido é descartado', () => {
+  saveSessionState({ environmentLayer: 'alerts' });
+  assert.equal(loadSessionState().environmentLayer, 'alerts');
+  saveSessionState({ environmentLayer: 'inexistente' });
+  assert.equal(loadSessionState().environmentLayer, undefined);
+});
+
 test('clearSessionState remove a chave da sessão', () => {
   saveSessionState({ environmentLayer: 'fire' });
   assert.equal(loadSessionState().environmentLayer, 'fire');
