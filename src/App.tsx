@@ -99,6 +99,11 @@ const FireHotspotsLayer = lazyPreload(() =>
     default: module.FireHotspotsLayer,
   })),
 );
+const DeforestationTiles = lazyPreload(() =>
+  import('@/features/environment/DeforestationTiles').then((module) => ({
+    default: module.DeforestationTiles,
+  })),
+);
 const WeatherPanel = lazyPreload(() =>
   import('@/features/weather/WeatherPanel').then((module) => ({ default: module.WeatherPanel })),
 );
@@ -835,6 +840,9 @@ function ClimateApp({
               query={fireHotspotQuery}
               onMapError={setFireMapError}
             />
+          )}
+          {environmentLayer === 'deforestation' && environment.indicator?.year && (
+            <DeforestationTiles year={environment.indicator.year} />
           )}
           {weatherLayerActive && (
             <WeatherLayer
