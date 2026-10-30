@@ -2610,6 +2610,15 @@ body {
   margin-top: 8px;
 }
 
+/* As notas que explicam um cartão de opção ficam a 8px dele e entre si, como as do Clima. */
+.weather-alerts-container > .source-note {
+  margin-top: 8px;
+}
+
+.weather-alerts-container > .source-note:first-child {
+  margin-top: 0;
+}
+
 .weather-options-section + .weather-options-section {
   padding-top: 8px;
 }
