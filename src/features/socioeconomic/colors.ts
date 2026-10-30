@@ -90,7 +90,6 @@ const CATEGORY_PALETTES: Record<IndicatorCategoryId, PaletteKey> = {
 
 const INDICATOR_PALETTES: Record<string, PaletteKey> = {
   deforestation_prodes: 'earthDeforestation',
-  deforestation_alerts: 'earthDeforestation',
   forest_cover: 'mossForest',
 };
 

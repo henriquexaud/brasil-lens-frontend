@@ -25,7 +25,7 @@ import { EmptyState, ErrorMessage, TopProgress } from '@/components/Feedback';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
-import { formatAlertDate } from '@/features/environment/alerts';
+import { DeforestationAlertsOption } from '@/features/environment/DeforestationAlertsOption';
 import { useDeforestationAlerts } from '@/features/environment/queries';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
 import { useMapScope } from '@/features/map/useMapScope';
@@ -223,6 +223,8 @@ function ClimateApp({
     setShowWeatherAlerts,
     showHydrography,
     setShowHydrography,
+    showDeforestationAlerts,
+    setShowDeforestationAlerts,
     showClimate,
     showFireHotspots,
     showRainfall,
@@ -327,13 +329,19 @@ function ClimateApp({
   });
 
   const deforestationAlerts = useDeforestationAlerts(
-    indicatorLayer === 'alerts' && territoryReady && pageVisible,
+    showDeforestationAlerts && territoryReady && pageVisible,
   );
-  const alertsLabel = deforestationAlerts.data?.windowEnd
-    ? `${deforestationAlerts.data.days} dias até ${formatAlertDate(deforestationAlerts.data.windowEnd)}`
-    : deforestationAlerts.data
-      ? 'Sem alertas recentes'
-      : undefined;
+  // Como nos focos, os pontos são do estado aberto; no Brasil só o mosaico fica.
+  const alertStateCode = isDrilledDown ? scope.parent : null;
+  const stateAlertPoints = useMemo(
+    () =>
+      alertStateCode
+        ? (deforestationAlerts.data?.points ?? []).filter((point) =>
+            point.ibgeCode?.startsWith(alertStateCode),
+          )
+        : [],
+    [alertStateCode, deforestationAlerts.data],
+  );
 
   const fireHotspotQuery: FireHotspotQuery = useMemo(
     () => ({
@@ -863,11 +871,13 @@ function ClimateApp({
               visible={activeFireMode === 'points'}
             />
           )}
-          {indicatorLayer === 'alerts' &&
-            activeFireMode === 'points' &&
-            deforestationAlerts.data && (
-              <DeforestationAlertPoints alerts={deforestationAlerts.data} />
-            )}
+          {showDeforestationAlerts && alertStateCode && deforestationAlerts.data && (
+            <DeforestationAlertPoints
+              key={alertStateCode}
+              points={stateAlertPoints}
+              sourceUrl={deforestationAlerts.data.sourceUrl}
+            />
+          )}
           {weatherLayerActive && (
             <WeatherLayer
               cities={knownWeather}
@@ -930,7 +940,6 @@ function ClimateApp({
                   layer={environmentLayer}
                   onChange={handleEnvironmentLayer}
                   onIntent={environment.prefetchLayer}
-                  alertsLabel={alertsLabel}
                   years={environment.availableYears}
                   year={environment.year}
                   onYearChange={environment.setYear}
@@ -984,9 +993,9 @@ function ClimateApp({
                   territory={selectedFeature?.properties}
                   indicator={environment.indicator}
                   value={
-                    selectedCode || indicatorLayer === 'alerts'
+                    selectedCode
                       ? environment.values.data?.values.find(
-                          (item) => item.ibgeCode === (selectedCode ?? scope.parent ?? 'BR'),
+                          (item) => item.ibgeCode === selectedCode,
                         )
                       : undefined
                   }
@@ -1084,13 +1093,27 @@ function ClimateApp({
               />
             </>
           ) : (
-            <RiversOption
-              checked={showHydrography}
-              onChange={setShowHydrography}
-              partial={hydroCollection?.metadata.status === 'partial'}
-              pending={hydrographyLayer.isFetching && !hydroCollection}
-              error={showHydrography && hydrographyLayer.error != null}
-            />
+            <>
+              <DeforestationAlertsOption
+                checked={showDeforestationAlerts}
+                onChange={setShowDeforestationAlerts}
+                alerts={deforestationAlerts.data}
+                pending={deforestationAlerts.isPending}
+                error={deforestationAlerts.error != null}
+                inState={alertStateCode != null}
+                count={
+                  alertStateCode ? stateAlertPoints.length : (deforestationAlerts.data?.total ?? 0)
+                }
+                scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+              />
+              <RiversOption
+                checked={showHydrography}
+                onChange={setShowHydrography}
+                partial={hydroCollection?.metadata.status === 'partial'}
+                pending={hydrographyLayer.isFetching && !hydroCollection}
+                error={showHydrography && hydrographyLayer.error != null}
+              />
+            </>
           )}
           <SyncStatus
             current={currentWeather}

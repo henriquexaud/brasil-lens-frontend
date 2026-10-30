@@ -5,11 +5,10 @@ import { FireMetadata } from '@/features/fire/FireMetadata';
 import type { EnvironmentLayer } from '@/lib/sessionStorage';
 import { INDICATOR_LAYERS } from './layers';
 
-// Do estoque para a perda: Florestas, a Perda anual (PRODES), os Alertas recentes (DETER) e o Fogo.
+// Do estoque para a perda: Florestas, a Perda (desmatamento) e o Fogo.
 const OPTIONS: { value: EnvironmentLayer; label: string }[] = [
   { value: 'forest', label: INDICATOR_LAYERS.forest.label },
   { value: 'deforestation', label: INDICATOR_LAYERS.deforestation.label },
-  { value: 'alerts', label: INDICATOR_LAYERS.alerts.label },
   { value: 'fire', label: 'Fogo' },
 ];
 
@@ -24,7 +23,6 @@ export function EnvironmentThematicSwitch({
   fireLoading,
   fireError,
   scopeName,
-  alertsLabel,
   onIntent,
 }: {
   layer: EnvironmentLayer;
@@ -38,13 +36,9 @@ export function EnvironmentThematicSwitch({
   fireLoading: boolean;
   fireError: boolean;
   scopeName?: string;
-  // "14 dias até 16/10/2026": a janela dos alertas, numa linha própria no lugar do seletor de ano.
-  alertsLabel?: string;
 }) {
   const indicator =
-    layer === 'deforestation' || layer === 'alerts' || layer === 'forest'
-      ? INDICATOR_LAYERS[layer]
-      : null;
+    layer === 'deforestation' || layer === 'forest' ? INDICATOR_LAYERS[layer] : null;
   const latest = years.length ? Math.max(...years) : resolvedYear;
   const latestLabel = latest ? `${latest} · Último` : 'Último disponível';
   return (
@@ -58,7 +52,7 @@ export function EnvironmentThematicSwitch({
       />
       {indicator && (
         <LayerMetadata sources={[indicator.source]} unit={indicator.unit}>
-          {layer === 'alerts' ? null : years.length > 1 ? (
+          {years.length > 1 ? (
             <select
               className="indicator-year-select"
               aria-label="Ano de referência"
@@ -80,11 +74,6 @@ export function EnvironmentThematicSwitch({
             </span>
           )}
         </LayerMetadata>
-      )}
-      {layer === 'alerts' && (
-        <p className="source-note indicator-window">
-          {alertsLabel ? `${alertsLabel} · Amazônia e Cerrado` : 'Carregando…'}
-        </p>
       )}
       {layer === 'fire' && (
         <FireMetadata

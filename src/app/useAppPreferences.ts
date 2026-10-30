@@ -19,6 +19,10 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
     const saved = loadSessionState();
     return typeof saved.showHydrography === 'boolean' ? saved.showHydrography : true;
   });
+  // Alertas do DETER no Meio ambiente: começam desligados, ao contrário dos rios.
+  const [showDeforestationAlerts, setShowDeforestationAlerts] = useState<boolean>(
+    () => loadSessionState().showDeforestationAlerts === true,
+  );
   const [climateLayer, setClimateLayer] = useState<ClimateLayer>(
     () => loadSessionState().activeThematicLayer ?? 'climate',
   );
@@ -32,10 +36,7 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
   const showHumidity = climate && climateLayer === 'humidity';
   const showFireHotspots = !climate && environmentLayer === 'fire';
   const indicatorLayer =
-    !climate &&
-    (environmentLayer === 'deforestation' ||
-      environmentLayer === 'alerts' ||
-      environmentLayer === 'forest')
+    !climate && (environmentLayer === 'deforestation' || environmentLayer === 'forest')
       ? environmentLayer
       : null;
   // Temperatura, chuva e umidade vêm da mesma leitura da Open-Meteo.
@@ -58,16 +59,19 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
     saveSessionState({
       showWeatherAlerts,
       showHydrography,
+      showDeforestationAlerts,
       activeThematicLayer: climateLayer,
       environmentLayer,
     });
-  }, [showWeatherAlerts, showHydrography, climateLayer, environmentLayer]);
+  }, [showWeatherAlerts, showHydrography, showDeforestationAlerts, climateLayer, environmentLayer]);
 
   return {
     showWeatherAlerts: climate && showWeatherAlerts,
     setShowWeatherAlerts,
     showHydrography: !climate && showHydrography,
     setShowHydrography,
+    showDeforestationAlerts: !climate && showDeforestationAlerts,
+    setShowDeforestationAlerts,
     showClimate,
     showFireHotspots,
     showRainfall,

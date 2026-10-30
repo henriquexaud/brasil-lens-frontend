@@ -352,6 +352,7 @@ export interface DeforestationAlertTerritory {
 }
 
 export interface DeforestationAlertPoint {
+  ibgeCode: string | null;
   longitude: number;
   latitude: number;
   areaKm2: number;

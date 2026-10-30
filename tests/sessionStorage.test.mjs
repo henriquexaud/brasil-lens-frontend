@@ -94,11 +94,14 @@ test('loadSessionState trata JSON corrompido sem quebrar', () => {
   assert.deepEqual(state, {});
 });
 
-test('a aba Alertas do Meio ambiente é guardada e um valor desconhecido é descartado', () => {
-  saveSessionState({ environmentLayer: 'alerts' });
-  assert.equal(loadSessionState().environmentLayer, 'alerts');
-  saveSessionState({ environmentLayer: 'inexistente' });
-  assert.equal(loadSessionState().environmentLayer, undefined);
+test('os alertas do DETER no Meio ambiente são guardados só como booleano', () => {
+  saveSessionState({ showDeforestationAlerts: true });
+  assert.equal(loadSessionState().showDeforestationAlerts, true);
+  mockStorage.setItem(
+    'brasil_lens_session_v6',
+    JSON.stringify({ showDeforestationAlerts: 'sim', environmentLayer: 'alerts' }),
+  );
+  assert.deepEqual(loadSessionState(), {});
 });
 
 test('clearSessionState remove a chave da sessão', () => {

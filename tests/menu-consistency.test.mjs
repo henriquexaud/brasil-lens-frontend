@@ -11,12 +11,14 @@ const {
   WeatherOptions,
   EnvironmentThematicSwitch,
   RiversOption,
+  DeforestationAlertsOption,
 } = await loadModule(`
   export { SegmentedControl } from './src/components/SegmentedControl';
   export { WeatherThematicSwitch } from './src/features/weather/WeatherThematicSwitch';
   export { WeatherOptions } from './src/features/weather/WeatherOptions';
   export { EnvironmentThematicSwitch } from './src/features/environment/EnvironmentThematicSwitch';
   export { RiversOption } from './src/features/environment/RiversOption';
+  export { DeforestationAlertsOption } from './src/features/environment/DeforestationAlertsOption';
 `);
 let root;
 beforeEach(() => {
@@ -104,7 +106,7 @@ const environmentProps = {
   fireError: false,
 };
 
-test('Meio ambiente alterna Florestas, Desmatamento, Alertas e Fogo e desliga a aba ativa', async () => {
+test('Meio ambiente alterna Florestas, Desmatamento e Fogo e desliga a aba ativa', async () => {
   const changes = [];
   await render(EnvironmentThematicSwitch, {
     ...environmentProps,
@@ -112,7 +114,7 @@ test('Meio ambiente alterna Florestas, Desmatamento, Alertas e Fogo e desliga a 
   });
   assert.deepEqual(
     [...document.querySelectorAll('[role="tab"]')].map((item) => item.textContent),
-    ['Florestas', 'Perda', 'Alertas', 'Fogo'],
+    ['Florestas', 'Perda', 'Fogo'],
   );
   assert.equal(document.querySelector('.source-tag').textContent, 'INPE');
   assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² · ano PRODES');
@@ -128,20 +130,32 @@ test('Meio ambiente alterna Florestas, Desmatamento, Alertas e Fogo e desliga a 
   assert.equal(document.querySelector('.source-tag').textContent, 'MapBiomas');
 });
 
-test('Alertas do DETER dizem a janela, a fonte e que não são a taxa oficial', async () => {
-  await render(EnvironmentThematicSwitch, {
-    ...environmentProps,
-    layer: 'alerts',
-    alertsLabel: '14 dias até 16/10/2026',
-  });
+const deterAlerts = { windowEnd: '2026-10-16', days: 14, total: 1802, points: [] };
+
+test('o checkbox de alertas do DETER segue o do Clima: fonte, contagem e como chegar aos pontos', async () => {
+  const props = {
+    checked: true,
+    onChange: () => {},
+    alerts: deterAlerts,
+    pending: false,
+    error: false,
+    inState: false,
+    count: 1802,
+  };
+  const badge = () => document.querySelector('.weather-layer-badge').textContent;
+  const notes = () => [...document.querySelectorAll('.source-note')].map((item) => item.textContent);
+  await render(DeforestationAlertsOption, props);
   assert.equal(document.querySelector('.source-tag').textContent, 'INPE DETER');
   assert.match(document.querySelector('.source-tag').title, /não a taxa oficial/);
-  assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² / 1.000 km²');
-  assert.equal(
-    document.querySelector('.indicator-window').textContent,
-    '14 dias até 16/10/2026 · Amazônia e Cerrado',
-  );
-  assert.equal(document.querySelector('.indicator-year-select'), null, 'sem seletor de ano');
+  assert.equal(document.querySelector('.weather-layer-title span').textContent, 'Alertas');
+  assert.match(badge(), /1\.802 alertas/);
+  assert.match(notes()[0], /14 dias até 16\/10\/2026 · Amazônia e Cerrado/);
+  assert.ok(notes().some((text) => /Abra um estado/.test(text)), 'no Brasil manda abrir um estado');
+  await render(DeforestationAlertsOption, { ...props, inState: true, count: 1, scopeName: 'Pará' });
+  assert.equal(badge(), '1 alerta');
+  assert.ok(!notes().some((text) => /Abra um estado/.test(text)));
+  await render(DeforestationAlertsOption, { ...props, checked: false });
+  assert.equal(document.querySelector('.source-note'), null, 'desligado não explica nada');
 });
 
 test('chuva mantém zero válido, período e fonte; ausência, carga e falha têm estados próprios', async () => {

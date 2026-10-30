@@ -21,6 +21,7 @@ export interface AppSessionState {
   selectedCode?: string | null;
   showWeatherAlerts?: boolean;
   showHydrography?: boolean;
+  showDeforestationAlerts?: boolean;
   activeThematicLayer?: ClimateLayer;
   environmentLayer?: EnvironmentLayer;
   transport?: TransportPreferences;
@@ -28,7 +29,7 @@ export interface AppSessionState {
 }
 
 export type ClimateLayer = 'climate' | 'rainfall' | 'humidity' | 'none';
-export type EnvironmentLayer = 'deforestation' | 'alerts' | 'forest' | 'fire' | 'none';
+export type EnvironmentLayer = 'deforestation' | 'forest' | 'fire' | 'none';
 const DATA_CONTEXTS: DataContext[] = [
   'climate',
   'environment',
@@ -101,10 +102,13 @@ function climateState(value: unknown): AppSessionState {
     ...(typeof source.showHydrography === 'boolean'
       ? { showHydrography: source.showHydrography }
       : {}),
+    ...(typeof source.showDeforestationAlerts === 'boolean'
+      ? { showDeforestationAlerts: source.showDeforestationAlerts }
+      : {}),
     ...(['climate', 'rainfall', 'humidity', 'none'].includes(String(source.activeThematicLayer))
       ? { activeThematicLayer: source.activeThematicLayer as ClimateLayer }
       : {}),
-    ...(['deforestation', 'alerts', 'forest', 'fire', 'none'].includes(String(environmentLayer))
+    ...(['deforestation', 'forest', 'fire', 'none'].includes(String(environmentLayer))
       ? { environmentLayer: environmentLayer as EnvironmentLayer }
       : {}),
     ...(normalizeTransport(source.transport)

@@ -47,25 +47,12 @@ function valuesOptions(
 }
 
 // Alertas do DETER: a API guarda a janela por 2 h e manda `max-age` de 10 min.
-const ALERTS_FRESHNESS = 10 * 60 * 1000;
-
-export function useAlertValues(level: TerritoryLevel, parent: string | null, enabled: boolean) {
-  return useQuery({
-    queryKey: ['environment', 'alerts', 'values', level, parent] as const,
-    queryFn: ({ signal }: { signal: AbortSignal }) =>
-      apiGet<MapValuesResponse>('/deforestation-alerts/values', { level, parent }, signal),
-    staleTime: ALERTS_FRESHNESS,
-    gcTime: 30 * 60 * 1000,
-    enabled,
-  });
-}
-
 export function useDeforestationAlerts(enabled: boolean) {
   return useQuery({
-    queryKey: ['environment', 'alerts', 'points'] as const,
+    queryKey: ['environment', 'alerts'] as const,
     queryFn: ({ signal }: { signal: AbortSignal }) =>
       apiGet<DeforestationAlerts>('/deforestation-alerts', undefined, signal),
-    staleTime: ALERTS_FRESHNESS,
+    staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     enabled,
   });

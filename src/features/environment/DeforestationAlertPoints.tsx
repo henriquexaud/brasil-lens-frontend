@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { canvas, type LeafletMouseEvent } from 'leaflet';
 import { CircleMarker, Pane, Popup, useMap, useMapEvents } from 'react-leaflet';
 
-import type { DeforestationAlertPoint, DeforestationAlerts } from '@/api/types';
+import type { DeforestationAlertPoint } from '@/api/types';
 import { formatAlertDate } from './alerts';
 
 const PANE = 'deforestation-alerts';
@@ -14,9 +14,16 @@ function radius(areaKm2: number): number {
   return 2.5 + Math.min(3.5, Math.sqrt(areaKm2) * 4);
 }
 
-// Pontos dos alertas do DETER (centro de cada polígono) em canvas: milhares de círculos em SVG
-// pesariam no DOM. O clique é do mapa, como nos focos, porque o pane não captura eventos.
-export function DeforestationAlertPoints({ alerts }: { alerts: DeforestationAlerts }) {
+// Pontos dos alertas do DETER (centro de cada polígono) em canvas: centenas de círculos em SVG
+// pesariam no DOM. O clique é do mapa, como nos focos, porque o pane não captura eventos. Quem
+// monta passa só os pontos do estado aberto.
+export function DeforestationAlertPoints({
+  points,
+  sourceUrl,
+}: {
+  points: DeforestationAlertPoint[];
+  sourceUrl: string;
+}) {
   const map = useMap();
   const renderer = useMemo(() => canvas({ pane: PANE, padding: 0.5 }), []);
   const [selected, setSelected] = useState<DeforestationAlertPoint | null>(null);
@@ -27,7 +34,7 @@ export function DeforestationAlertPoints({ alerts }: { alerts: DeforestationAler
       timer.current = window.setTimeout(() => {
         let nearest: DeforestationAlertPoint | null = null;
         let best = CLICK_PIXELS;
-        for (const point of alerts.points) {
+        for (const point of points) {
           const distance = map
             .latLngToContainerPoint({ lat: point.latitude, lng: point.longitude })
             .distanceTo(event.containerPoint);
@@ -49,7 +56,7 @@ export function DeforestationAlertPoints({ alerts }: { alerts: DeforestationAler
   });
   return (
     <Pane name={PANE} style={{ zIndex: 436, pointerEvents: 'none' }}>
-      {alerts.points.map((point, index) => (
+      {points.map((point, index) => (
         <CircleMarker
           key={index}
           center={[point.latitude, point.longitude]}
@@ -85,7 +92,7 @@ export function DeforestationAlertPoints({ alerts }: { alerts: DeforestationAler
           </p>
           <p className="source-note">
             Alerta de fiscalização, não a taxa oficial ·{' '}
-            <a href={alerts.sourceUrl} target="_blank" rel="noreferrer">
+            <a href={sourceUrl} target="_blank" rel="noreferrer">
               INPE DETER
             </a>
           </p>
