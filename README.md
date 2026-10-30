@@ -6,7 +6,7 @@ O seletor de contexto também abre Socioeconômico: os 14 indicadores anteriores
 
 O contexto Política reutiliza o mapa e os controles para Eleições/Cargos/Participação, com anos 2022/2024/2026, turnos publicados e marca de andamento em 2026. Abre sempre no ano mais recente disponível para o cargo, inclusive edições parciais. A API precisa da migration `0013_political` e das cargas `python -m app.jobs.import_elections --year ANO`; [detalhes do domínio](https://github.com/henriquexaud/brasil-lens-backend/blob/main/docs/architecture.md#contexto-política).
 
-No ar em https://brasil-lens.vercel.app (plano grátis: se a API estiver dormindo, o primeiro carregamento leva ~1 min).
+No ar em https://www.brasillens.com.br.
 
 ## Rodar
 
@@ -24,7 +24,7 @@ npm run build
 
 Docker: `docker compose up --build --wait` sobe só a interface (bundle servido por nginx).
 
-Produção: cada push na `main` publica na Vercel, com `VITE_API_BASE_URL` apontando para a API no Render; o domínio da Vercel precisa estar em `CORS_ORIGINS` no backend. O `vercel.json` só dá cache longo aos assets com hash. Detalhes: [deploy](https://github.com/henriquexaud/brasil-lens-backend/blob/main/docs/development.md#deploy).
+Produção: cada push na `main` publica na Vercel, com `VITE_API_BASE_URL` apontando para a API no Render; os domínios do frontend precisam estar em `CORS_ORIGINS` no backend. O `vercel.json` só dá cache longo aos assets com hash. Detalhes: [deploy](https://github.com/henriquexaud/brasil-lens-backend/blob/main/docs/development.md#deploy).
 
 ## Documentação
 
