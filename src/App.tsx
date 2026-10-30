@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useIsFetching, useQueryClient } from '@tanstack/react-query';
+import { useIsFetching, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { clearSourcePauses, requestForcedWeatherRefresh } from '@/api/client';
 import {
   weatherCurrentOptions,
@@ -56,6 +56,11 @@ import { DonationButton } from '@/features/donation/DonationButton';
 import { AccountMenu } from '@/features/auth/AccountMenu';
 import type { ReactNode } from 'react';
 import { useDataContext } from '@/app/useDataContext';
+import { prefetchSocioeconomic } from '@/features/socioeconomic/queries';
+import { prefetchPolitical } from '@/features/political/queries';
+import { prefetchTransport } from '@/features/transport/queries';
+import { prefetchEducation } from '@/features/education/queries';
+import { prefetchEnvironment } from '@/features/environment/queries';
 import '@/features/socioeconomic/socioeconomic.css';
 
 const PoliticalApp = lazyPreload(() => import('@/features/political/PoliticalApp'));
@@ -118,6 +123,15 @@ const CONTEXT_CODE = {
   transport: TransportApp.preload,
   education: EducationApp.preload,
 };
+// Dados do primeiro quadro de cada contexto. O Clima fica de fora: depende das
+// fontes externas de tempo, e as leituras vêm em ondas próprias.
+const CONTEXT_DATA = {
+  environment: (client: QueryClient) => prefetchEnvironment(client),
+  socioeconomic: prefetchSocioeconomic,
+  political: prefetchPolitical,
+  transport: prefetchTransport,
+  education: prefetchEducation,
+};
 
 // Peças do painel e do mapa que só montam com outra camada ou com uma seleção.
 // Chegam com o navegador ocioso: sem isso, o primeiro uso trocava o painel pelo
@@ -136,7 +150,7 @@ const CLIMATE_ON_DEMAND = [
 ];
 
 export default function App() {
-  const { context, control } = useDataContext(CONTEXT_CODE);
+  const { context, control } = useDataContext(CONTEXT_CODE, CONTEXT_DATA);
   useEffect(
     () =>
       scheduleIdle(() => {
@@ -883,6 +897,7 @@ function ClimateApp({
                 <EnvironmentThematicSwitch
                   layer={environmentLayer}
                   onChange={handleEnvironmentLayer}
+                  onIntent={environment.prefetchLayer}
                   years={environment.availableYears}
                   year={environment.year}
                   onYearChange={environment.setYear}

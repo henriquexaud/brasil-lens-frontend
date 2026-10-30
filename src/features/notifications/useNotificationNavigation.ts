@@ -1,9 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { FollowedMunicipality } from '@/api/types';
 import { useFollowedMunicipalities } from '@/features/follow/useFollowedMunicipalities';
 
 export function useNotificationNavigation(onOpen: (item: FollowedMunicipality) => void) {
-  const followed = useFollowedMunicipalities();
+  // Só uma URL de aviso precisa da lista; sem ela, o Meio ambiente não a pede à toa.
+  const [fromNotification] = useState(() =>
+    new URL(window.location.href).searchParams.has('municipality'),
+  );
+  const followed = useFollowedMunicipalities(fromNotification);
   useEffect(() => {
     if (!followed.data) return;
     const url = new URL(window.location.href);

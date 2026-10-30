@@ -7,10 +7,12 @@ export function TransportControls({
   preferences,
   onChange,
   catalog,
+  onWaterwaysIntent,
 }: {
   preferences: TransportPreferences;
   onChange: (next: TransportPreferences) => void;
   catalog?: TransportCatalog;
+  onWaterwaysIntent?: () => void;
 }) {
   const source = (key: 'osm' | 'ibge'): DataSource | null => {
     const item = catalog?.sources.find((entry) => entry.key === key);
@@ -29,7 +31,9 @@ export function TransportControls({
         className="indicator-segmented-control"
         label="Modos de transporte"
         value={preferences.tab}
-        options={TAB_OPTIONS}
+        options={TAB_OPTIONS.map((option) =>
+          option.value === 'waterways' ? { ...option, onIntent: onWaterwaysIntent } : option,
+        )}
         onChange={(value) => onChange({ ...preferences, tab: value as TransportTab })}
       />
       {preferences.tab === 'roads' && (

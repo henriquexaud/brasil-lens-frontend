@@ -22,7 +22,13 @@ import { OsmTransportLayer } from './OsmTransportLayer';
 import { TransportControls } from './TransportControls';
 import { TransportLegend } from './TransportLegend';
 import { TransportPanel } from './TransportPanel';
-import { useTransportCatalog, useTransportNetwork, useTransportSummary } from './queries';
+import {
+  PORTS,
+  networkOptions,
+  useTransportCatalog,
+  useTransportNetwork,
+  useTransportSummary,
+} from './queries';
 import './transport.css';
 
 // Território sem pintura: aqui o dado é o traçado, desenhado por cima.
@@ -81,7 +87,13 @@ export default function TransportApp({ contextControl }: { contextControl: React
     area,
     waterways && pageVisible && scopeReady && !viewport.moving && (detail < 6 || Boolean(area)),
   );
-  const ports = useTransportNetwork('port', 4, 4, undefined, waterways && pageVisible);
+  const ports = useTransportNetwork(...PORTS, waterways && pageVisible);
+  // Ao apontar para Hidrovias, o traçado da vista e os portos já começam a vir.
+  const prefetchWaterways = useCallback(() => {
+    void queryClient.prefetchQuery(networkOptions(...PORTS));
+    if (scopeReady && (detail < 6 || area))
+      void queryClient.prefetchQuery(networkOptions('waterway', detail, viewport.zoom, area));
+  }, [queryClient, scopeReady, detail, area, viewport.zoom]);
   const detailCode = selectedCode ?? scope.parent ?? 'BR';
   const summary = useTransportSummary(detailCode, pageVisible);
 
@@ -208,6 +220,7 @@ export default function TransportApp({ contextControl }: { contextControl: React
               preferences={preferences}
               onChange={setPreferences}
               catalog={catalog.data}
+              onWaterwaysIntent={prefetchWaterways}
             />
           </div>
           {(failure || dataError) && (

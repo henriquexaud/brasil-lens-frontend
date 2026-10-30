@@ -23,9 +23,11 @@ export function EnvironmentThematicSwitch({
   fireLoading,
   fireError,
   scopeName,
+  onIntent,
 }: {
   layer: EnvironmentLayer;
   onChange: (layer: EnvironmentLayer) => void;
+  onIntent?: (layer: EnvironmentLayer) => void;
   years: number[];
   year: string;
   onYearChange: (year: string) => void;
@@ -43,7 +45,7 @@ export function EnvironmentThematicSwitch({
     <div className="weather-thematic-selector">
       <SegmentedControl
         label="Visualização temática do mapa"
-        options={OPTIONS}
+        options={OPTIONS.map((option) => ({ ...option, onIntent: () => onIntent?.(option.value) }))}
         value={layer === 'none' ? null : layer}
         allowDeselect
         onChange={(value) => onChange((value as EnvironmentLayer | null) ?? 'none')}

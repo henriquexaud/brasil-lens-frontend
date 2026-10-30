@@ -6,8 +6,9 @@ const dom = installDom();
 const { createElement: h, act } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
-const { SocioeconomicApp, presentationFor, useDataContext, SESSION_STORAGE_KEY } = await loadModule(`
+const { SocioeconomicApp, presentationFor, useDataContext, SESSION_STORAGE_KEY, prefetchSocioeconomic } = await loadModule(`
   export { default as SocioeconomicApp } from './src/features/socioeconomic/SocioeconomicApp';
+  export { prefetchSocioeconomic } from './src/features/socioeconomic/queries';
   export { presentationFor } from './src/features/socioeconomic/presentation';
   export { useDataContext } from './src/app/useDataContext';
   export { SESSION_STORAGE_KEY } from './src/lib/sessionStorage';
@@ -134,12 +135,22 @@ test('trocar contexto preserva preferências climáticas e território', async (
   const state = { dataContext:'climate', activeThematicLayer:'rainfall', showHydrography:false, selectedCode:'3550308' };
   window.sessionStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify(state));
   function Probe() { return useDataContext().control; }
-  await act(async()=>root.render(h(Probe)));
+  await act(async()=>root.render(h(QueryClientProvider,{client},h(Probe))));
   const select = document.querySelector('#data-context');
   await act(async()=>{ select.value='socioeconomic'; select.dispatchEvent(new window.Event('change',{bubbles:true})); });
   assert.deepEqual(stored(), {...state,dataContext:'socioeconomic'});
   await act(async()=>{ select.value='climate'; select.dispatchEvent(new window.Event('change',{bubbles:true})); });
   assert.deepEqual(stored(),state);
+});
+
+test('a pré-carga da troca de contexto aquece as mesmas chaves que o contexto usa', async () => {
+  window.sessionStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({ scope:{level:'municipality',parent:'35',parentName:'São Paulo'}, socioeconomic:{indicatorKey:'gdp',year:'2022'} }));
+  await prefetchSocioeconomic(client);
+  assert.deepEqual(calls.map(url=>url.pathname.split('/').pop()),['indicators','values']);
+  calls = [];
+  await render();
+  assert.equal(calls.some(url=>url.pathname.endsWith('/indicators') || url.pathname.endsWith('/values')),false);
+  assert.equal(globalThis.mapProps.dataLoading,false);
 });
 
 async function openDetails() {

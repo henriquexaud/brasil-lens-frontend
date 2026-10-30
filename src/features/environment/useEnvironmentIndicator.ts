@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { MapIndicatorMeta, MapValuesResponse } from '@/api/types';
 import type { MapScopeState } from '@/features/map/useMapScope';
 import type { TerritoryPresentation } from '@/features/map/TerritoryPresentation';
 import { presentationFor } from '@/features/socioeconomic/presentation';
 import { yearForIndicator } from '@/features/socioeconomic/indicatorCategories';
 import { INDICATOR_LAYERS, type IndicatorLayer } from './layers';
-import { useEnvironmentIndicators, useEnvironmentValues } from './queries';
+import { scheduleIdle } from '@/lib/idle';
+import { prefetchEnvironment, useEnvironmentIndicators, useEnvironmentValues } from './queries';
 
 interface Options {
   layer: IndicatorLayer | null;
@@ -51,6 +53,19 @@ export function useEnvironmentIndicator({
     year,
     municipalEnabled,
   );
+  // A aba sob o cursor ou o dedo começa a vir antes do clique; com o mapa pronto,
+  // a outra aba de dado chega com o navegador ocioso.
+  const client = useQueryClient();
+  const prefetchLayer = useCallback(
+    (next: string) => {
+      if (next === 'forest' || next === 'deforestation') void prefetchEnvironment(client, next);
+    },
+    [client],
+  );
+  useEffect(() => {
+    if (!layer || !values.data || !pageVisible) return;
+    return scheduleIdle(() => prefetchLayer(layer === 'forest' ? 'deforestation' : 'forest'), 1500);
+  }, [layer, values.data, pageVisible, prefetchLayer]);
   // Sem dado ainda, uma apresentação vazia faz os territórios pulsarem como carga.
   const presentation = useMemo<TerritoryPresentation | undefined>(
     () =>
@@ -113,6 +128,7 @@ export function useEnvironmentIndicator({
     municipalPresentation,
     onNationalPublished,
     legendData,
+    prefetchLayer,
     loading: Boolean(layer) && (catalog.isPending || (Boolean(current) && values.isPending)),
     fetching: Boolean(layer) && (catalog.isFetching || values.isFetching),
     error: layer ? (catalog.error ?? values.error ?? municipalValues.error) : null,

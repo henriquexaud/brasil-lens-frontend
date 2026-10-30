@@ -12,10 +12,13 @@ export function EducationControls({
   preferences,
   onChange,
   indicators,
+  onIntent,
 }: {
   preferences: EducationPreferences;
   onChange: (next: EducationPreferences) => void;
   indicators?: Indicator[];
+  // A escolha sob o cursor ou o dedo: o mapa dela começa a vir antes do clique.
+  onIntent?: (next: EducationPreferences) => void;
 }) {
   const find = (network: EducationNetwork, kind: EducationKind) =>
     indicators?.find((item) => item.key === indicatorKey(network, kind));
@@ -24,6 +27,11 @@ export function EducationControls({
   const kinds = KIND_OPTIONS.filter(
     (option) => option.value === 'all' || find(preferences.network, option.value)?.latestYear,
   );
+  const withNetwork = (network: EducationNetwork): EducationPreferences => ({
+    ...preferences,
+    network,
+    kind: find(network, preferences.kind)?.latestYear ? preferences.kind : 'all',
+  });
   const years = indicator?.availableYears ?? [];
   const latestLabel = indicator?.latestYear
     ? `${indicator.latestYear} · Último`
@@ -34,12 +42,11 @@ export function EducationControls({
         className="indicator-segmented-control"
         label="Redes públicas de ensino superior"
         value={preferences.network}
-        options={NETWORK_OPTIONS}
-        onChange={(value) => {
-          const network = value as EducationNetwork;
-          const kind = find(network, preferences.kind)?.latestYear ? preferences.kind : 'all';
-          onChange({ ...preferences, network, kind });
-        }}
+        options={NETWORK_OPTIONS.map((option) => ({
+          ...option,
+          onIntent: () => onIntent?.(withNetwork(option.value)),
+        }))}
+        onChange={(value) => onChange(withNetwork(value as EducationNetwork))}
       />
       {kinds.length > 2 && (
         <div className="indicator-pills-row" role="group" aria-label="Tipo de instituição">
@@ -52,6 +59,8 @@ export function EducationControls({
                 className={`indicator-pill-btn ${active ? 'is-active' : ''}`}
                 aria-pressed={active}
                 title={option.title}
+                onMouseEnter={() => onIntent?.({ ...preferences, kind: option.value })}
+                onPointerDown={() => onIntent?.({ ...preferences, kind: option.value })}
                 onClick={() => onChange({ ...preferences, kind: option.value })}
               >
                 {option.label}

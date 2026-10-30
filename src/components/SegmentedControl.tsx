@@ -50,6 +50,7 @@ export function SegmentedControl({
           className={`segmented-control-tab ${option.value === value ? 'is-active' : ''}`}
           onMouseEnter={option.onIntent}
           onFocus={option.onIntent}
+          onPointerDown={option.onIntent}
           onClick={() => {
             if (option.value !== value) onChange(option.value);
             else if (allowDeselect) onChange(null);

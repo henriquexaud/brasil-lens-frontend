@@ -17,15 +17,22 @@ import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
 import type { LocatedMunicipality } from '@/features/search/LocationButton';
 import { Legend } from '@/features/socioeconomic/Legend';
 import { paletteForIndicator } from '@/features/socioeconomic/colors';
+import { scheduleIdle } from '@/lib/idle';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 import { useMobileSheet } from '@/app/useMobileSheet';
-import { DEFAULT_EDUCATION, indicatorKey } from './education';
+import {
+  DEFAULT_EDUCATION,
+  NETWORK_OPTIONS,
+  indicatorKey,
+  type EducationPreferences,
+} from './education';
 import { EducationControls } from './EducationControls';
 import { EducationPanel } from './EducationPanel';
 import { InstitutionDetail } from './InstitutionDetail';
 import { NO_OFFER, educationPresentation, highlightInstitution } from './presentation';
 import {
+  prefetchEducationChoice,
   useEducationIndicators,
   useEducationInstitution,
   useEducationTerritory,
@@ -139,6 +146,30 @@ export default function EducationApp({ contextControl }: { contextControl: React
     kind,
     pageVisible && institutionCode === null,
   );
+  const prefetchChoice = useCallback(
+    (choice: EducationPreferences) => {
+      if (catalog.data)
+        void prefetchEducationChoice(
+          queryClient,
+          catalog.data,
+          scope.level,
+          scope.parent,
+          detailCode,
+          choice,
+        );
+    },
+    [queryClient, catalog.data, scope.level, scope.parent, detailCode],
+  );
+  // Com o mapa pronto e parado, as outras redes do recorte chegam com o navegador
+  // ocioso: no celular, sem hover, a troca de aba também pinta na hora.
+  useEffect(() => {
+    if (!values.data || viewport.moving || !pageVisible) return;
+    return scheduleIdle(() => {
+      for (const option of NETWORK_OPTIONS)
+        if (option.value !== preferences.network)
+          prefetchChoice({ ...preferences, network: option.value });
+    }, 1500);
+  }, [values.data, viewport.moving, pageVisible, preferences, prefetchChoice]);
 
   const selectMapTerritory = useCallback(
     (code: string) => {
@@ -288,6 +319,7 @@ export default function EducationApp({ contextControl }: { contextControl: React
               preferences={{ ...preferences, kind, year }}
               onChange={setPreferences}
               indicators={catalog.data?.indicators}
+              onIntent={prefetchChoice}
             />
           </div>
           {(failure || dataError) && (
