@@ -16,6 +16,15 @@ export interface AuthState {
   saveTheme: (theme: User['theme']) => void;
   savingTheme: boolean;
   themeError: Error | null;
+  acceptTerms: () => void;
+  acceptingTerms: boolean;
+  termsError: Error | null;
+  deleteAccount: (password: string) => void;
+  deletingAccount: boolean;
+  deleteError: Error | null;
+  resetDelete: () => void;
+  /** A conta acabou de ser excluída neste aparelho: a tela de acesso confirma. */
+  accountDeleted: boolean;
 }
 
 export const AuthContext = createContext<AuthState | null>(null);

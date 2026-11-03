@@ -1,11 +1,11 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, apiGet, apiPost, apiPut, onAuthenticationRequired } from '@/api/client';
 import type { LoginRequest, RegisterRequest, User } from '@/api/types';
 import { crossfade, finishEntryAnimations, waitFor } from '@/app/crossfade';
 import { restoreTheme } from '@/app/theme';
 import { AuthContext } from './AuthContext';
-import { disableDevice } from '@/features/notifications/device';
+import { disableDevice, forgetDevice } from '@/features/notifications/device';
 
 const AUTH_KEY = ['auth', 'me'] as const;
 
@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const user = account.data ?? null;
   const userTheme = user?.theme;
+  const [accountDeleted, setAccountDeleted] = useState(false);
 
   const clearPrivateData = async () => {
     await client.cancelQueries({ queryKey: ['me'] });
@@ -63,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       theme.reset();
       logout.reset();
+      setAccountDeleted(false);
     },
   });
   const logout = useMutation({
@@ -91,6 +93,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const terms = useMutation({
+    mutationKey: ['me', user?.id, 'terms'],
+    mutationFn: () => apiPost<User>('/me/terms', undefined),
+    onSuccess: async (next) => {
+      await client.cancelQueries({ queryKey: AUTH_KEY });
+      client.setQueryData<User | null>(AUTH_KEY, (current) =>
+        current?.id === next.id ? next : current,
+      );
+    },
+  });
+  const removal = useMutation({
+    mutationKey: ['me', user?.id, 'delete'],
+    mutationFn: async (password: string) => {
+      await apiPost<void>('/me/delete', { password });
+      // A conta já não existe; uma falha ao limpar o navegador não pode desfazer isso.
+      await forgetDevice().catch(() => undefined);
+    },
+    onSuccess: async () => {
+      await client.cancelQueries({ queryKey: AUTH_KEY });
+      setAccountDeleted(true);
+      await crossfade('screen', () => {
+        client.setQueryData(AUTH_KEY, null);
+      });
+      await clearPrivateData();
+      credentials.reset();
+      theme.reset();
+      terms.reset();
+    },
+  });
+
   return (
     <AuthContext.Provider
       value={{
@@ -110,6 +142,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveTheme: theme.mutate,
         savingTheme: theme.isPending,
         themeError: theme.error,
+        acceptTerms: () => terms.mutate(),
+        acceptingTerms: terms.isPending,
+        termsError: terms.error,
+        deleteAccount: removal.mutate,
+        deletingAccount: removal.isPending,
+        deleteError: removal.error,
+        resetDelete: removal.reset,
+        accountDeleted,
       }}
     >
       {children}

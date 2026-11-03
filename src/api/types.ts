@@ -91,6 +91,8 @@ export interface User {
   name: string;
   email: string;
   theme: 'light' | 'dark';
+  /** Falso quando a conta ainda não aceitou a versão vigente da Política e dos Termos. */
+  termsAccepted: boolean;
 }
 
 export interface LoginRequest {
@@ -101,6 +103,17 @@ export interface LoginRequest {
 export interface RegisterRequest extends LoginRequest {
   name: string;
   theme: User['theme'];
+  acceptTerms: true;
+}
+
+/** `GET /me/data`: o arquivo que a pessoa baixa com os próprios dados. */
+export interface AccountExport {
+  exportedAt: string;
+  account: Record<string, unknown>;
+  followedMunicipalities: Record<string, unknown>[];
+  devices: { pushService: string; registeredAt: string }[];
+  notifications: Record<string, unknown>[];
+  activeSessions: number;
 }
 export type GeometryLod = 'canonical' | 'overview' | 'detail';
 

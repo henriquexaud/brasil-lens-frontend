@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { LEGAL_PATHS } from '@/features/legal/routes';
+import { useModalDialog } from '@/lib/useModalDialog';
 
 function PixMark({ size = 20 }: { size?: number }) {
   return (
@@ -18,7 +20,7 @@ const PIX_CODE =
   '00020126670014br.gov.bcb.pix0124xxhenriquexaud@gmail.com0217Doacao_Voluntaria5204000053039865802BR5925HENRIQUE_ABRAHIM_RAMALHO_6015SAO_JOSE_DOS_CA62290525hFhKFMRm0Ds1BBuR6j4VJijrz6304C76E';
 
 function DonationDialog({ onClose }: { onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useModalDialog();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -26,12 +28,6 @@ function DonationDialog({ onClose }: { onClose: () => void }) {
     const timer = window.setTimeout(() => setCopied(false), 2000);
     return () => window.clearTimeout(timer);
   }, [copied]);
-
-  useEffect(() => {
-    // Sem `close()` na limpeza: ao sair do DOM o diálogo deixa a camada do topo, e o
-    // `close()` dispararia `onClose` (no StrictMode, logo depois de abrir).
-    if (dialog.current && !dialog.current.open) dialog.current.showModal();
-  }, []);
 
   return (
     <dialog
@@ -74,6 +70,12 @@ function DonationDialog({ onClose }: { onClose: () => void }) {
         >
           {copied ? 'Código copiado' : 'Copiar código Pix'}
         </button>
+        <p className="donation-legal">
+          Doação voluntária ao mantenedor, pessoa física, sem contrapartida.{' '}
+          <a href={LEGAL_PATHS.terms} target="_blank" rel="noreferrer">
+            Termos
+          </a>
+        </p>
       </div>
     </dialog>
   );

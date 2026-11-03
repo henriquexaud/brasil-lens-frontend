@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { StrictMode } from 'react';
+import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { ApiError, isTransientError, onSourceRecovered } from './api/client';
 import { AuthProvider } from './features/auth/AuthProvider';
 import { AuthGate } from './features/auth/AuthGate';
+import { legalDocumentFor } from './features/legal/routes';
 import './styles.css';
 
 const queryClient = new QueryClient({
@@ -26,6 +27,10 @@ onSourceRecovered((source) => {
   });
 });
 
+const LegalPage = lazy(() => import('./features/legal/LegalPage'));
+// Política e Termos são públicos: precisam abrir antes da conta, a partir da tela de acesso.
+const legalDocument = legalDocumentFor(window.location.pathname);
+
 const container = document.getElementById('root');
 if (!container) throw new Error('Elemento #root não encontrado.');
 
@@ -33,7 +38,13 @@ createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AuthGate />
+        {legalDocument ? (
+          <Suspense fallback={null}>
+            <LegalPage document={legalDocument} />
+          </Suspense>
+        ) : (
+          <AuthGate />
+        )}
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,

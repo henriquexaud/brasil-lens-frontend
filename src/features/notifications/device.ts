@@ -71,3 +71,11 @@ export async function disableDevice() {
   }
   for (const notification of (await registration?.getNotifications()) ?? []) notification.close();
 }
+
+// Depois da exclusão da conta, o servidor já apagou a inscrição: só o navegador precisa esquecê-la.
+export async function forgetDevice() {
+  if (!supportsPush()) return;
+  const registration = await navigator.serviceWorker.getRegistration('/');
+  await (await registration?.pushManager.getSubscription())?.unsubscribe();
+  for (const notification of (await registration?.getNotifications()) ?? []) notification.close();
+}

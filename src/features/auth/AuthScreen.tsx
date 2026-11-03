@@ -2,10 +2,13 @@ import { useState, type FormEvent } from 'react';
 import { ApiError } from '@/api/client';
 import { loadTheme } from '@/app/theme';
 import { ThemeSwitch } from '@/components/ThemeSwitch';
+import { LEGAL_PATHS } from '@/features/legal/routes';
 import { useAuth } from './AuthContext';
 import { AuthLens } from './AuthLens';
 
-type Field = 'name' | 'email' | 'password';
+type Field = 'name' | 'email' | 'password' | 'terms';
+
+const TERMS_REQUIRED = 'Para criar a conta, aceite os Termos de Uso e a Política de Privacidade.';
 
 // Mensagens próprias: as do navegador mudam de idioma e de estilo a cada sistema.
 function fieldError(input: HTMLInputElement): string | undefined {
@@ -46,8 +49,10 @@ export function AuthScreen() {
         return message ? [[input.name, message]] : [];
       }),
     );
+    const terms = form.elements.namedItem('terms') as HTMLInputElement | null;
+    if (terms && !terms.checked) found.terms = TERMS_REQUIRED;
     setErrors(found);
-    const invalid = inputs.find((input) => found[input.name]);
+    const invalid = inputs.find((input) => found[input.name]) ?? (found.terms ? terms : null);
     if (invalid) {
       invalid.focus();
       return;
@@ -59,7 +64,12 @@ export function AuthScreen() {
     };
     auth.submit(
       registering
-        ? { ...credentials, name: String(fields.get('name')).trim(), theme: loadTheme() }
+        ? {
+            ...credentials,
+            name: String(fields.get('name')).trim(),
+            theme: loadTheme(),
+            acceptTerms: true,
+          }
         : credentials,
     );
   }
@@ -76,6 +86,11 @@ export function AuthScreen() {
           </div>
           <section className="auth-card" aria-labelledby="auth-title">
             <h1 id="auth-title">{registering ? 'Crie sua conta' : 'Acesse sua conta'}</h1>
+            {auth.accountDeleted && !registering && (
+              <p className="auth-notice" role="status">
+                Sua conta e todos os dados dela foram excluídos.
+              </p>
+            )}
             <form
               onSubmit={submit}
               onInput={(event) => {
@@ -175,6 +190,31 @@ export function AuthScreen() {
                     )
                   )}
                 </div>
+                {registering && (
+                  <div className="auth-field">
+                    <label className="auth-consent">
+                      <input
+                        name="terms"
+                        type="checkbox"
+                        required
+                        aria-invalid={Boolean(errors.terms)}
+                        aria-describedby={errors.terms ? 'auth-terms-error' : undefined}
+                      />
+                      <span>
+                        Li e aceito os{' '}
+                        <a href={LEGAL_PATHS.terms} target="_blank" rel="noreferrer">
+                          Termos de Uso
+                        </a>{' '}
+                        e a{' '}
+                        <a href={LEGAL_PATHS.privacy} target="_blank" rel="noreferrer">
+                          Política de Privacidade
+                        </a>
+                        .
+                      </span>
+                    </label>
+                    <FieldError id="auth-terms-error" message={errors.terms} />
+                  </div>
+                )}
                 {auth.submitError && (
                   <p className="auth-error" role="alert">
                     {auth.submitError instanceof ApiError
@@ -217,6 +257,11 @@ export function AuthScreen() {
               em Municípios seguidos, quando quiser.
             </p>
           )}
+          <nav className="auth-legal" aria-label="Documentos">
+            <a href={LEGAL_PATHS.privacy}>Privacidade</a>
+            <span aria-hidden="true">·</span>
+            <a href={LEGAL_PATHS.terms}>Termos de Uso</a>
+          </nav>
         </div>
         <aside className="auth-visual" aria-hidden="true">
           <AuthLens />

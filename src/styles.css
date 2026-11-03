@@ -288,7 +288,7 @@ body {
   font-weight: 500;
 }
 
-.auth-field input {
+.auth-field input:not([type='checkbox']) {
   width: 100%;
   min-height: 48px;
   padding: 11px 14px;
@@ -305,7 +305,7 @@ body {
     box-shadow var(--motion-fast) var(--ease-out);
 }
 
-.auth-field input:hover {
+.auth-field input:not([type='checkbox']):hover {
   border-color: var(--focus-border);
 }
 
@@ -314,18 +314,18 @@ body {
   opacity: 0.75;
 }
 
-.auth-field input:focus,
-.auth-field input:focus-visible {
+.auth-field input:not([type='checkbox']):focus,
+.auth-field input:not([type='checkbox']):focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.auth-field input[aria-invalid='true'] {
+.auth-field input[aria-invalid='true']:not([type='checkbox']) {
   border-color: var(--danger);
 }
 
-.auth-field input[aria-invalid='true']:focus {
+.auth-field input[aria-invalid='true']:not([type='checkbox']):focus {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 16%, transparent);
 }
 
@@ -460,6 +460,70 @@ body {
   font-size: 13px;
 }
 
+.auth-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-soft);
+  font-size: 12.5px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.auth-consent input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.auth-consent input:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+}
+
+.auth-consent input[aria-invalid='true'] {
+  outline: 2px solid color-mix(in srgb, var(--danger) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.auth-consent a,
+.auth-legal a,
+.account-card a,
+.donation-legal a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.auth-notice {
+  margin: -8px 0 20px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font-size: 13px;
+}
+
+.auth-legal {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.auth-legal a {
+  color: var(--text-soft);
+  text-decoration: none;
+}
+
+.auth-legal a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
 .auth-alternative {
   margin: 24px 0 0;
   color: var(--text-soft);
@@ -504,11 +568,31 @@ body {
 }
 
 .account-menu__name {
+  min-width: 0;
   overflow: hidden;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-soft);
+  font: inherit;
   font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.account-menu__name:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.account-menu__name:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .account-menu .auth-error {
@@ -3819,7 +3903,7 @@ body {
 @media (max-width: 900px) {
   /* Tema e doação ficam fixos abaixo da busca: não pulam junto com a gaveta,
      e a gaveta cheia os cobre. */
-  .app:not(.auth-page) .theme-switch {
+  .app:not(.auth-page, .legal-page) .theme-switch {
     top: calc(max(var(--gutter), env(safe-area-inset-top)) + 44px);
     right: max(var(--gutter), env(safe-area-inset-right));
     bottom: auto;
@@ -3828,7 +3912,7 @@ body {
     height: 34px;
   }
 
-  .app:not(.auth-page) .theme-switch__thumb {
+  .app:not(.auth-page, .legal-page) .theme-switch__thumb {
     top: calc(50% - 13px);
     width: 26px;
     height: 26px;
@@ -3953,7 +4037,8 @@ body {
 
 /* --------------------------------------------------------------- modal -- */
 
-.donation-dialog {
+.donation-dialog,
+.account-dialog {
   width: min(340px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   padding: 0;
@@ -3965,11 +4050,13 @@ body {
   overflow: auto;
 }
 
-.donation-dialog[open] {
+.donation-dialog[open],
+.account-dialog[open] {
   animation: donation-in var(--motion-ui) var(--ease-out);
 }
 
-.donation-dialog::backdrop {
+.donation-dialog::backdrop,
+.account-dialog::backdrop {
   background: rgb(8 20 28 / 45%);
   backdrop-filter: blur(2px);
 }
@@ -4068,6 +4155,168 @@ body {
 
 .donation-copy:focus-visible {
   outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.donation-legal {
+  margin: -4px 0 0;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.account-dialog {
+  width: min(400px, calc(100vw - 32px));
+}
+
+.account-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px 20px;
+  font-size: 13px;
+}
+
+.account-card p {
+  margin: 0;
+}
+
+.account-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.account-muted {
+  color: var(--text-soft);
+}
+
+.account-identity {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.account-identity dt {
+  color: var(--text-soft);
+}
+
+.account-identity dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-section {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.account-section h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account-delete {
+  display: grid;
+  gap: 8px;
+}
+
+.account-delete label {
+  font-weight: 500;
+}
+
+.account-delete input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.account-delete input:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 1px;
+}
+
+.account-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.account-primary,
+.account-secondary,
+.account-danger {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+
+.account-secondary {
+  justify-self: start;
+}
+
+.account-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.account-danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.account-secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.account-secondary--danger {
+  color: var(--danger);
+}
+
+.account-secondary--danger:hover:not(:disabled) {
+  border-color: var(--danger);
+}
+
+.account-primary:disabled,
+.account-secondary:disabled,
+.account-danger:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.account-primary:focus-visible,
+.account-secondary:focus-visible,
+.account-danger:focus-visible {
+  outline: 2px solid var(--focus-border);
   outline-offset: 2px;
 }
 

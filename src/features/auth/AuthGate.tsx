@@ -4,6 +4,7 @@ import { scheduleIdle } from '@/lib/idle';
 import { lazyPreload } from '@/lib/lazyPreload';
 import { useAuth } from './AuthContext';
 import { AuthScreen } from './AuthScreen';
+import { TermsNotice } from './TermsNotice';
 import './auth-lens.css';
 
 const loadableMapApp = lazyPreload(() => import('@/App'));
@@ -26,6 +27,7 @@ export function AuthGate() {
     return (
       <Suspense fallback={<LoadingAccount />}>
         <MapApp key={auth.user.id} />
+        {!auth.user.termsAccepted && <TermsNotice />}
       </Suspense>
     );
   if (auth.loadError)

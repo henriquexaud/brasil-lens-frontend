@@ -4,7 +4,8 @@
     {
       "source": "/api/v1/:path*",
       "destination": "https://brasil-lens-api.onrender.com/api/v1/:path*"
-    }
+    },
+    { "source": "/(privacidade|termos)", "destination": "/index.html" }
   ],
   "functions": {
     "api/open-meteo/v1/forecast.ts": { "maxDuration": 30 }

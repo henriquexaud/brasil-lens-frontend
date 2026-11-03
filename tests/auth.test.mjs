@@ -4,6 +4,12 @@ import { disposeHarness, installDom, loadModule } from './helpers/harness.mjs';
 
 installDom();
 globalThis.FormData = window.FormData;
+// O jsdom não implementa o modal nativo; basta abrir e fechar com o evento `close`.
+window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+window.HTMLDialogElement.prototype.close = function () {
+  this.open = false;
+  this.dispatchEvent(new window.Event('close'));
+};
 const { createElement: h, act } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
@@ -11,6 +17,7 @@ const { Harness, THEME_STORAGE_KEY } = await loadModule(`
   import { AuthProvider } from './src/features/auth/AuthProvider';
   import { AuthScreen } from './src/features/auth/AuthScreen';
   import { AccountMenu } from './src/features/auth/AccountMenu';
+  import { TermsNotice } from './src/features/auth/TermsNotice';
   import { useAuth } from './src/features/auth/AuthContext';
   import { ThemeSwitch } from './src/components/ThemeSwitch';
   import { useFollowedMunicipalities } from './src/features/follow/useFollowedMunicipalities';
@@ -26,14 +33,16 @@ const { Harness, THEME_STORAGE_KEY } = await loadModule(`
     const auth = useAuth();
     if (auth.loading) return <p>Carregando conta</p>;
     if (auth.loadError) return <button onClick={auth.reload}>Tentar novamente</button>;
-    return auth.user ? <PrivateView key={auth.user.id} /> : <AuthScreen />;
+    return auth.user
+      ? <><PrivateView key={auth.user.id} />{!auth.user.termsAccepted && <TermsNotice />}</>
+      : <AuthScreen />;
   }
   export function Harness() { return <AuthProvider><Gate /></AuthProvider>; }
 `);
 
 let root, client, server, requests;
-const alice = { id: 'alice', name: 'Ana', email: 'ana@exemplo.com', theme: 'dark' };
-const bob = { id: 'bob', name: 'Bruno', email: 'bruno@exemplo.com', theme: 'light' };
+const alice = { id: 'alice', name: 'Ana', email: 'ana@exemplo.com', theme: 'dark', termsAccepted: true };
+const bob = { id: 'bob', name: 'Bruno', email: 'bruno@exemplo.com', theme: 'light', termsAccepted: true };
 const unauthorized = () => Response.json({ error: { code: 'authentication_required', message: 'Entre na sua conta para continuar.' } }, { status: 401 });
 
 beforeEach(() => {
@@ -53,7 +62,8 @@ beforeEach(() => {
       const body = init.body ? JSON.parse(init.body) : {};
       if (path === '/auth/register') {
         if (this.accounts.has(body.email)) return Response.json({ error: { code: 'conflict', message: 'Este e-mail já está cadastrado. Entre na sua conta.' } }, { status: 409 });
-        this.user = { id: 'new-user', name: body.name, email: body.email, theme: body.theme };
+        if (body.acceptTerms !== true) return Response.json({ error: { code: 'validation_error', message: 'Parâmetros inválidos.' } }, { status: 422 });
+        this.user = { id: 'new-user', name: body.name, email: body.email, theme: body.theme, termsAccepted: true };
         this.accounts.set(body.email, this.user);
         return Response.json(this.user, { status: 201 });
       }
@@ -71,6 +81,17 @@ beforeEach(() => {
         if (this.failTheme) throw new TypeError('Failed to fetch');
         this.user.theme = body.theme;
         return Response.json(this.user);
+      }
+      if (path === '/me/terms') {
+        this.user.termsAccepted = true;
+        return Response.json(this.user);
+      }
+      if (path === '/me/data') return Response.json({ exportedAt: '2026-11-02T12:00:00Z', account: { email: this.user.email }, followedMunicipalities: [], devices: [], notifications: [], activeSessions: 1 });
+      if (path === '/me/delete') {
+        if (body.password !== 'senha-123') return Response.json({ error: { code: 'invalid_parameter', message: 'Senha incorreta.' } }, { status: 400 });
+        this.accounts.delete(this.user.email);
+        this.user = null;
+        return new Response(null, { status: 204 });
       }
       if (path === '/me/followed-municipalities') return Response.json({ municipalities: this.user.id === 'alice' ? [{ municipalityCode: '3550308', name: 'São Paulo' }] : [] });
       throw new Error(`Requisição inesperada: ${path}`);
@@ -103,10 +124,12 @@ async function click(button) {
   await act(async () => button.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
 }
 function button(text) { return [...document.querySelectorAll('button')].find(item => item.textContent.trim() === text); }
-async function submit(email, password = 'senha-123', name) {
+async function submit(email, password = 'senha-123', name, { acceptTerms = true } = {}) {
   document.querySelector('[name=email]').value = email;
   document.querySelector('[name=password]').value = password;
   if (name) document.querySelector('[name=name]').value = name;
+  const terms = document.querySelector('[name=terms]');
+  if (terms) terms.checked = acceptTerms;
   await act(async () => document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
 }
 
@@ -200,4 +223,74 @@ test('falha de conexão permite tentar novamente sem perder a abertura da aplica
   server.failLoad = false;
   await click(button('Tentar novamente'));
   await until(() => document.querySelector('form'));
+});
+
+
+test('o cadastro exige aceitar os Termos e a Política, com links para os dois', async () => {
+  await render();
+  await until(() => document.querySelector('form'));
+  assert.ok(document.querySelector('a[href="/privacidade"]'));
+  assert.ok(document.querySelector('a[href="/termos"]'));
+  await click(button('Criar conta'));
+  const before = requests.length;
+  await submit('nova@exemplo.com', 'senha-123', 'Nova conta', { acceptTerms: false });
+  assert.equal(requests.length, before);
+  assert.match(document.body.textContent, /aceite os Termos de Uso e a Política de Privacidade/);
+  assert.equal(document.activeElement, document.querySelector('[name=terms]'));
+  await submit('nova@exemplo.com', 'senha-123', 'Nova conta');
+  await until(() => button('Sair'));
+  const register = requests.find(item => item.path === '/auth/register');
+  assert.equal(JSON.parse(register.body).acceptTerms, true);
+});
+
+test('conta sem a versão vigente só segue depois de aceitar a Política e os Termos', async () => {
+  server.user = { ...server.accounts.get(alice.email), termsAccepted: false };
+  await render();
+  await until(() => document.querySelector('dialog[open]'));
+  assert.match(document.querySelector('dialog').textContent, /Atualizamos a Política e os Termos/);
+  await click(button('Li e aceito'));
+  await until(() => !document.querySelector('dialog'));
+  assert.ok(requests.some(item => item.path === '/me/terms' && item.method === 'POST'));
+  assert.equal(client.getQueryData(['auth', 'me']).termsAccepted, true);
+});
+
+test('quem não aceita a nova versão pode sair da conta pelo aviso', async () => {
+  server.user = { ...server.accounts.get(alice.email), termsAccepted: false };
+  await render();
+  await until(() => document.querySelector('dialog[open]'));
+  await click(button('Sair da conta'));
+  await until(() => document.querySelector('form'));
+  assert.ok(!requests.some(item => item.path === '/me/terms'));
+});
+
+test('a conta baixa os próprios dados e é excluída só com a senha certa', async () => {
+  server.user = server.accounts.get(alice.email);
+  const downloads = [];
+  const { createObjectURL, revokeObjectURL } = URL;
+  URL.createObjectURL = (blob) => { downloads.push(blob); return 'blob:dados'; };
+  URL.revokeObjectURL = () => {};
+  after(() => Object.assign(URL, { createObjectURL, revokeObjectURL }));
+  window.HTMLAnchorElement.prototype.click = function () { downloads.push(this.download); };
+  await render();
+  await until(() => document.querySelector('li'));
+  await click(document.querySelector('.account-menu__name'));
+  await until(() => document.querySelector('dialog[open]'));
+  assert.match(document.querySelector('dialog').textContent, /ana@exemplo\.com/);
+
+  await click(button('Baixar meus dados'));
+  await until(() => downloads.includes('brasil-lens-meus-dados.json'));
+  assert.match(await downloads[0].text(), /"activeSessions": 1/);
+
+  await click(button('Excluir minha conta'));
+  document.querySelector('#account-password').value = 'incorreta';
+  await act(async () => document.querySelector('.account-delete').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
+  await until(() => /Senha incorreta/.test(document.querySelector('dialog').textContent));
+  assert.ok(server.accounts.has(alice.email));
+
+  document.querySelector('#account-password').value = 'senha-123';
+  await act(async () => document.querySelector('.account-delete').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
+  await until(() => document.querySelector('form [name=email]'));
+  assert.equal(server.accounts.has(alice.email), false);
+  assert.match(document.querySelector('[role=status]').textContent, /foram excluídos/);
+  assert.equal(client.getQueryCache().findAll({ queryKey: ['me'] }).length, 0);
 });
