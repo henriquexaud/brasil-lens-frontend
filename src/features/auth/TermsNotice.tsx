@@ -20,7 +20,7 @@ export function TermsNotice() {
           <h2 id="terms-notice-title">Atualizamos a Política e os Termos</h2>
         </header>
         <p>
-          Publicamos em {LEGAL_UPDATED} a{' '}
+          A{' '}
           <a href={LEGAL_PATHS.privacy} target="_blank" rel="noreferrer">
             Política de Privacidade
           </a>{' '}
@@ -28,11 +28,12 @@ export function TermsNotice() {
           <a href={LEGAL_PATHS.terms} target="_blank" rel="noreferrer">
             Termos de Uso
           </a>{' '}
-          do Brasil Lens. Para continuar usando a sua conta, leia e aceite os dois.
+          do Brasil Lens foram atualizados em {LEGAL_UPDATED}. Para continuar usando a sua conta,
+          leia e aceite os dois documentos.
         </p>
         <p className="account-muted">
-          Em resumo: guardamos só o necessário para a sua conta, notificações e localização são
-          opcionais, e você pode baixar seus dados ou excluir a conta quando quiser.
+          Em resumo: coletamos apenas o necessário para a sua conta, notificações e localização são
+          opcionais, e você pode baixar os seus dados ou excluir a conta quando quiser.
         </p>
         {auth.termsError && (
           <p className="auth-error" role="alert">

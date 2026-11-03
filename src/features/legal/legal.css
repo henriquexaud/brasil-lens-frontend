@@ -164,7 +164,17 @@
 }
 
 .legal-data dd {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
+.legal-data dd p {
+  margin: 0 0 4px;
+}
+
+.legal-data dd strong {
+  font-weight: 600;
 }
 
 .legal-footer {

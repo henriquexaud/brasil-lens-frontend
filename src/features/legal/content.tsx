@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { CONTACT_EMAIL, LEGAL_PATHS } from './routes';
 
 // Os textos ficam fora do bundle inicial: só a página legal (chunk próprio) importa este módulo.
-const CONTROLLER = 'Henrique Abrahim Ramalho';
 
 export interface LegalSection {
   id: string;
@@ -20,232 +19,305 @@ function Mail() {
   return <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
 }
 
+function Basis({ purpose, basis }: { purpose: ReactNode; basis: ReactNode }) {
+  return (
+    <>
+      <p>
+        <strong>Finalidade:</strong> {purpose}
+      </p>
+      <p>
+        <strong>Base legal:</strong> {basis}
+      </p>
+    </>
+  );
+}
+
 export const PRIVACY: LegalText = {
   title: 'Política de Privacidade',
   summary: (
     <ul>
-      <li>Pedimos só o necessário para a sua conta: nome, e-mail e senha.</li>
+      <li>Coletamos apenas o necessário para criar e manter a sua conta: nome, e-mail e senha.</li>
       <li>Notificações e localização são opcionais e dependem da sua autorização.</li>
-      <li>Não vendemos dados, não exibimos anúncios e não usamos cookies de rastreamento.</li>
       <li>
-        Você baixa seus dados ou exclui a conta a qualquer momento, no menu da conta, e fala conosco
-        por <Mail />.
+        Não vendemos dados pessoais, não exibimos publicidade e não usamos cookies de rastreamento.
+      </li>
+      <li>
+        Você pode baixar os seus dados ou excluir a sua conta a qualquer momento, no menu da conta.
       </li>
     </ul>
   ),
   sections: [
     {
+      id: 'sobre',
+      title: '1. Sobre esta Política',
+      body: (
+        <p>
+          Esta Política explica como o Brasil Lens (brasillens.com.br) coleta, utiliza, armazena,
+          compartilha e protege dados pessoais, em conformidade com a Lei Geral de Proteção de Dados
+          Pessoais (Lei nº 13.709/2018, “LGPD”). Ela se aplica a todas as pessoas que acessam o site
+          ou mantêm uma conta e deve ser lida em conjunto com os{' '}
+          <a href={LEGAL_PATHS.terms}>Termos de Uso</a>.
+        </p>
+      ),
+    },
+    {
       id: 'controlador',
-      title: '1. Quem cuida dos seus dados',
+      title: '2. Controlador e canal de atendimento',
       body: (
         <>
           <p>
-            O Brasil Lens é um projeto independente mantido por {CONTROLLER}, pessoa física,
-            controlador dos dados pessoais tratados no site, nos termos da Lei Geral de Proteção de
-            Dados (Lei nº 13.709/2018, a LGPD).
+            O Brasil Lens é um projeto independente e gratuito, mantido por uma pessoa física
+            residente no Brasil, que atua como controladora dos dados pessoais descritos nesta
+            Política (“nós”).
           </p>
           <p>
-            Para qualquer assunto sobre privacidade, inclusive para exercer os seus direitos,
-            escreva para <Mail />. Como agente de tratamento de pequeno porte, o projeto não nomeia
-            encarregado (Resolução CD/ANPD nº 2/2022, art. 11); esse endereço é o canal de
-            comunicação com os titulares.
+            O canal oficial de atendimento a titulares de dados e à Autoridade Nacional de Proteção
+            de Dados (ANPD) é o e-mail <Mail />. Como agente de tratamento de pequeno porte, o
+            projeto está dispensado de indicar encarregado (Resolução CD/ANPD nº 2/2022, art. 11), e
+            esse canal cumpre essa função. A identificação completa do controlador é fornecida, por
+            esse mesmo canal, ao titular que a solicitar e às autoridades competentes.
           </p>
         </>
       ),
     },
     {
       id: 'dados',
-      title: '2. Que dados tratamos e para quê',
+      title: '3. Dados tratados, finalidades e bases legais',
       body: (
-        <dl className="legal-data">
-          <dt>Conta</dt>
-          <dd>
-            Nome, e-mail, senha e tema (claro ou escuro). Servem para criar e proteger o seu acesso,
-            controlar quem acessa os mapas e guardar suas preferências. A senha é guardada só como
-            resumo criptográfico (scrypt): ninguém, nem o projeto, consegue lê-la. Base legal:
-            execução do contrato que você aceita ao criar a conta (art. 7º, V).
-          </dd>
-          <dt>Sessão</dt>
-          <dd>
-            Um cookie estritamente necessário, <code>brasil_lens_session</code>, guarda um código
-            aleatório que mantém você conectado por até 30 dias. O servidor guarda apenas o resumo
-            desse código. Base legal: execução do contrato.
-          </dd>
-          <dt>Aceite dos documentos</dt>
-          <dd>
-            A versão desta Política e dos Termos de Uso que você aceitou e a data do aceite, para
-            comprovar a concordância. Base legal: cumprimento de obrigação legal e exercício regular
-            de direitos (art. 7º, II e VI).
-          </dd>
-          <dt>Municípios seguidos</dt>
-          <dd>
-            Os municípios que você segue e quando passou a segui-los. Base legal: execução do
-            contrato.
-          </dd>
-          <dt>Notificações (opcionais)</dt>
-          <dd>
-            Ao ligar o sino de um município, o navegador cria uma inscrição de push (o endereço do
-            serviço de notificações do navegador e as chaves que cifram as mensagens) e registramos
-            a data da sua autorização. Guardamos também o histórico dos avisos gerados para você,
-            para não repetir o mesmo aviso. Base legal: consentimento (art. 7º, I), que você revoga
-            a qualquer momento pelo sino ou nas permissões do navegador.
-          </dd>
-          <dt>Localização (opcional)</dt>
-          <dd>
-            Ao tocar em localizar, o navegador pede a sua permissão e envia as coordenadas uma única
-            vez, só para encontrar o município em que você está. As coordenadas não são gravadas.
-            Base legal: consentimento.
-          </dd>
-          <dt>Registros técnicos</dt>
-          <dd>
-            Endereço IP, data e hora, página ou rota pedida e tipo de navegador ficam nos registros
-            dos provedores de hospedagem. O IP também fica na memória do servidor por até 5 minutos
-            para limitar tentativas de acesso. Servem à segurança, à prevenção de abusos e ao
-            diagnóstico de falhas. Base legal: legítimo interesse (art. 7º, IX).
-          </dd>
-          <dt>No seu aparelho</dt>
-          <dd>
-            O tema e o último recorte do mapa ficam no armazenamento local do navegador, sem sair do
-            seu aparelho.
-          </dd>
-          <dt>Doações por Pix</dt>
-          <dd>
-            Como em qualquer Pix, o banco mostra a quem recebe o nome de quem pagou. Esse dado não é
-            ligado à sua conta e é usado só no controle financeiro e nas obrigações fiscais (art.
-            7º, II).
-          </dd>
-        </dl>
+        <>
+          <dl className="legal-data">
+            <dt>Dados de cadastro</dt>
+            <dd>
+              <p>Nome, e-mail e senha.</p>
+              <Basis
+                purpose="criar a conta, autenticar o acesso e controlar quem utiliza os mapas. A senha é armazenada somente como hash criptográfico (scrypt) e não pode ser lida por ninguém, nem por nós."
+                basis="execução de contrato (art. 7º, V)."
+              />
+            </dd>
+            <dt>Preferências</dt>
+            <dd>
+              <p>
+                Tema (claro ou escuro) e municípios acompanhados, com a data em que passaram a ser
+                seguidos.
+              </p>
+              <Basis purpose="personalizar o serviço." basis="execução de contrato (art. 7º, V)." />
+            </dd>
+            <dt>Registro de aceite</dt>
+            <dd>
+              <p>Versão desta Política e dos Termos de Uso aceita por você e data do aceite.</p>
+              <Basis
+                purpose="comprovar a concordância com os documentos vigentes."
+                basis="exercício regular de direitos (art. 7º, VI)."
+              />
+            </dd>
+            <dt>Notificações (opcional)</dt>
+            <dd>
+              <p>
+                Inscrição de push criada pelo navegador (endereço do serviço de notificações e
+                chaves de criptografia), data da autorização para cada município e histórico dos
+                avisos gerados para a sua conta.
+              </p>
+              <Basis
+                purpose="enviar avisos meteorológicos oficiais dos municípios que você escolheu, sem repetições."
+                basis="consentimento (art. 7º, I), que pode ser revogado a qualquer momento pelo sino do município ou nas configurações do navegador."
+              />
+            </dd>
+            <dt>Localização (opcional)</dt>
+            <dd>
+              <p>
+                Coordenadas do aparelho, enviadas uma única vez, quando você usa a função de
+                localização. As coordenadas não são armazenadas.
+              </p>
+              <Basis
+                purpose="identificar o município em que você está."
+                basis="consentimento (art. 7º, I), concedido na permissão do navegador."
+              />
+            </dd>
+            <dt>Registros técnicos</dt>
+            <dd>
+              <p>
+                Endereço IP, data e hora, rota acessada e tipo de navegador, registrados pelos
+                provedores de hospedagem. O IP também é mantido na memória do servidor por até cinco
+                minutos, para limitar tentativas de acesso.
+              </p>
+              <Basis
+                purpose="garantir a segurança, prevenir fraudes e abusos e diagnosticar falhas."
+                basis="legítimo interesse (art. 7º, IX)."
+              />
+            </dd>
+            <dt>Doações por Pix</dt>
+            <dd>
+              <p>
+                Nome de quem doa, informado pela instituição financeira, como em qualquer
+                transferência Pix. Esse dado não é associado a contas do Brasil Lens.
+              </p>
+              <Basis
+                purpose="controle financeiro e cumprimento de obrigações fiscais."
+                basis="cumprimento de obrigação legal (art. 7º, II)."
+              />
+            </dd>
+          </dl>
+          <p>
+            Não coletamos CPF, telefone, endereço nem dados pessoais sensíveis, não vendemos nem
+            alugamos dados pessoais e não os utilizamos para publicidade ou criação de perfis.
+          </p>
+        </>
       ),
     },
     {
-      id: 'nao-fazemos',
-      title: '3. O que não fazemos',
+      id: 'cookies',
+      title: '4. Cookies e armazenamento local',
       body: (
-        <p>
-          Não vendemos nem alugamos dados pessoais, não exibimos publicidade, não usamos cookies de
-          rastreamento nem ferramentas de análise de terceiros e não pedimos CPF, endereço, telefone
-          ou dados sensíveis.
-        </p>
+        <>
+          <p>
+            Usamos um único cookie, estritamente necessário: <code>brasil_lens_session</code>, que
+            mantém você conectado por até 30 dias. Ele contém um código aleatório, é inacessível aos
+            scripts da página e, no servidor, apenas o resumo criptográfico desse código é guardado.
+            Não usamos cookies de publicidade nem ferramentas de análise de terceiros.
+          </p>
+          <p>
+            O tema escolhido e o último recorte do mapa ficam no armazenamento local do navegador e
+            não saem do seu aparelho.
+          </p>
+        </>
       ),
     },
     {
       id: 'compartilhamento',
-      title: '4. Com quem os dados são compartilhados',
+      title: '5. Compartilhamento de dados',
       body: (
         <>
           <p>
-            Só com os fornecedores que fazem o serviço funcionar, que tratam os dados em nome do
-            projeto e conforme as instruções dele:
+            Os dados são compartilhados apenas com os fornecedores necessários ao funcionamento do
+            serviço, que atuam como operadores, em nosso nome e de acordo com as nossas instruções:
           </p>
           <ul>
-            <li>Vercel: publica o site e repassa as requisições à API.</li>
-            <li>Render: executa a API.</li>
-            <li>Neon (na Amazon Web Services): hospeda o banco de dados.</li>
-            <li>GitHub: executa a rotina periódica que envia os avisos.</li>
             <li>
-              Serviços de push dos navegadores (Google, Apple, Mozilla, Microsoft): entregam as
-              notificações e recebem o aviso já cifrado.
+              <strong>Vercel:</strong> hospedagem do site e encaminhamento das requisições.
+            </li>
+            <li>
+              <strong>Render:</strong> execução da API.
+            </li>
+            <li>
+              <strong>Neon (Amazon Web Services):</strong> hospedagem do banco de dados.
+            </li>
+            <li>
+              <strong>GitHub:</strong> execução da rotina periódica de envio de avisos.
+            </li>
+            <li>
+              <strong>Serviços de push dos navegadores</strong> (Google, Apple, Mozilla e
+              Microsoft): entrega das notificações, que recebem já criptografadas.
             </li>
           </ul>
           <p>
-            Para desenhar o mapa, o seu navegador baixa imagens diretamente da Esri (relevo) e do
-            INPE (focos de calor). Esses serviços recebem o seu IP, como acontece com qualquer site
-            que carregue conteúdo deles.
+            Para exibir o mapa, o navegador carrega imagens diretamente da Esri (relevo) e do INPE
+            (focos de calor). Esses serviços recebem o seu endereço IP, como ocorre com qualquer
+            conteúdo de terceiros incorporado a um site.
           </p>
           <p>
-            Dados também podem ser entregues a autoridades quando a lei ou uma ordem judicial
-            exigir.
+            Dados pessoais também podem ser fornecidos a autoridades públicas quando houver
+            obrigação legal ou ordem judicial.
           </p>
         </>
       ),
     },
     {
       id: 'transferencia',
-      title: '5. Transferência internacional',
+      title: '6. Transferência internacional',
       body: (
         <p>
-          A API e o banco de dados ficam em servidores nos Estados Unidos. A transferência é
-          necessária para executar o serviço que você pediu (art. 33, IX, combinado com o art. 7º,
-          V, da LGPD) e é feita com fornecedores que adotam medidas contratuais e técnicas de
-          proteção de dados.
+          A API e o banco de dados estão hospedados em servidores nos Estados Unidos. A
+          transferência é necessária para a execução do serviço que você contratou (art. 33, IX,
+          combinado com o art. 7º, V, da LGPD) e ocorre com fornecedores que adotam salvaguardas
+          contratuais e técnicas de proteção de dados.
         </p>
       ),
     },
     {
-      id: 'prazos',
-      title: '6. Por quanto tempo guardamos',
+      id: 'retencao',
+      title: '7. Retenção e eliminação',
       body: (
         <ul>
-          <li>Conta, preferências e municípios seguidos: até você excluir a conta.</li>
-          <li>Sessões: 30 dias, ou até você sair da conta.</li>
+          <li>Dados de cadastro, preferências e registro de aceite: até a exclusão da conta.</li>
+          <li>Sessões: 30 dias ou até você sair da conta, o que ocorrer primeiro.</li>
           <li>
-            Inscrições de push: até você desligar as notificações, sair, excluir a conta ou o
-            serviço do navegador invalidar a inscrição.
+            Inscrições de push: até você desativar as notificações, sair ou excluir a conta, ou até
+            o serviço do navegador invalidar a inscrição.
           </li>
-          <li>Histórico de avisos: apagado 30 dias depois que o aviso deixa de valer.</li>
-          <li>IP para limitar tentativas: até 5 minutos, só na memória.</li>
+          <li>Histórico de avisos: eliminado 30 dias após o fim da vigência de cada aviso.</li>
           <li>
-            Registros técnicos dos provedores: pelo prazo de retenção de cada provedor, em geral de
-            alguns dias a poucas semanas.
+            Endereço IP para limitar tentativas de acesso: até cinco minutos, apenas em memória.
+          </li>
+          <li>
+            Registros técnicos dos provedores: pelo prazo de retenção de cada provedor, geralmente
+            de alguns dias a poucas semanas.
           </li>
         </ul>
       ),
     },
     {
       id: 'direitos',
-      title: '7. Seus direitos',
+      title: '8. Direitos do titular',
       body: (
         <>
-          <p>
-            A LGPD (art. 18) garante: confirmação de que tratamos seus dados e acesso a eles;
-            correção de dados incompletos ou desatualizados; anonimização, bloqueio ou eliminação de
-            dados desnecessários; portabilidade; eliminação dos dados tratados com consentimento;
-            informação sobre compartilhamento; e revogação do consentimento.
-          </p>
+          <p>Nos termos do art. 18 da LGPD, você pode solicitar, a qualquer momento:</p>
+          <ul>
+            <li>confirmação da existência de tratamento e acesso aos dados;</li>
+            <li>correção de dados incompletos, inexatos ou desatualizados;</li>
+            <li>anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos;</li>
+            <li>portabilidade dos dados;</li>
+            <li>eliminação dos dados tratados com base no consentimento;</li>
+            <li>informação sobre as entidades com as quais os dados são compartilhados;</li>
+            <li>revogação do consentimento.</li>
+          </ul>
           <p>
             No menu da conta, você mesmo <strong>baixa todos os seus dados</strong> (arquivo JSON) e{' '}
-            <strong>exclui a conta</strong>. A exclusão apaga na hora a conta, as sessões, os
-            municípios seguidos, as inscrições de push e o histórico de avisos; cópias de segurança
-            automáticas do banco podem manter esses dados por alguns dias, até serem sobrescritas.
+            <strong>exclui a conta</strong>. A exclusão elimina imediatamente a conta, as sessões,
+            os municípios acompanhados, as inscrições de push e o histórico de avisos. Cópias de
+            segurança automáticas do banco de dados podem conservar esses dados por alguns dias, até
+            serem sobrescritas.
           </p>
           <p>
-            Para os demais pedidos, escreva para <Mail /> a partir do e-mail da conta. Respondemos
-            em até 15 dias. Você também pode reclamar à Autoridade Nacional de Proteção de Dados
-            (ANPD) em gov.br/anpd.
+            Os demais pedidos devem ser enviados para <Mail /> a partir do e-mail cadastrado na
+            conta, para que possamos confirmar a sua identidade. Respondemos em até 15 dias. Você
+            também pode apresentar reclamação à ANPD, em gov.br/anpd.
           </p>
         </>
       ),
     },
     {
       id: 'seguranca',
-      title: '8. Segurança',
+      title: '9. Segurança da informação',
       body: (
         <p>
-          Toda a comunicação usa HTTPS. Senhas e códigos de sessão são guardados só como resumos
-          criptográficos, o cookie de sessão não é acessível a scripts e as tentativas de acesso são
-          limitadas. Nenhum sistema é infalível: se acontecer um incidente que possa trazer risco ou
-          dano relevante a você, avisaremos você e a ANPD, como manda o art. 48 da LGPD.
+          Toda a comunicação é feita por conexão criptografada (HTTPS). Senhas e códigos de sessão
+          são armazenados somente como resumos criptográficos, o cookie de sessão é inacessível aos
+          scripts e as tentativas de acesso são limitadas. Nenhum sistema é totalmente imune a
+          falhas: em caso de incidente de segurança que possa acarretar risco ou dano relevante,
+          você e a ANPD serão comunicados, nos termos do art. 48 da LGPD.
         </p>
       ),
     },
     {
       id: 'menores',
-      title: '9. Crianças e adolescentes',
+      title: '10. Crianças e adolescentes',
       body: (
         <p>
-          O Brasil Lens não é dirigido a crianças. Para criar uma conta, é preciso ter 18 anos ou a
-          autorização de um responsável legal. Se soubermos de uma conta de criança criada sem essa
-          autorização, ela será excluída. Responsáveis podem pedir a exclusão por <Mail />.
+          O Brasil Lens não é direcionado a crianças. A criação de conta exige idade mínima de 18
+          anos ou autorização do responsável legal. Contas de crianças criadas sem essa autorização
+          serão excluídas assim que identificadas, e os responsáveis podem solicitar a exclusão por{' '}
+          <Mail />.
         </p>
       ),
     },
     {
-      id: 'mudancas',
-      title: '10. Mudanças nesta Política',
+      id: 'alteracoes',
+      title: '11. Alterações desta Política',
       body: (
         <p>
-          A data da versão vigente aparece no topo da página. Mudanças relevantes são avisadas no
-          aplicativo e pedem um novo aceite antes de você continuar usando a conta.
+          Esta Política pode ser atualizada, e a data da última atualização aparece no topo da
+          página. Alterações relevantes, como novos dados, finalidades ou operadores, serão
+          comunicadas no aplicativo e exigirão um novo aceite para o uso da conta.
         </p>
       ),
     },
@@ -256,161 +328,201 @@ export const TERMS: LegalText = {
   title: 'Termos de Uso',
   summary: (
     <ul>
-      <li>O Brasil Lens é gratuito e reúne dados públicos oficiais num mapa, para consulta.</li>
+      <li>O Brasil Lens é um serviço gratuito de consulta a dados públicos oficiais em mapas.</li>
       <li>
-        As informações podem ter atrasos ou erros e não substituem os canais oficiais: em
-        emergência, ligue 199 (Defesa Civil) ou 193 (Bombeiros).
+        As informações têm caráter informativo e não substituem os canais oficiais. Em emergências,
+        ligue 199 (Defesa Civil) ou 193 (Corpo de Bombeiros).
       </li>
-      <li>O acesso aos mapas exige uma conta pessoal, que pode ser suspensa em caso de abuso.</li>
-      <li>Doações são voluntárias e não dão direito a nenhuma contrapartida.</li>
+      <li>
+        O acesso aos mapas exige uma conta pessoal e intransferível, que pode ser suspensa em caso
+        de uso indevido.
+      </li>
+      <li>As doações são voluntárias e não geram nenhuma contrapartida.</li>
     </ul>
   ),
   sections: [
     {
-      id: 'servico',
-      title: '1. O serviço',
+      id: 'aceitacao',
+      title: '1. Aceitação',
       body: (
         <p>
-          O Brasil Lens (brasillens.com.br) é um projeto independente e gratuito, mantido por{' '}
-          {CONTROLLER}, pessoa física, que organiza num mapa dados públicos de clima, meio ambiente,
-          socioeconomia, eleições, transporte e educação do Brasil, do país ao município. Ao criar
-          uma conta ou continuar a usá-la, você concorda com estes Termos e declara ter lido a{' '}
-          <a href={LEGAL_PATHS.privacy}>Política de Privacidade</a>.
+          Estes Termos regulam o acesso e o uso do Brasil Lens (brasillens.com.br). Ao criar uma
+          conta ou continuar a utilizá-la, você declara ter lido, compreendido e aceitado estes
+          Termos e a <a href={LEGAL_PATHS.privacy}>Política de Privacidade</a>. Se não concordar com
+          eles, não utilize o serviço.
+        </p>
+      ),
+    },
+    {
+      id: 'servico',
+      title: '2. O serviço',
+      body: (
+        <p>
+          O Brasil Lens é um projeto independente e gratuito, mantido por uma pessoa física, que
+          reúne em mapas interativos dados públicos sobre clima, meio ambiente, socioeconomia,
+          eleições, transporte e educação no Brasil, do país ao município. Funcionalidades e
+          conjuntos de dados podem ser incluídos, alterados ou removidos a qualquer tempo.
         </p>
       ),
     },
     {
       id: 'conta',
-      title: '2. Conta e acesso',
+      title: '3. Cadastro e conta',
       body: (
         <ul>
           <li>
-            O acesso aos mapas exige uma conta pessoal e intransferível. Para criá-la, é preciso ter
-            18 anos ou a autorização de um responsável legal.
+            O acesso aos mapas exige uma conta pessoal e intransferível. A criação de conta exige
+            idade mínima de 18 anos ou autorização do responsável legal.
           </li>
-          <li>Informe dados verdadeiros e mantenha a sua senha em segredo.</li>
+          <li>Você se compromete a informar dados verdadeiros e a manter a sua senha em sigilo.</li>
           <li>
-            O projeto pode limitar, suspender ou encerrar contas que violem estes Termos ou ponham o
-            serviço em risco, avisando sempre que possível.
+            Você é responsável pelas atividades realizadas na sua conta e deve comunicar qualquer
+            suspeita de uso não autorizado por <Mail />.
           </li>
-          <li>Você pode excluir a sua conta a qualquer momento, no menu da conta.</li>
         </ul>
       ),
     },
     {
-      id: 'uso',
-      title: '3. Uso permitido',
+      id: 'condutas',
+      title: '4. Condutas vedadas',
       body: (
         <>
-          <p>Não é permitido:</p>
+          <p>Ao utilizar o Brasil Lens, é vedado:</p>
           <ul>
             <li>
-              acessar o serviço de forma automatizada ou em volume que prejudique o seu
-              funcionamento (os dados vêm de fontes oficiais, que podem ser consultadas
-              diretamente);
+              acessar o serviço por meios automatizados ou em volume que prejudique o seu
+              funcionamento (os dados exibidos podem ser obtidos diretamente nas fontes oficiais);
             </li>
             <li>
-              tentar contornar a autenticação, os limites de acesso ou outras proteções, ou explorar
-              falhas de segurança (se encontrar uma, avise por <Mail />
+              tentar contornar a autenticação, os limites de acesso ou outros mecanismos de
+              segurança, ou explorar vulnerabilidades (se identificar alguma, comunique-a por{' '}
+              <Mail />
               );
             </li>
-            <li>usar a conta de outra pessoa ou se passar por alguém;</li>
-            <li>usar o serviço para qualquer fim ilegal.</li>
+            <li>utilizar a conta de terceiros ou fazer-se passar por outra pessoa;</li>
+            <li>utilizar o serviço para qualquer finalidade ilícita.</li>
           </ul>
         </>
       ),
     },
     {
       id: 'informacoes',
-      title: '4. As informações exibidas',
+      title: '5. Natureza das informações',
       body: (
         <>
           <p>
-            Os dados vêm de fontes públicas, como IBGE, INMET, CEMADEN, INPE, ANA, TSE, INEP,
-            MapBiomas, Open-Meteo e OpenStreetMap, e são exibidos como chegam delas, com indicação
-            da fonte. Valores estimados aparecem marcados com “≈”. As fontes podem atrasar, mudar ou
-            conter erros, e o serviço pode ficar sem uma delas.
+            Os dados provêm de fontes públicas, como IBGE, INMET, CEMADEN, INPE, ANA, TSE, INEP,
+            MapBiomas, Open-Meteo e OpenStreetMap, e são exibidos com a indicação da respectiva
+            fonte. Valores estimados são identificados com o símbolo “≈”. As fontes podem apresentar
+            atrasos, alterações, indisponibilidades ou erros, que se refletem no serviço.
           </p>
           <p>
             <strong>
-              O Brasil Lens é uma ferramenta de consulta e não substitui os alertas e orientações
-              oficiais.
+              As informações têm caráter exclusivamente informativo e não substituem os alertas e as
+              orientações dos órgãos oficiais.
             </strong>{' '}
-            Em emergência, ligue 199 (Defesa Civil) ou 193 (Bombeiros) e siga as autoridades locais.
-            Para receber os alertas oficiais da Defesa Civil por SMS, envie o seu CEP para 40199. As
-            notificações do Brasil Lens podem atrasar ou não chegar.
+            Em emergências, ligue 199 (Defesa Civil) ou 193 (Corpo de Bombeiros) e siga as
+            orientações das autoridades locais. Para receber os alertas oficiais da Defesa Civil por
+            SMS, envie o seu CEP para 40199. As notificações do Brasil Lens podem atrasar ou não ser
+            entregues.
           </p>
           <p>
-            Os resultados eleitorais são os divulgados pelo TSE e aparecem sem nenhuma recomendação
-            de voto nem apoio a candidatos ou partidos.
+            Os resultados eleitorais correspondem aos dados divulgados pelo Tribunal Superior
+            Eleitoral e são apresentados sem recomendação de voto nem apoio a candidatos ou
+            partidos.
           </p>
         </>
       ),
     },
     {
       id: 'disponibilidade',
-      title: '5. Disponibilidade',
+      title: '6. Disponibilidade',
       body: (
         <p>
-          O serviço é oferecido como está e pode ficar fora do ar, mudar ou ser descontinuado. Em
-          caso de encerramento, as contas serão avisadas com antecedência razoável.
+          O serviço é oferecido no estado em que se encontra e pode ser interrompido para
+          manutenção, por falhas técnicas ou por indisponibilidade de fornecedores e fontes. Em caso
+          de descontinuidade definitiva, as contas serão avisadas com antecedência razoável.
         </p>
       ),
     },
     {
       id: 'responsabilidade',
-      title: '6. Responsabilidade',
+      title: '7. Limitação de responsabilidade',
       body: (
         <p>
-          Decisões tomadas com base no Brasil Lens são de quem as toma. O projeto não responde por
-          falhas, atrasos ou erros das fontes oficiais e dos serviços de terceiros, nem por decisões
-          tomadas exclusivamente com base nas informações exibidas, sem prejuízo dos direitos que a
-          lei garante a você.
+          As decisões tomadas com base no Brasil Lens são de responsabilidade de quem as toma. O
+          projeto não responde por falhas, atrasos ou imprecisões das fontes oficiais e de serviços
+          de terceiros, nem por decisões tomadas exclusivamente com base nas informações exibidas,
+          ressalvados os direitos assegurados pela legislação aplicável.
         </p>
       ),
     },
     {
       id: 'propriedade',
-      title: '7. Fontes, marcas e código',
+      title: '8. Propriedade intelectual e licenças',
       body: (
         <p>
-          Os dados pertencem às respectivas fontes e seguem as licenças delas, como a CC BY 4.0
-          (MapBiomas e Open-Meteo) e a ODbL (OpenStreetMap), sempre com a atribuição exibida no
-          mapa. O nome e a identidade visual do Brasil Lens pertencem ao projeto. O código-fonte é
-          público no GitHub, e o uso dele segue a licença indicada em cada repositório.
+          Os dados pertencem às respectivas fontes e são utilizados conforme as licenças de cada
+          uma, como a CC BY 4.0 (MapBiomas e Open-Meteo) e a ODbL (OpenStreetMap), com a atribuição
+          exibida no mapa. O nome e a identidade visual do Brasil Lens pertencem ao projeto. O
+          código-fonte é público no GitHub, e o seu uso está sujeito à licença indicada em cada
+          repositório.
         </p>
       ),
     },
     {
       id: 'doacoes',
-      title: '8. Doações',
+      title: '9. Doações',
       body: (
         <p>
-          As doações por Pix vão para a conta pessoal do mantenedor, são voluntárias, de qualquer
-          valor e servem para pagar servidores, banco de dados e domínio. Elas não dão direito a
-          nenhum benefício, recurso exclusivo ou contrapartida, não são dedutíveis do Imposto de
-          Renda e não são reembolsáveis, salvo erro comprovado (escreva para <Mail />
-          ).
+          As doações são feitas por Pix diretamente ao mantenedor do projeto, pessoa física, têm
+          caráter voluntário e valor livre e destinam-se ao custeio da infraestrutura (servidores,
+          banco de dados e domínio). Elas não conferem benefício, recurso exclusivo ou qualquer
+          outra contrapartida, não são dedutíveis do Imposto de Renda e não são reembolsáveis, salvo
+          em caso de erro comprovado, comunicado por <Mail />.
         </p>
       ),
     },
     {
-      id: 'mudancas',
-      title: '9. Mudanças nos Termos',
+      id: 'encerramento',
+      title: '10. Suspensão e encerramento',
       body: (
         <p>
-          A data da versão vigente aparece no topo da página. Mudanças relevantes são avisadas no
-          aplicativo e pedem um novo aceite; se você não concordar, pode excluir a conta.
+          Você pode excluir a sua conta a qualquer momento, no menu da conta. O projeto pode
+          limitar, suspender ou encerrar contas que violem estes Termos, coloquem o serviço em risco
+          ou cujo encerramento seja exigido por determinação legal, com aviso prévio sempre que
+          possível.
         </p>
       ),
     },
     {
-      id: 'lei',
-      title: '10. Lei aplicável e contato',
+      id: 'alteracoes',
+      title: '11. Alterações dos Termos',
       body: (
         <p>
-          Estes Termos seguem a lei brasileira. Fica eleito o foro do seu domicílio para resolver
-          qualquer conflito. Dúvidas, pedidos e avisos: <Mail />.
+          Estes Termos podem ser atualizados, e a data da última atualização aparece no topo da
+          página. Alterações relevantes serão comunicadas no aplicativo e exigirão um novo aceite;
+          caso não concorde, você pode excluir a sua conta.
+        </p>
+      ),
+    },
+    {
+      id: 'foro',
+      title: '12. Legislação aplicável e foro',
+      body: (
+        <p>
+          Estes Termos são regidos pela legislação brasileira. Fica eleito o foro do domicílio do
+          usuário para dirimir eventuais controvérsias.
+        </p>
+      ),
+    },
+    {
+      id: 'contato',
+      title: '13. Contato',
+      body: (
+        <p>
+          Dúvidas, solicitações e comunicações relacionadas a estes Termos devem ser enviadas para{' '}
+          <Mail />.
         </p>
       ),
     },

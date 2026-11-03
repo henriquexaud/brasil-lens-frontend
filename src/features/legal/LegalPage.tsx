@@ -39,7 +39,7 @@ export default function LegalPage({ document: kind }: { document: LegalDocument 
         </nav>
       </header>
       <main className="legal-article">
-        <p className="legal-version">Versão de {LEGAL_UPDATED}</p>
+        <p className="legal-version">Última atualização: {LEGAL_UPDATED}</p>
         <h1>{text.title}</h1>
         <section className="legal-summary" aria-labelledby="legal-summary-title">
           <h2 id="legal-summary-title">Em resumo</h2>
