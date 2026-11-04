@@ -60,7 +60,9 @@ function DonationDialog({ onClose }: { onClose: () => void }) {
         </header>
 
         <img className="donation-qr" src={PIX_QR_SRC} alt="QR Code Pix para doação" />
-        <p className="donation-note">Aponte a câmera do app do banco. Qualquer valor ajuda.</p>
+        <p className="donation-note">
+          Aponte a câmera do app do banco. Ajude a manter este projeto independente e acessível.
+        </p>
         <button
           type="button"
           className="donation-copy"
