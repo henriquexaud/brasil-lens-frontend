@@ -86,9 +86,7 @@ export function BasicEducationPanel({
         {summary.length > 0 && <dd className="education-summary">{summary.join(' · ')}</dd>}
         {coverage !== null && coverage > 100 && (
           <dd className="education-summary">
-            {stage === 'daycare'
-              ? 'Passa de 100% porque as creches atendem crianças de outros municípios.'
-              : 'Passa de 100% porque conta alunos de outros municípios e fora da idade.'}
+            Passa de 100% porque conta alunos de outros municípios e fora da idade.
           </dd>
         )}
       </dl>

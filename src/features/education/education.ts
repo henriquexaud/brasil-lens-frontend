@@ -7,7 +7,7 @@ import type {
 
 // Aba do contexto: educação básica pública (ADR-23) ou ensino superior (ADR-19).
 export type EducationLevel = 'basic' | 'higher';
-export type BasicStage = 'all' | 'daycare' | 'preschool' | 'elementary' | 'high_school';
+export type BasicStage = 'all' | 'early_childhood' | 'elementary' | 'high_school';
 export type BasicMetric = 'schools' | 'enrollment' | 'coverage';
 
 export interface EducationPreferences {
@@ -28,7 +28,7 @@ export const DEFAULT_EDUCATION: EducationPreferences = {
   year: 'latest',
 };
 
-// A básica vem antes: é a trajetória (creche → médio → superior) e o universo maior.
+// A básica vem antes: é a trajetória (infantil → médio → superior) e o universo maior.
 export const LEVEL_OPTIONS: { value: EducationLevel; label: string }[] = [
   { value: 'basic', label: 'Básica' },
   { value: 'higher', label: 'Superior' },
@@ -38,11 +38,11 @@ interface StageOption {
   value: BasicStage;
   label: string;
   title: string;
-  // "Escolas públicas com creche", "Matrículas em creche", "% de 0 a 3 anos".
+  // "Escolas com educação infantil", "Matrículas na educação infantil", "% de 0 a 5 anos".
   offer: string;
   place: string;
-  // Faixa do atendimento. Pré-escola e fundamental não têm: a taxa bruta satura e
-  // não diferencia municípios (ADR-23 do backend).
+  // Faixa do atendimento. O fundamental não tem: a taxa bruta satura e não
+  // diferencia municípios (ADR-23 do backend).
   ages: string | null;
 }
 
@@ -56,20 +56,12 @@ export const STAGE_OPTIONS: StageOption[] = [
     ages: null,
   },
   {
-    value: 'daycare',
-    label: 'Creche',
-    title: 'Creche, de 0 a 3 anos',
-    offer: 'com creche',
-    place: 'em creche',
-    ages: '0 a 3 anos',
-  },
-  {
-    value: 'preschool',
-    label: 'Pré-escola',
-    title: 'Pré-escola, de 4 e 5 anos',
-    offer: 'com pré-escola',
-    place: 'na pré-escola',
-    ages: null,
+    value: 'early_childhood',
+    label: 'Infantil',
+    title: 'Educação infantil: creche e pré-escola, de 0 a 5 anos',
+    offer: 'com educação infantil',
+    place: 'na educação infantil',
+    ages: '0 a 5 anos',
   },
   {
     value: 'elementary',
@@ -103,7 +95,7 @@ export function hasCoverage(stage: BasicStage): boolean {
   return stageOption(stage).ages !== null;
 }
 
-/** Atendimento só existe na creche e no médio; nas outras etapas, vale Escolas. */
+/** Atendimento só existe na infantil e no médio; nas outras etapas, vale Escolas. */
 export function basicMetric(stage: BasicStage, metric: BasicMetric): BasicMetric {
   return metric === 'coverage' && !hasCoverage(stage) ? 'schools' : metric;
 }
@@ -157,6 +149,12 @@ export const KIND_OPTIONS: { value: EducationKind; label: string; title: string 
   { value: 'college', label: 'Faculdades', title: 'Faculdades e centros universitários' },
 ];
 
+// Creche e pré-escola eram etapas separadas até virarem a educação infantil.
+const LEGACY_STAGE: Record<string, BasicStage> = {
+  daycare: 'early_childhood',
+  preschool: 'early_childhood',
+};
+
 // Abas da primeira versão da básica (Creches e Escolas), lidas como etapa e medida.
 const LEGACY_DAYCARE: Record<string, BasicMetric> = {
   coverage: 'coverage',
@@ -174,12 +172,16 @@ export function normalizeEducation(value: unknown): EducationPreferences | undef
   const pick = <T>(options: { value: T }[], raw: unknown, fallback: T): T =>
     options.find((option) => option.value === raw)?.value ?? fallback;
   let level: EducationLevel = 'higher';
-  let stage = pick(STAGE_OPTIONS, item.stage, DEFAULT_EDUCATION.stage);
+  let stage = pick(
+    STAGE_OPTIONS,
+    LEGACY_STAGE[String(item.stage)] ?? item.stage,
+    DEFAULT_EDUCATION.stage,
+  );
   let metric = pick(METRIC_OPTIONS, item.metric, DEFAULT_EDUCATION.metric);
   if (item.level === 'basic') level = 'basic';
   else if (item.level === 'daycare') {
     level = 'basic';
-    stage = 'daycare';
+    stage = 'early_childhood';
     metric = LEGACY_DAYCARE[String(item.daycare)] ?? 'coverage';
   } else if (item.level === 'schools') {
     level = 'basic';

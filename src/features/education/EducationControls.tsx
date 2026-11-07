@@ -26,14 +26,12 @@ interface Pill {
 }
 
 function PillRow({
-  className = '',
   label,
   pills,
   value,
   onChange,
   onIntent,
 }: {
-  className?: string;
   label: string;
   pills: Pill[];
   value: string;
@@ -41,7 +39,7 @@ function PillRow({
   onIntent?: (next: EducationPreferences) => void;
 }) {
   return (
-    <div className={`indicator-pills-row ${className}`} role="group" aria-label={label}>
+    <div className="indicator-pills-row" role="group" aria-label={label}>
       {pills.map((pill) => {
         const active = pill.value === value;
         return (
@@ -146,7 +144,6 @@ export function EducationControls({
       {preferences.level === 'basic' && (
         <>
           <PillRow
-            className="education-stage-row"
             label="Etapa da educação básica"
             value={preferences.stage}
             pills={STAGE_OPTIONS.map((option) => ({

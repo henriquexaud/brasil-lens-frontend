@@ -42,10 +42,10 @@ const catalog = KEYS.map((key) => {
 });
 const BASIC = {
   basic_schools: ['schools', 0, 137020], basic_enrollment: ['enrollments', 0, 36772996],
-  basic_daycare_schools: ['schools', 0, 48761], basic_daycare_enrollment: ['enrollments', 0, 2830943],
-  basic_daycare_coverage: ['%', 1, 28.4],
+  basic_early_childhood_schools: ['schools', 0, 76523], basic_early_childhood_enrollment: ['enrollments', 0, 6912034],
+  basic_early_childhood_coverage: ['%', 1, 44.5],
 };
-for (const stage of ['preschool', 'elementary', 'high_school']) {
+for (const stage of ['elementary', 'high_school']) {
   BASIC[`basic_${stage}_schools`] = ['schools', 0, 1000];
   BASIC[`basic_${stage}_enrollment`] = ['enrollments', 0, 50000];
   if (stage === 'high_school') BASIC.basic_high_school_coverage = ['%', 1, 104.2];
@@ -143,7 +143,11 @@ test('preferências guardadas só valem com rede, tipo e ano conhecidos', () => 
   // As abas Creches e Escolas da primeira versão viram etapa e medida da Básica.
   const legacy = (fields) => normalizeEducation({ network: 'state', kind: 'all', year: 'latest', ...fields });
   assert.deepEqual([legacy({ level: 'daycare', daycare: 'units' })].map(({ level, stage, metric }) => [level, stage, metric]),
-    [['basic', 'daycare', 'schools']]);
+    [['basic', 'early_childhood', 'schools']]);
+  // Creche e pré-escola viraram a educação infantil, com a medida preservada.
+  assert.deepEqual([legacy({ level: 'basic', stage: 'daycare', metric: 'coverage' })].map(({ stage, metric }) => [stage, metric]),
+    [['early_childhood', 'coverage']]);
+  assert.equal(legacy({ level: 'basic', stage: 'preschool', metric: 'enrollment' }).stage, 'early_childhood');
   assert.equal(legacy({ level: 'daycare', daycare: 'coverage' }).metric, 'coverage');
   assert.deepEqual([legacy({ level: 'schools', schools: 'enrollment' })].map(({ stage, metric }) => [stage, metric]),
     [['all', 'enrollment']]);
@@ -213,10 +217,10 @@ test('o contexto pinta matrículas, lista instituições e abre o detalhe de uma
   assert.equal(stored().education.kind, 'all');
 });
 
-test('a básica abre por etapa e medida, com atendimento só na creche e no médio', async () => {
+test('a básica abre por etapa e medida, com atendimento só na infantil e no médio', async () => {
   await render();
   // Sessão nova abre na Básica · Todas · Escolas, sem Atendimento (Todas não tem idade).
-  assert.deepEqual(pills(), ['Todas', 'Creche', 'Pré-escola', 'Fundamental', 'Médio', 'Escolas', 'Matrículas']);
+  assert.deepEqual(pills(), ['Todas', 'Infantil', 'Fundamental', 'Médio', 'Escolas', 'Matrículas']);
   assert.ok(calls.some((url) => url.pathname.endsWith('/values') && url.searchParams.get('indicator') === 'basic_schools'));
   assert.ok(calls.some((url) => url.pathname.endsWith('/socioeconomic/territories/BR')
     && url.searchParams.get('context') === 'education'));
@@ -228,17 +232,17 @@ test('a básica abre por etapa e medida, com atendimento só na creche e no méd
   assert.match(document.querySelector('.scale-legend-missing').textContent, /Sem dados · 1 território/);
   assert.equal(globalThis.mapProps.presentation.tooltips.get('11').value, 'Sem dados');
 
-  await click('Creche');
-  assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'basic_daycare_schools'));
-  assert.match(document.querySelector('.indicator-label').textContent, /Escolas com creche/);
-  assert.match(document.querySelector('.education-summary').textContent, /2\.830\.943 matrículas · atendimento de 28,4%/);
+  await click('Infantil');
+  assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'basic_early_childhood_schools'));
+  assert.match(document.querySelector('.indicator-label').textContent, /Escolas com educação infantil/);
+  assert.match(document.querySelector('.education-summary').textContent, /6\.912\.034 matrículas · atendimento de 44,5%/);
 
   await click('Atendimento');
-  assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'basic_daycare_coverage'));
+  assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'basic_early_childhood_coverage'));
   assert.deepEqual([...document.querySelectorAll('.source-tag')].map((item) => item.textContent), ['INEP']);
-  assert.equal(document.querySelector('.layer-metadata-unit').textContent, '% de 0 a 3 anos');
-  assert.match(document.querySelector('.indicator-label').textContent, /Atendimento em creche/);
-  assert.match(document.querySelector('.featured-value').textContent, /28,4%/);
+  assert.equal(document.querySelector('.layer-metadata-unit').textContent, '% de 0 a 5 anos');
+  assert.match(document.querySelector('.indicator-label').textContent, /Atendimento na educação infantil/);
+  assert.match(document.querySelector('.featured-value').textContent, /44,5%/);
 
   // A medida segue na troca de etapa; acima de 100%, o painel explica.
   await click('Médio');
@@ -248,12 +252,12 @@ test('a básica abre por etapa e medida, com atendimento só na creche e no méd
 
   // Fundamental (e Todas) não tem Atendimento: a pílula some e o mapa volta a Escolas.
   await click('Fundamental');
-  assert.deepEqual(pills().slice(5), ['Escolas', 'Matrículas']);
+  assert.deepEqual(pills().slice(4), ['Escolas', 'Matrículas']);
   assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'basic_elementary_schools'));
   assert.equal(stored().education.metric, 'schools');
   assert.equal(document.querySelectorAll('.source-tag').length, 1);
   await click('Todas');
-  assert.deepEqual(pills().slice(5), ['Escolas', 'Matrículas']);
+  assert.deepEqual(pills().slice(4), ['Escolas', 'Matrículas']);
 });
 
 test('trocar para a Básica fecha a instituição aberta no Superior', async () => {

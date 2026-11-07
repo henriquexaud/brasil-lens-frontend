@@ -84,12 +84,3 @@
   font-size: 10.5px;
   white-space: nowrap;
 }
-
-/* Cinco etapas na largura do painel: menos folga por pílula. */
-.education-app .education-stage-row {
-  gap: 3px;
-}
-
-.education-app .education-stage-row .indicator-pill-btn {
-  padding: 3px 3px;
-}
