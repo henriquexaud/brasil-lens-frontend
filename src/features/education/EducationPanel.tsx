@@ -51,6 +51,38 @@ function InstitutionList({
   );
 }
 
+/** Cabeçalho de um território aberto no painel, comum às abas do contexto. */
+export function DetailHeader({
+  territory,
+  fallback,
+  onClose,
+}: {
+  territory?: MapFeatureProperties;
+  fallback?: string;
+  onClose: () => void;
+}) {
+  return (
+    <header className="detail-header">
+      <div>
+        {territory ? (
+          <>
+            <p className="detail-kicker">
+              {levelLabel(territory.level)}
+              {territory.parentName && ` · ${territory.parentName}`}
+            </p>
+            <AnimatedText as="h2" className="detail-title" text={territory.name} />
+          </>
+        ) : (
+          <span role="status">{fallback ?? 'Carregando local…'}</span>
+        )}
+      </div>
+      <button type="button" className="icon-button" onClick={onClose} aria-label="Fechar detalhe">
+        ×
+      </button>
+    </header>
+  );
+}
+
 export function EducationPanel({
   data,
   loading,
@@ -75,31 +107,7 @@ export function EducationPanel({
       className="panel-section territory-detail"
       aria-label={onClose ? 'Local selecionado' : 'Ensino superior no território'}
     >
-      {onClose && (
-        <header className="detail-header">
-          <div>
-            {territory ? (
-              <>
-                <p className="detail-kicker">
-                  {levelLabel(territory.level)}
-                  {territory.parentName && ` · ${territory.parentName}`}
-                </p>
-                <AnimatedText as="h2" className="detail-title" text={territory.name} />
-              </>
-            ) : (
-              <span role="status">{data?.name ?? 'Carregando local…'}</span>
-            )}
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            aria-label="Fechar detalhe"
-          >
-            ×
-          </button>
-        </header>
-      )}
+      {onClose && <DetailHeader territory={territory} fallback={data?.name} onClose={onClose} />}
       {error && !data && <ErrorMessage error={error} />}
       <dl className="featured-indicator">
         <dt className="indicator-label">

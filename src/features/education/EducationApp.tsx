@@ -22,11 +22,15 @@ import { usePageVisible } from '@/lib/usePageVisible';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 import { useMobileSheet } from '@/app/useMobileSheet';
 import {
+  DAYCARE_OPTIONS,
   DEFAULT_EDUCATION,
   NETWORK_OPTIONS,
+  SCHOOL_OPTIONS,
+  basicIndicatorKey,
   indicatorKey,
   type EducationPreferences,
 } from './education';
+import { BasicEducationPanel } from './BasicEducationPanel';
 import { EducationControls } from './EducationControls';
 import { EducationPanel } from './EducationPanel';
 import { InstitutionDetail } from './InstitutionDetail';
@@ -35,6 +39,7 @@ import {
   prefetchEducationChoice,
   useEducationIndicators,
   useEducationInstitution,
+  useEducationOverview,
   useEducationTerritory,
   useEducationValues,
 } from './queries';
@@ -65,14 +70,24 @@ export default function EducationApp({ contextControl }: { contextControl: React
   const sheet = useMobileSheet();
   useEffect(() => saveSessionState({ education: preferences }), [preferences]);
 
+  // Abrir outra aba fecha a instituição aberta: ela só existe no ensino superior.
+  const changePreferences = useCallback(
+    (next: EducationPreferences) => {
+      if (next.level !== preferences.level) setInstitutionCode(null);
+      setPreferences(next);
+    },
+    [preferences.level],
+  );
+
   const catalog = useEducationIndicators(scope.level);
+  const basicKey = basicIndicatorKey(preferences);
   // Tipo sem dado na rede (ex.: sessão antiga) volta a Todas.
   const kind = catalog.data?.indicators.find(
     (item) => item.key === indicatorKey(preferences.network, preferences.kind),
   )?.latestYear
     ? preferences.kind
     : 'all';
-  const key = indicatorKey(preferences.network, kind);
+  const key = basicKey ?? indicatorKey(preferences.network, kind);
   const current = catalog.data?.indicators.find((item) => item.key === key);
   // Um ano guardado que a ingestão não tem mais volta ao último disponível.
   const year =
@@ -144,8 +159,9 @@ export default function EducationApp({ contextControl }: { contextControl: React
     year,
     preferences.network,
     kind,
-    pageVisible && institutionCode === null,
+    pageVisible && institutionCode === null && !basicKey,
   );
+  const overview = useEducationOverview(detailCode, year, pageVisible && Boolean(basicKey));
   const prefetchChoice = useCallback(
     (choice: EducationPreferences) => {
       if (catalog.data)
@@ -164,11 +180,19 @@ export default function EducationApp({ contextControl }: { contextControl: React
   // ocioso: no celular, sem hover, a troca de aba também pinta na hora.
   useEffect(() => {
     if (!values.data || viewport.moving || !pageVisible) return;
-    return scheduleIdle(() => {
-      for (const option of NETWORK_OPTIONS)
-        if (option.value !== preferences.network)
-          prefetchChoice({ ...preferences, network: option.value });
-    }, 1500);
+    const alternatives: EducationPreferences[] =
+      preferences.level === 'daycare'
+        ? DAYCARE_OPTIONS.filter((option) => option.value !== preferences.daycare).map(
+            (option) => ({ ...preferences, daycare: option.value }),
+          )
+        : preferences.level === 'schools'
+          ? SCHOOL_OPTIONS.filter((option) => option.value !== preferences.schools).map(
+              (option) => ({ ...preferences, schools: option.value }),
+            )
+          : NETWORK_OPTIONS.filter((option) => option.value !== preferences.network).map(
+              (option) => ({ ...preferences, network: option.value }),
+            );
+    return scheduleIdle(() => alternatives.forEach(prefetchChoice), 1500);
   }, [values.data, viewport.moving, pageVisible, preferences, prefetchChoice]);
 
   const selectMapTerritory = useCallback(
@@ -279,6 +303,7 @@ export default function EducationApp({ contextControl }: { contextControl: React
       {((!scopeReady && mapLayer.isFetching) ||
         values.isFetching ||
         institution.isFetching ||
+        (Boolean(basicKey) && overview.isFetching) ||
         selectedBoundary.isFetching) && <TopProgress />}
       <MapView
         collection={collection}
@@ -317,7 +342,7 @@ export default function EducationApp({ contextControl }: { contextControl: React
             />
             <EducationControls
               preferences={{ ...preferences, kind, year }}
-              onChange={setPreferences}
+              onChange={changePreferences}
               indicators={catalog.data?.indicators}
               onIntent={prefetchChoice}
             />
@@ -336,7 +361,18 @@ export default function EducationApp({ contextControl }: { contextControl: React
               setSelectedCode(null);
             }}
           >
-            {institutionCode !== null ? (
+            {preferences.level !== 'higher' && basicKey ? (
+              <BasicEducationPanel
+                level={preferences.level}
+                indicatorKey={basicKey}
+                data={overview.data?.ibgeCode === detailCode ? overview.data : undefined}
+                loading={overview.isFetching}
+                error={overview.error}
+                territory={selectedCode ? selectedFeature?.properties : undefined}
+                onClose={selectedCode ? () => setSelectedCode(null) : undefined}
+                onDrillDown={drillIntoState}
+              />
+            ) : institutionCode !== null ? (
               <InstitutionDetail
                 key={institutionCode}
                 data={institution.data}
@@ -380,8 +416,12 @@ export default function EducationApp({ contextControl }: { contextControl: React
             classification={legendData?.classification ?? null}
             statistics={legendData?.statistics ?? null}
             loading={values.isPending}
-            missingLabel={NO_OFFER}
-            missingTitle="Território sem curso presencial da rede no ano; aparece em cinza no mapa"
+            missingLabel={basicKey ? 'Sem dados' : NO_OFFER}
+            missingTitle={
+              basicKey
+                ? 'Território sem dado do Censo no ano; aparece em cinza no mapa'
+                : 'Território sem curso presencial da rede no ano; aparece em cinza no mapa'
+            }
           />
         </div>
       )}

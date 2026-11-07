@@ -2,7 +2,12 @@ import { keepPreviousData, useQuery, type QueryClient } from '@tanstack/react-qu
 import { apiGet } from '@/api/client';
 import { loadSessionState } from '@/lib/sessionStorage';
 import { CATALOG_GC } from '@/features/socioeconomic/queries';
-import { DEFAULT_EDUCATION, indicatorKey, type EducationPreferences } from './education';
+import {
+  DEFAULT_EDUCATION,
+  basicIndicatorKey,
+  indicatorKey,
+  type EducationPreferences,
+} from './education';
 import type {
   EducationInstitutionDetail,
   EducationKind,
@@ -11,6 +16,7 @@ import type {
   IndicatorListResponse,
   MapValuesResponse,
   TerritoryLevel,
+  TerritoryOverview,
 } from '@/api/types';
 
 // A API publica o Censo com max-age de 5 min, como o Socioeconômico; o dado só
@@ -70,6 +76,26 @@ function territoryOptions(
   };
 }
 
+// Painel da educação básica: os indicadores do contexto num território, pela rota
+// de território do motor (a mesma do Socioeconômico, com context=education).
+function overviewOptions(code: string, year: string) {
+  return {
+    queryKey: ['education', 'overview', code, year] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      apiGet<TerritoryOverview>(
+        `/socioeconomic/territories/${encodeURIComponent(code)}`,
+        { year, context: 'education' },
+        signal,
+      ),
+    staleTime: FRESHNESS,
+    gcTime: DATA_GC,
+  };
+}
+
+export function useEducationOverview(code: string, year: string, enabled: boolean) {
+  return useQuery({ ...overviewOptions(code, year), enabled, placeholderData: keepPreviousData });
+}
+
 export function useEducationIndicators(level: TerritoryLevel) {
   return useQuery(indicatorsOptions(level));
 }
@@ -98,8 +124,8 @@ export function useEducationTerritory(
   });
 }
 
-// Mapa e painel de uma escolha de rede, tipo e ano, com as mesmas regras e
-// chaves do EducationApp (tipo sem dado volta a Todas; ano sem dado, ao último).
+// Mapa e painel de uma escolha (aba, rede, tipo ou métrica, e ano), com as mesmas
+// regras e chaves do EducationApp (tipo sem dado volta a Todas; ano sem dado, ao último).
 export function prefetchEducationChoice(
   client: QueryClient,
   catalog: IndicatorListResponse,
@@ -109,8 +135,9 @@ export function prefetchEducationChoice(
   choice: EducationPreferences,
 ): Promise<unknown> {
   const find = (key: string) => catalog.indicators.find((item) => item.key === key);
+  const basicKey = basicIndicatorKey(choice);
   const kind = find(indicatorKey(choice.network, choice.kind))?.latestYear ? choice.kind : 'all';
-  const current = find(indicatorKey(choice.network, kind));
+  const current = find(basicKey ?? indicatorKey(choice.network, kind));
   if (!current) return Promise.resolve();
   const year =
     choice.year === 'latest' || current.availableYears.includes(Number(choice.year))
@@ -118,7 +145,9 @@ export function prefetchEducationChoice(
       : 'latest';
   return Promise.all([
     client.ensureQueryData(educationValuesOptions(level, parent, current.key, year)),
-    client.ensureQueryData(territoryOptions(detailCode, year, choice.network, kind)),
+    basicKey
+      ? client.ensureQueryData(overviewOptions(detailCode, year))
+      : client.ensureQueryData(territoryOptions(detailCode, year, choice.network, kind)),
   ]);
 }
 

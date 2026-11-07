@@ -40,6 +40,21 @@ const catalog = KEYS.map((key) => {
     supportedLevels: ['country', 'region', 'state', 'municipality'],
   };
 });
+const BASIC = {
+  basic_daycare_coverage: ['%', 1, 2830943 / 99754.13], basic_daycare_enrollment: ['enrollments', 0, 2830943],
+  basic_daycares: ['daycares', 0, 48761], basic_schools: ['schools', 0, 137020], basic_enrollment: ['enrollments', 0, 36772996],
+};
+for (const [key, [unit, decimalPlaces]] of Object.entries(BASIC)) {
+  const years = key === 'basic_daycare_coverage' ? [2022, 2023, 2024, 2025] : [2019, 2024, 2025];
+  catalog.push({ key, name: key, description: 'Censo Escolar (INEP)', unit, origin: 'sourced', decimalPlaces,
+    availableYears: years, latestYear: 2025, supportedLevels: ['country', 'region', 'state', 'municipality'] });
+}
+const overview = (code) => ({
+  ibgeCode: code, name: code === 'BR' ? 'Brasil' : code, level: code === 'BR' ? 'country' : 'state', parentCode: null,
+  parentName: null, bbox: null,
+  indicators: Object.entries(BASIC).map(([key, [unit, decimalPlaces, value]]) => ({
+    key, name: key, unit, decimalPlaces, origin: 'sourced', value: Math.round(value * 10) / 10, year: 2025, source: null })),
+});
 const values = (key, year = 'latest') => ({
   level: 'state', parent: null, version: '1',
   indicator: { ...catalog.find((item) => item.key === key), year: 2024, requestedYear: year },
@@ -89,6 +104,7 @@ beforeEach(() => {
     else if (parsed.pathname.endsWith('/values')) body = values(parsed.searchParams.get('indicator'), parsed.searchParams.get('year'));
     else if (parsed.pathname.includes('/education/territories/')) body = territory(parsed.searchParams.get('network'), parsed.searchParams.get('kind'));
     else if (parsed.pathname.includes('/education/institutions/')) body = detail;
+    else if (parsed.pathname.includes('/socioeconomic/territories/')) body = overview(parsed.pathname.split('/').pop());
     else throw new Error(`rota inesperada ${parsed.pathname}`);
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
@@ -115,8 +131,13 @@ test('nomes em maiúsculas viram nome próprio, sem repetir a sigla; os mistos f
 });
 
 test('preferências guardadas só valem com rede, tipo e ano conhecidos', () => {
+  // Sessão de antes da educação básica: abre no ensino superior, com as métricas padrão.
   assert.deepEqual(normalizeEducation({ network: 'federal', kind: 'institute', year: '2023' }),
-    { network: 'federal', kind: 'institute', year: '2023' });
+    { level: 'higher', network: 'federal', kind: 'institute', daycare: 'coverage', schools: 'schools', year: '2023' });
+  assert.deepEqual(
+    normalizeEducation({ level: 'daycare', network: 'state', kind: 'all', daycare: 'units', schools: 'x', year: 'latest' }),
+    { level: 'daycare', network: 'state', kind: 'all', daycare: 'units', schools: 'schools', year: 'latest' });
+  assert.equal(normalizeEducation({ level: 'pós', network: 'state', kind: 'all', year: 'latest' }).level, 'higher');
   // A rede "public" saiu do switch: sessão antiga volta ao padrão.
   assert.equal(normalizeEducation({ network: 'public', kind: 'all', year: 'latest' }), undefined);
   assert.equal(normalizeEducation({ network: 'state', year: '2023' }), undefined);
@@ -140,8 +161,8 @@ test('sem valor é sem oferta presencial, não falta de dado; a instituição ap
 test('o contexto pinta matrículas, lista instituições e abre o detalhe de uma delas', async () => {
   await render();
   assert.deepEqual([...document.querySelectorAll('[role=tab]')].map((item) => item.textContent),
-    ['Federais', 'Estaduais', 'Municipais']);
-  assert.deepEqual(pills(), ['Todas', 'Universidades', 'Institutos', 'Faculdades']);
+    ['Superior', 'Creches', 'Escolas']);
+  assert.deepEqual(pills(), ['Federais', 'Estaduais', 'Municipais', 'Todas', 'Universidades', 'Institutos', 'Faculdades']);
   assert.equal(document.querySelector('.source-tag').textContent, 'INEP');
   assert.ok(calls.some((url) => url.pathname.endsWith('/values') && url.searchParams.get('context') === 'education'
     && url.searchParams.get('indicator') === KEYS[0]));
@@ -169,11 +190,47 @@ test('o contexto pinta matrículas, lista instituições e abre o detalhe de uma
   assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'higher_ed_federal_institute_enrollment'));
   assert.ok(calls.some((url) => url.pathname.includes('/education/territories/BR')
     && url.searchParams.get('network') === 'federal' && url.searchParams.get('kind') === 'institute'));
-  assert.deepEqual(stored().education, { network: 'federal', kind: 'institute', year: 'latest' });
+  assert.deepEqual(stored().education,
+    { level: 'higher', network: 'federal', kind: 'institute', daycare: 'coverage', schools: 'schools', year: 'latest' });
 
   // Estaduais não têm instituto: o filtro some e volta a Todas.
   await click('Estaduais');
-  assert.deepEqual(pills(), ['Todas', 'Universidades', 'Faculdades']);
+  assert.deepEqual(pills(), ['Federais', 'Estaduais', 'Municipais', 'Todas', 'Universidades', 'Faculdades']);
   assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'higher_ed_state_enrollment'));
-  assert.deepEqual(stored().education, { network: 'state', kind: 'all', year: 'latest' });
+  assert.equal(stored().education.network, 'state');
+  assert.equal(stored().education.kind, 'all');
+});
+
+test('creches e escolas públicas pintam o Censo Escolar e mostram o território no painel', async () => {
+  await render();
+  await click('Universidade Federal de Minas Gerais');
+  await click('Creches');
+  // A instituição aberta é do ensino superior: trocar de aba a fecha.
+  assert.doesNotMatch(globalThis.mapProps.presentation.key, /institution/);
+  assert.deepEqual(pills(), ['Cobertura', 'Matrículas', 'Unidades']);
+  assert.ok(calls.some((url) => url.pathname.endsWith('/values') && url.searchParams.get('indicator') === 'basic_daycare_coverage'));
+  assert.ok(calls.some((url) => url.pathname.endsWith('/socioeconomic/territories/BR')
+    && url.searchParams.get('context') === 'education'));
+  assert.deepEqual([...document.querySelectorAll('.source-tag')].map((item) => item.textContent), ['INEP', 'IBGE']);
+  assert.equal(document.querySelector('.layer-metadata-unit').textContent, '% de 0 a 3 anos');
+  assert.match(document.querySelector('.indicator-label').textContent, /Cobertura de creche/);
+  assert.match(document.querySelector('.featured-value').textContent, /28,4%/);
+  assert.match(document.querySelector('.education-summary').textContent, /2\.830\.943 matrículas · 48\.761 creches/);
+  // Sem valor na básica é falta de dado, não "sem oferta".
+  assert.match(document.querySelector('.scale-legend-missing').textContent, /Sem dados · 1 território/);
+  assert.equal(globalThis.mapProps.presentation.tooltips.get('11').value, 'Sem dados');
+
+  await click('Unidades');
+  assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'basic_daycares'));
+  assert.match(document.querySelector('.featured-value').textContent, /48\.761/);
+  assert.match(document.querySelector('.education-summary').textContent, /cobertura de 28,4% · 2\.830\.943 matrículas/);
+
+  await click('Escolas');
+  assert.deepEqual(pills(), ['Escolas', 'Matrículas']);
+  assert.ok(calls.some((url) => url.searchParams.get('indicator') === 'basic_schools'));
+  assert.match(document.querySelector('.featured-value').textContent, /137\.020/);
+  assert.match(document.querySelector('.education-summary').textContent, /^36\.772\.996 matrículas$/);
+  assert.equal(document.querySelectorAll('.source-tag').length, 1);
+  assert.equal(stored().education.level, 'schools');
+  assert.equal(stored().education.daycare, 'units');
 });

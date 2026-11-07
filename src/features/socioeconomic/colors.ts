@@ -95,8 +95,8 @@ const INDICATOR_PALETTES: Record<string, PaletteKey> = {
 
 export function paletteForIndicator(key: string | null | undefined): readonly string[] {
   if (!key) return DEFAULT_RAMP;
-  // Toda rede e tipo da Educação (higher_ed_*) usa a mesma paleta.
-  if (key.startsWith('higher_ed_')) return PALETTES.violetEducation;
+  // Todo indicador da Educação (superior e básica) usa a mesma paleta.
+  if (key.startsWith('higher_ed_') || key.startsWith('basic_')) return PALETTES.violetEducation;
   return PALETTES[INDICATOR_PALETTES[key] ?? CATEGORY_PALETTES[indicatorCategoryId(key)]];
 }
 

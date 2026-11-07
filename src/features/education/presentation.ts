@@ -6,10 +6,12 @@ import { formatCount, institutionName } from './education';
 
 export const NO_OFFER = 'Sem oferta presencial';
 
-// No Censo, território sem valor é território sem curso presencial da rede: não
-// é falta de dado, e o tooltip diz isso.
+// No Censo da Educação Superior, território sem valor é território sem curso
+// presencial da rede: não é falta de dado, e o tooltip diz isso. Na educação
+// básica todo município tem valor (zero é medido); sem valor é sem dado mesmo.
 export function educationPresentation(data: MapValuesResponse): TerritoryPresentation {
   const base = presentationFor(data);
+  if (!data.indicator.key.startsWith('higher_ed_')) return base;
   const tooltips = new Map(base.tooltips);
   for (const item of data.values) {
     if (item.value === null) {
