@@ -5,86 +5,144 @@ import type {
   EducationOrganization,
 } from '@/api/types';
 
-// Aba do contexto: ensino superior (ADR-19) ou educação básica pública (ADR-23).
-export type EducationLevel = 'higher' | 'daycare' | 'schools';
-export type DaycareMetric = 'coverage' | 'enrollment' | 'units';
-export type SchoolMetric = 'schools' | 'enrollment';
+// Aba do contexto: educação básica pública (ADR-23) ou ensino superior (ADR-19).
+export type EducationLevel = 'basic' | 'higher';
+export type BasicStage = 'all' | 'daycare' | 'preschool' | 'elementary' | 'high_school';
+export type BasicMetric = 'schools' | 'enrollment' | 'coverage';
 
 export interface EducationPreferences {
   level: EducationLevel;
   network: EducationNetwork;
   kind: EducationKind;
-  daycare: DaycareMetric;
-  schools: SchoolMetric;
+  stage: BasicStage;
+  metric: BasicMetric;
   year: string;
 }
 
 export const DEFAULT_EDUCATION: EducationPreferences = {
-  level: 'higher',
+  level: 'basic',
   network: 'federal',
   kind: 'all',
-  daycare: 'coverage',
-  schools: 'schools',
+  stage: 'all',
+  metric: 'schools',
   year: 'latest',
 };
 
+// A básica vem antes: é a trajetória (creche → médio → superior) e o universo maior.
 export const LEVEL_OPTIONS: { value: EducationLevel; label: string }[] = [
+  { value: 'basic', label: 'Básica' },
   { value: 'higher', label: 'Superior' },
-  { value: 'daycare', label: 'Creches' },
-  { value: 'schools', label: 'Escolas' },
 ];
 
-interface MetricOption<T> {
-  value: T;
+interface StageOption {
+  value: BasicStage;
   label: string;
   title: string;
-  key: string;
-  // Unidade ao lado da fonte, no cabeçalho do mapa.
-  unit: string;
+  // "Escolas públicas com creche", "Matrículas em creche", "% de 0 a 3 anos".
+  offer: string;
+  place: string;
+  // Faixa do atendimento. Pré-escola e fundamental não têm: a taxa bruta satura e
+  // não diferencia municípios (ADR-23 do backend).
+  ages: string | null;
 }
 
-export const DAYCARE_OPTIONS: MetricOption<DaycareMetric>[] = [
+export const STAGE_OPTIONS: StageOption[] = [
   {
-    value: 'coverage',
-    label: 'Cobertura',
-    title: 'Matrículas em creche pública por criança de 0 a 3 anos',
-    key: 'basic_daycare_coverage',
-    unit: '% de 0 a 3 anos',
+    value: 'all',
+    label: 'Todas',
+    title: 'Toda a educação básica pública',
+    offer: '',
+    place: 'na rede pública',
+    ages: null,
   },
   {
-    value: 'enrollment',
-    label: 'Matrículas',
-    title: 'Matrículas em creche pública',
-    key: 'basic_daycare_enrollment',
-    unit: 'matrículas',
+    value: 'daycare',
+    label: 'Creche',
+    title: 'Creche, de 0 a 3 anos',
+    offer: 'com creche',
+    place: 'em creche',
+    ages: '0 a 3 anos',
   },
   {
-    value: 'units',
-    label: 'Unidades',
-    title: 'Escolas públicas com matrícula de creche',
-    key: 'basic_daycares',
-    unit: 'creches',
+    value: 'preschool',
+    label: 'Pré-escola',
+    title: 'Pré-escola, de 4 e 5 anos',
+    offer: 'com pré-escola',
+    place: 'na pré-escola',
+    ages: null,
+  },
+  {
+    value: 'elementary',
+    label: 'Fundamental',
+    title: 'Ensino fundamental, de 6 a 14 anos',
+    offer: 'com ensino fundamental',
+    place: 'no fundamental',
+    ages: null,
+  },
+  {
+    value: 'high_school',
+    label: 'Médio',
+    title: 'Ensino médio, de 15 a 17 anos',
+    offer: 'com ensino médio',
+    place: 'no ensino médio',
+    ages: '15 a 17 anos',
   },
 ];
 
-export const SCHOOL_OPTIONS: MetricOption<SchoolMetric>[] = [
-  {
-    value: 'schools',
-    label: 'Escolas',
-    title: 'Escolas públicas com matrícula na educação básica',
-    key: 'basic_schools',
-    unit: 'escolas',
-  },
-  {
-    value: 'enrollment',
-    label: 'Matrículas',
-    title: 'Matrículas na educação básica pública, da creche ao ensino médio',
-    key: 'basic_enrollment',
-    unit: 'matrículas',
-  },
+export const METRIC_OPTIONS: { value: BasicMetric; label: string }[] = [
+  { value: 'schools', label: 'Escolas' },
+  { value: 'enrollment', label: 'Matrículas' },
+  { value: 'coverage', label: 'Atendimento' },
 ];
 
-export const COVERAGE_KEY = 'basic_daycare_coverage';
+function stageOption(stage: BasicStage): StageOption {
+  return STAGE_OPTIONS.find((option) => option.value === stage)!;
+}
+
+export function hasCoverage(stage: BasicStage): boolean {
+  return stageOption(stage).ages !== null;
+}
+
+/** Atendimento só existe na creche e no médio; nas outras etapas, vale Escolas. */
+export function basicMetric(stage: BasicStage, metric: BasicMetric): BasicMetric {
+  return metric === 'coverage' && !hasCoverage(stage) ? 'schools' : metric;
+}
+
+export function basicKey(stage: BasicStage, metric: BasicMetric): string {
+  return stage === 'all' ? `basic_${metric}` : `basic_${stage}_${metric}`;
+}
+
+/** Indicador da etapa e medida escolhidas; `null` no ensino superior. */
+export function basicIndicatorKey(preferences: EducationPreferences): string | null {
+  if (preferences.level !== 'basic') return null;
+  return basicKey(preferences.stage, basicMetric(preferences.stage, preferences.metric));
+}
+
+export function metricLabel(stage: BasicStage, metric: BasicMetric): string {
+  const { offer, place } = stageOption(stage);
+  if (metric === 'coverage') return `Atendimento ${place}`;
+  if (metric === 'enrollment') return `Matrículas ${place}`;
+  return stage === 'all' ? 'Escolas públicas' : `Escolas ${offer}`;
+}
+
+export function metricTitle(stage: BasicStage, metric: BasicMetric): string {
+  const { offer, place, ages } = stageOption(stage);
+  if (metric === 'coverage')
+    return `Matrículas públicas ${place} por pessoa de ${ages} (taxa bruta, desde 2022)`;
+  if (metric === 'enrollment')
+    return stage === 'all'
+      ? 'Matrículas na educação básica pública, da creche ao ensino médio'
+      : `Matrículas públicas ${place}`;
+  return stage === 'all'
+    ? 'Escolas públicas com matrícula na educação básica'
+    : `Escolas públicas ${offer}`;
+}
+
+// Unidade curta ao lado da fonte, no cabeçalho do mapa.
+export function metricUnit(stage: BasicStage, metric: BasicMetric): string {
+  if (metric === 'coverage') return `% de ${stageOption(stage).ages}`;
+  return metric === 'enrollment' ? 'matrículas' : 'escolas';
+}
 
 export const NETWORK_OPTIONS: { value: EducationNetwork; label: string }[] = [
   { value: 'federal', label: 'Federais' },
@@ -99,6 +157,13 @@ export const KIND_OPTIONS: { value: EducationKind; label: string; title: string 
   { value: 'college', label: 'Faculdades', title: 'Faculdades e centros universitários' },
 ];
 
+// Abas da primeira versão da básica (Creches e Escolas), lidas como etapa e medida.
+const LEGACY_DAYCARE: Record<string, BasicMetric> = {
+  coverage: 'coverage',
+  enrollment: 'enrollment',
+  units: 'schools',
+};
+
 export function normalizeEducation(value: unknown): EducationPreferences | undefined {
   if (typeof value !== 'object' || value === null) return undefined;
   const item = value as Record<string, unknown>;
@@ -106,31 +171,28 @@ export function normalizeEducation(value: unknown): EducationPreferences | undef
   const kind = KIND_OPTIONS.find((option) => option.value === item.kind)?.value;
   if (!network || !kind) return undefined;
   if (typeof item.year !== 'string' || !/^(latest|(19|20)\d{2})$/.test(item.year)) return undefined;
-  // Sessões anteriores à educação básica não têm aba nem métricas: valem os padrões.
   const pick = <T>(options: { value: T }[], raw: unknown, fallback: T): T =>
     options.find((option) => option.value === raw)?.value ?? fallback;
-  return {
-    level: pick(LEVEL_OPTIONS, item.level, DEFAULT_EDUCATION.level),
-    network,
-    kind,
-    daycare: pick(DAYCARE_OPTIONS, item.daycare, DEFAULT_EDUCATION.daycare),
-    schools: pick(SCHOOL_OPTIONS, item.schools, DEFAULT_EDUCATION.schools),
-    year: item.year,
-  };
+  let level: EducationLevel = 'higher';
+  let stage = pick(STAGE_OPTIONS, item.stage, DEFAULT_EDUCATION.stage);
+  let metric = pick(METRIC_OPTIONS, item.metric, DEFAULT_EDUCATION.metric);
+  if (item.level === 'basic') level = 'basic';
+  else if (item.level === 'daycare') {
+    level = 'basic';
+    stage = 'daycare';
+    metric = LEGACY_DAYCARE[String(item.daycare)] ?? 'coverage';
+  } else if (item.level === 'schools') {
+    level = 'basic';
+    stage = 'all';
+    metric = item.schools === 'enrollment' ? 'enrollment' : 'schools';
+  }
+  // Sessão sem aba é de antes da educação básica: estava no ensino superior.
+  return { level, network, kind, stage, metric: basicMetric(stage, metric), year: item.year };
 }
 
 // Cada rede e tipo é um indicador do motor do backend (context=education).
 export function indicatorKey(network: EducationNetwork, kind: EducationKind): string {
   return `higher_ed_${network}_${kind === 'all' ? '' : `${kind}_`}enrollment`;
-}
-
-/** Indicador da aba básica escolhida; `null` no ensino superior. */
-export function basicIndicatorKey(preferences: EducationPreferences): string | null {
-  if (preferences.level === 'daycare')
-    return DAYCARE_OPTIONS.find((option) => option.value === preferences.daycare)!.key;
-  if (preferences.level === 'schools')
-    return SCHOOL_OPTIONS.find((option) => option.value === preferences.schools)!.key;
-  return null;
 }
 
 export const CATEGORY_LABEL: Record<EducationCategory, string> = {

@@ -22,11 +22,12 @@ import { usePageVisible } from '@/lib/usePageVisible';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 import { useMobileSheet } from '@/app/useMobileSheet';
 import {
-  DAYCARE_OPTIONS,
   DEFAULT_EDUCATION,
+  METRIC_OPTIONS,
   NETWORK_OPTIONS,
-  SCHOOL_OPTIONS,
   basicIndicatorKey,
+  basicMetric,
+  hasCoverage,
   indicatorKey,
   type EducationPreferences,
 } from './education';
@@ -180,18 +181,17 @@ export default function EducationApp({ contextControl }: { contextControl: React
   // ocioso: no celular, sem hover, a troca de aba também pinta na hora.
   useEffect(() => {
     if (!values.data || viewport.moving || !pageVisible) return;
+    // Básica: as outras medidas da etapa; Superior: as outras redes.
     const alternatives: EducationPreferences[] =
-      preferences.level === 'daycare'
-        ? DAYCARE_OPTIONS.filter((option) => option.value !== preferences.daycare).map(
-            (option) => ({ ...preferences, daycare: option.value }),
-          )
-        : preferences.level === 'schools'
-          ? SCHOOL_OPTIONS.filter((option) => option.value !== preferences.schools).map(
-              (option) => ({ ...preferences, schools: option.value }),
-            )
-          : NETWORK_OPTIONS.filter((option) => option.value !== preferences.network).map(
-              (option) => ({ ...preferences, network: option.value }),
-            );
+      preferences.level === 'basic'
+        ? METRIC_OPTIONS.filter(
+            (option) =>
+              option.value !== basicMetric(preferences.stage, preferences.metric) &&
+              (option.value !== 'coverage' || hasCoverage(preferences.stage)),
+          ).map((option) => ({ ...preferences, metric: option.value }))
+        : NETWORK_OPTIONS.filter((option) => option.value !== preferences.network).map(
+            (option) => ({ ...preferences, network: option.value }),
+          );
     return scheduleIdle(() => alternatives.forEach(prefetchChoice), 1500);
   }, [values.data, viewport.moving, pageVisible, preferences, prefetchChoice]);
 
@@ -361,10 +361,10 @@ export default function EducationApp({ contextControl }: { contextControl: React
               setSelectedCode(null);
             }}
           >
-            {preferences.level !== 'higher' && basicKey ? (
+            {basicKey ? (
               <BasicEducationPanel
-                level={preferences.level}
-                indicatorKey={basicKey}
+                stage={preferences.stage}
+                metric={basicMetric(preferences.stage, preferences.metric)}
                 data={overview.data?.ibgeCode === detailCode ? overview.data : undefined}
                 loading={overview.isFetching}
                 error={overview.error}

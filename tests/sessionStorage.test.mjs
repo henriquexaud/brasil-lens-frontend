@@ -285,7 +285,7 @@ test('o contexto Transporte guarda aba e tipo de rodovia; valores inválidos cae
 
 test('o contexto Educação guarda rede, tipo e ano; valores inválidos caem', () => {
   const education = {
-    level: 'daycare', network: 'state', kind: 'college', daycare: 'units', schools: 'enrollment', year: '2022',
+    level: 'basic', network: 'state', kind: 'college', stage: 'high_school', metric: 'coverage', year: '2022',
   };
   saveSessionState({ dataContext: 'education', education });
   assert.deepEqual(loadSessionState(), { dataContext: 'education', education });

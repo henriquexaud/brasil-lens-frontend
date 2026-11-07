@@ -2,14 +2,18 @@ import type { EducationKind, EducationNetwork, Indicator } from '@/api/types';
 import { LayerMetadata, type DataSource } from '@/components/LayerMetadata';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import {
-  COVERAGE_KEY,
-  DAYCARE_OPTIONS,
   KIND_OPTIONS,
   LEVEL_OPTIONS,
+  METRIC_OPTIONS,
   NETWORK_OPTIONS,
-  SCHOOL_OPTIONS,
+  STAGE_OPTIONS,
   basicIndicatorKey,
+  basicMetric,
+  hasCoverage,
   indicatorKey,
+  metricTitle,
+  metricUnit,
+  type BasicStage,
   type EducationLevel,
   type EducationPreferences,
 } from './education';
@@ -22,12 +26,14 @@ interface Pill {
 }
 
 function PillRow({
+  className = '',
   label,
   pills,
   value,
   onChange,
   onIntent,
 }: {
+  className?: string;
   label: string;
   pills: Pill[];
   value: string;
@@ -35,7 +41,7 @@ function PillRow({
   onIntent?: (next: EducationPreferences) => void;
 }) {
   return (
-    <div className="indicator-pills-row" role="group" aria-label={label}>
+    <div className={`indicator-pills-row ${className}`} role="group" aria-label={label}>
       {pills.map((pill) => {
         const active = pill.value === value;
         return (
@@ -88,18 +94,16 @@ export function EducationControls({
   const latestLabel = indicator?.latestYear
     ? `${indicator.latestYear} · Último`
     : 'Último disponível';
-  const metric =
-    preferences.level === 'daycare'
-      ? DAYCARE_OPTIONS.find((option) => option.value === preferences.daycare)
-      : preferences.level === 'schools'
-        ? SCHOOL_OPTIONS.find((option) => option.value === preferences.schools)
-        : undefined;
+  const metric = basicMetric(preferences.stage, preferences.metric);
+  const withStage = (stage: BasicStage): EducationPreferences => ({
+    ...preferences,
+    stage,
+    metric: basicMetric(stage, preferences.metric),
+  });
+  // No atendimento, a descrição do tooltip cita a população do Censo 2022 (IBGE).
   const sources: DataSource[] = [
     { label: 'INEP', description: indicator?.description ?? undefined },
   ];
-  // A cobertura divide as matrículas do INEP pelas crianças do Censo do IBGE.
-  if (basicKey === COVERAGE_KEY)
-    sources.push({ label: 'IBGE', description: 'População de 0 a 3 anos, Censo 2022' });
   return (
     <section className="panel-section indicator-controls" aria-label="Educação no mapa">
       <SegmentedControl
@@ -139,31 +143,44 @@ export function EducationControls({
           )}
         </>
       )}
-      {preferences.level === 'daycare' && (
-        <PillRow
-          label="Creches públicas no mapa"
-          value={preferences.daycare}
-          pills={DAYCARE_OPTIONS.map((option) => ({
-            ...option,
-            next: { ...preferences, daycare: option.value },
-          }))}
-          onChange={onChange}
-          onIntent={onIntent}
-        />
+      {preferences.level === 'basic' && (
+        <>
+          <PillRow
+            className="education-stage-row"
+            label="Etapa da educação básica"
+            value={preferences.stage}
+            pills={STAGE_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+              title: option.title,
+              next: withStage(option.value),
+            }))}
+            onChange={onChange}
+            onIntent={onIntent}
+          />
+          <PillRow
+            label="Medida no mapa"
+            value={metric}
+            pills={METRIC_OPTIONS.filter(
+              (option) => option.value !== 'coverage' || hasCoverage(preferences.stage),
+            ).map((option) => ({
+              ...option,
+              title: metricTitle(preferences.stage, option.value),
+              next: { ...preferences, metric: option.value },
+            }))}
+            onChange={onChange}
+            onIntent={onIntent}
+          />
+        </>
       )}
-      {preferences.level === 'schools' && (
-        <PillRow
-          label="Escolas públicas no mapa"
-          value={preferences.schools}
-          pills={SCHOOL_OPTIONS.map((option) => ({
-            ...option,
-            next: { ...preferences, schools: option.value },
-          }))}
-          onChange={onChange}
-          onIntent={onIntent}
-        />
-      )}
-      <LayerMetadata sources={sources} unit={metric?.unit ?? 'matrículas presenciais'}>
+      <LayerMetadata
+        sources={sources}
+        unit={
+          preferences.level === 'basic'
+            ? metricUnit(preferences.stage, metric)
+            : 'matrículas presenciais'
+        }
+      >
         {years.length > 1 ? (
           <select
             id="year"
