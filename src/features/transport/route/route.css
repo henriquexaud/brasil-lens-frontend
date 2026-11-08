@@ -8,6 +8,8 @@
 
 .route-extra {
   display: grid;
+  /* Coluna presa à largura da busca: texto longo quebra linha em vez de alargar a pilha. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   margin-top: 6px;
   /* Ao entrar no Transporte, a busca fica parada e o resto desce dela. */
@@ -174,15 +176,13 @@
 .route-summary-via,
 .route-summary-error {
   margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text-faint);
   font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .route-summary-error {
-  white-space: normal;
   color: var(--text-soft);
 }
 
@@ -199,7 +199,8 @@
 .route-legs li {
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr) auto;
-  align-items: center;
+  /* Vias longas quebram linha; número e valores ficam na primeira. */
+  align-items: baseline;
   gap: 6px;
 }
 
@@ -209,10 +210,9 @@
 }
 
 .route-leg-via {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--text-soft);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .route-leg-value {
