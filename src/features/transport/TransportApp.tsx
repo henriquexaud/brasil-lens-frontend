@@ -10,8 +10,6 @@ import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
 import { useMapScope } from '@/features/map/useMapScope';
 import { useTerritoryMap } from '@/features/map/useTerritoryMap';
-import { SearchBox, type SearchResult } from '@/features/search/SearchBox';
-import type { LocatedMunicipality } from '@/features/search/LocationButton';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 import { useMobileSheet } from '@/app/useMobileSheet';
@@ -22,6 +20,11 @@ import { OsmTransportLayer } from './OsmTransportLayer';
 import { TransportControls } from './TransportControls';
 import { TransportLegend } from './TransportLegend';
 import { TransportPanel } from './TransportPanel';
+import { RouteLayer } from './route/RouteLayer';
+import { RoutePlanner } from './route/RoutePlanner';
+import { useRoutePlan } from './route/useRoutePlan';
+import { searchBias } from './route/model';
+import './route/route.css';
 import {
   PORTS,
   networkOptions,
@@ -52,12 +55,7 @@ export default function TransportApp({ contextControl }: { contextControl: React
     () => loadSessionState().transport ?? DEFAULT_TRANSPORT,
   );
   const [viewport, setViewport] = useState<MapViewport>({ zoom: 4 });
-  const [locationTarget, setLocationTarget] = useState<{
-    code: string;
-    latitude: number;
-    longitude: number;
-    requestedAt: number;
-  } | null>(null);
+  const routing = useRoutePlan();
   const pageVisible = usePageVisible();
   const sheet = useMobileSheet();
   useEffect(() => saveSessionState({ transport: preferences }), [preferences]);
@@ -99,8 +97,8 @@ export default function TransportApp({ contextControl }: { contextControl: React
 
   const selectMapTerritory = useCallback(
     (code: string) => {
-      if (viewport.zoom >= STREET_CLICK_ZOOM) return;
-      setLocationTarget(null);
+      // Marcando um ponto da rota, o clique é do ponto, não do município.
+      if (viewport.zoom >= STREET_CLICK_ZOOM || routing.picking !== null) return;
       if (code.length === 7 && code.slice(0, 2) !== scope.parent) {
         const parent = code.slice(0, 2);
         const state = statesOutlineLayer.data?.features.find((item) => item.id === parent);
@@ -108,29 +106,14 @@ export default function TransportApp({ contextControl }: { contextControl: React
       }
       setSelectedCode(code);
     },
-    [viewport.zoom, scope.parent, statesOutlineLayer.data, drillIntoState, setSelectedCode],
-  );
-  const selectSearch = useCallback(
-    (result: SearchResult) => {
-      setLocationTarget(null);
-      if (result.level === 'state') {
-        if (isDrilledDown) resetScope();
-        setSelectedCode(result.ibgeCode);
-      } else if (result.parentCode) {
-        drillIntoState(result.parentCode, result.parentName ?? result.parentCode);
-        setSelectedCode(result.ibgeCode);
-      }
-    },
-    [drillIntoState, isDrilledDown, resetScope, setSelectedCode],
-  );
-  const onLocated = useCallback(
-    ({ territory, latitude, longitude }: LocatedMunicipality) => {
-      if (!territory.parent) return;
-      drillIntoState(territory.parent.ibgeCode, territory.parent.name);
-      setSelectedCode(territory.ibgeCode);
-      setLocationTarget({ code: territory.ibgeCode, latitude, longitude, requestedAt: Date.now() });
-    },
-    [drillIntoState, setSelectedCode],
+    [
+      viewport.zoom,
+      routing.picking,
+      scope.parent,
+      statesOutlineLayer.data,
+      drillIntoState,
+      setSelectedCode,
+    ],
   );
   const onBack = selectedCode
     ? () => setSelectedCode(null)
@@ -144,6 +127,7 @@ export default function TransportApp({ contextControl }: { contextControl: React
       if (
         event.key !== 'Escape' ||
         event.defaultPrevented ||
+        routing.picking !== null ||
         document.activeElement?.closest('input, select, textarea, .search-slot')
       )
         return;
@@ -152,7 +136,7 @@ export default function TransportApp({ contextControl }: { contextControl: React
     }
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
-  }, [selectedCode, isDrilledDown, setSelectedCode, resetScope]);
+  }, [selectedCode, isDrilledDown, setSelectedCode, resetScope, routing.picking]);
 
   const failure =
     mapLayer.error ??
@@ -189,14 +173,35 @@ export default function TransportApp({ contextControl }: { contextControl: React
         stateOutline={selectedStateOutline}
         onViewportChange={setViewport}
         maxZoom={MAX_ZOOM}
-        locationTarget={locationTarget?.code === selectedCode ? locationTarget : null}
       >
         {tileUrl && tiles && (
           <OsmTransportLayer url={tileUrl} maxDataZoom={tiles.maxZoom} preferences={preferences} />
         )}
         {waterways && <NetworkLayer layer="waterway" network={network.data} ports={ports.data} />}
+        <RouteLayer
+          waypoints={routing.plan.waypoints}
+          route={routing.route}
+          stale={routing.stale}
+          fitRequest={routing.fitRequest}
+          focus={routing.focus}
+          device={routing.device}
+          picking={routing.picking !== null}
+          onPick={routing.onPickPoint}
+          onDrag={routing.onDrag}
+        />
       </MapView>
-      <SearchBox onSelect={selectSearch} onLocated={onLocated} />
+      <RoutePlanner
+        plan={routing.plan}
+        dispatch={routing.dispatch}
+        route={routing.route}
+        routeLoading={routing.routeLoading}
+        routeError={routing.routeError}
+        near={searchBias(viewport.bbox, viewport.zoom, routing.device)}
+        picking={routing.picking}
+        onPick={routing.setPicking}
+        onSelectPlace={routing.onSelectPlace}
+        onPosition={routing.onPosition}
+      />
       <div ref={sheet.slotRef} className={`panel-slot ${sheet.collapsed ? 'is-peek' : ''}`}>
         <aside className="panel">
           <div ref={sheet.headerRef} className="panel-section scope-section" {...sheet.headerProps}>

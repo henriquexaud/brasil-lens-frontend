@@ -588,6 +588,31 @@ export interface TransportSummary {
   totals: { layer: TransportLayer; value: number | null }[];
 }
 
+// Navegação (ADR-24 do backend): endereços do Photon e rotas do OSRM, via API.
+export type RouteProfile = 'car' | 'bike' | 'foot';
+
+export interface Place {
+  id: string;
+  name: string;
+  detail: string | null;
+  latitude: number;
+  longitude: number;
+}
+
+export interface PlaceSearch {
+  places: Place[];
+}
+
+export interface RouteResult {
+  profile: RouteProfile;
+  distanceM: number;
+  durationS: number;
+  /** Polyline codificada com precisão 6, em lat,lon. */
+  geometry: string;
+  legs: { distanceM: number; durationS: number; summary: string | null }[];
+  waypoints: { latitude: number; longitude: number; snapDistanceM: number; name: string | null }[];
+}
+
 // Educação (ADR-19 do backend): instituições públicas de ensino superior.
 export type EducationNetwork = 'federal' | 'state' | 'municipal';
 // Filtro por tipo: institutos juntam os CEFETs; faculdades, os centros universitários.

@@ -1,0 +1,349 @@
+/* Navegação do Transporte: a busca do canto vira partida, paradas e destino,
+   no mesmo cartão (superfície, borda, raio e sombra da .search-box). */
+
+.route-slot {
+  width: 300px;
+  --route-color: #1a66e0;
+}
+
+/* O azul da linha é o mesmo nos dois temas; texto e ícones clareiam no escuro. */
+:root[data-theme='dark'] .route-slot {
+  --route-color: #6ea6ff;
+}
+
+.route-box {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  transition: border-color var(--motion-fast) var(--ease-out);
+}
+
+.route-box:focus-within,
+.route-box.is-picking {
+  border-color: var(--focus-border);
+}
+
+.route-rows {
+  display: flex;
+  align-items: center;
+  padding: 2px 2px 0 0;
+}
+
+.route-fields {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Fio pontilhado entre os pontos, como o traçado de uma viagem. */
+.route-fields::before {
+  content: '';
+  position: absolute;
+  top: 17px;
+  bottom: 17px;
+  left: 13.5px;
+  border-left: 1.5px dotted var(--border-strong);
+}
+
+.route-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 4px 0 9px;
+}
+
+.route-field + .route-field::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 4px;
+  left: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.route-dot {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--text-soft);
+}
+
+.route-dot.is-stop {
+  width: 8px;
+  height: 8px;
+  margin: 0 1px;
+  border-width: 1.5px;
+}
+
+.route-dot.is-destination {
+  background: var(--text);
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.route-clear {
+  opacity: 0;
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.route-field:hover .route-clear,
+.route-field:focus-within .route-clear,
+.route-clear:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .route-clear {
+    opacity: 1;
+  }
+}
+
+.route-swap,
+.route-profile,
+.route-text-button {
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.route-swap {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: 0 2px;
+  border-radius: 999px;
+  color: var(--text-faint);
+}
+
+.route-swap:hover,
+.route-profile:hover,
+.route-text-button:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.route-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 30px;
+  padding: 2px 4px 3px 5px;
+  border-top: 1px solid var(--border);
+}
+
+.route-profiles {
+  display: flex;
+  gap: 2px;
+}
+
+.route-profile {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+}
+
+.route-profile.is-active,
+.route-profile.is-active:hover {
+  background: color-mix(in srgb, var(--route-color) 12%, transparent);
+  color: var(--route-color);
+}
+
+.route-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.route-text-button {
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  color: var(--text-soft);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.route-swap:focus-visible,
+.route-profile:focus-visible,
+.route-text-button:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 1px;
+}
+
+.route-option-action {
+  color: var(--text-soft);
+  font-weight: 500;
+}
+
+.route-hint .route-text-button {
+  margin-left: 2px;
+  padding: 2px 6px;
+}
+
+.route-summary {
+  margin: 6px 0 0;
+  padding: 9px 11px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  animation: content-reveal var(--motion-ui) var(--ease-out);
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.route-summary.is-loading {
+  opacity: 0.6;
+}
+
+.route-summary p {
+  margin: 0;
+}
+
+.route-summary-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.route-summary-main strong {
+  color: var(--route-color);
+  font-size: 17px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.route-summary-main span {
+  color: var(--text-soft);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.route-summary-via,
+.route-summary-error {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.route-summary-error {
+  white-space: normal;
+  color: var(--text-soft);
+}
+
+.route-legs {
+  display: grid;
+  gap: 3px;
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+  font-size: 11px;
+}
+
+.route-legs li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.route-leg-index {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.route-leg-via {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-soft);
+}
+
+.route-leg-value {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Marcadores no mapa: os mesmos pontos dos campos, arrastáveis. O azul fica
+   para a linha e para o ponto do GPS; os pontos da viagem seguem o tema. */
+.route-marker {
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 3px solid var(--text);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+  cursor: grab;
+}
+
+.route-marker.is-stop {
+  border-width: 2.5px;
+}
+
+.route-marker.is-destination {
+  background: var(--text);
+  border-color: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    0 1px 4px rgb(0 0 0 / 30%);
+}
+
+/* Contorno da linha na cor da superfície: some no fundo e separa a rota da malha. */
+.route-casing {
+  stroke: var(--surface);
+}
+
+.leaflet-dragging .route-marker {
+  cursor: grabbing;
+}
+
+.is-picking-route-point,
+.is-picking-route-point .leaflet-interactive {
+  cursor: crosshair !important;
+}
+
+@media (max-width: 900px) {
+  /* Deixa livre a coluna da direita, onde ficam o tema e o Pix abaixo da busca. */
+  .route-slot {
+    width: min(
+      360px,
+      calc(100% - var(--gutter) - max(var(--gutter), env(safe-area-inset-right)) - 72px)
+    );
+  }
+
+  .route-field {
+    height: 38px;
+  }
+
+  .route-fields::before {
+    top: 20px;
+    bottom: 20px;
+  }
+}

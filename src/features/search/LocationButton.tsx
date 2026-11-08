@@ -8,10 +8,45 @@ export interface LocatedMunicipality {
   longitude: number;
 }
 
+export interface DevicePosition {
+  latitude: number;
+  longitude: number;
+  /** Raio de incerteza, em metros. */
+  accuracy: number;
+}
+
+export function readDevicePosition(precise: boolean): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Localização indisponível neste navegador.'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: precise,
+      maximumAge: precise ? 10000 : 60000,
+      timeout: precise ? 15000 : 12000,
+    });
+  });
+}
+
+export function locationErrorMessage(cause: unknown): string {
+  const code = (cause as GeolocationPositionError)?.code;
+  return code === 1
+    ? 'Permita a localização no navegador ou use a busca.'
+    : code === 2 || code === 3
+      ? 'Não foi possível obter sua localização. Tente novamente.'
+      : cause instanceof Error
+        ? cause.message
+        : 'Não foi possível localizar seu município.';
+}
+
+// Com `onPosition`, entrega o ponto exato do aparelho, sem procurar o município.
 export function LocationButton({
   onLocated,
+  onPosition,
 }: {
-  onLocated: (location: LocatedMunicipality) => void;
+  onLocated?: (location: LocatedMunicipality) => void;
+  onPosition?: (position: DevicePosition) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,38 +61,23 @@ export function LocationButton({
   async function locate() {
     const id = ++request.current;
     setError(null);
-    if (!navigator.geolocation) {
-      setError('Localização indisponível neste navegador.');
-      return;
-    }
     setBusy(true);
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: false,
-          maximumAge: 60000,
-          timeout: 12000,
-        }),
-      );
+      const position = await readDevicePosition(Boolean(onPosition));
       if (request.current !== id) return;
-      const { latitude, longitude } = position.coords;
+      const { latitude, longitude, accuracy } = position.coords;
+      if (onPosition) {
+        onPosition({ latitude, longitude, accuracy });
+        return;
+      }
       const territory = await apiPost<TerritoryDetail>('/territories/locate', {
         latitude,
         longitude,
       });
-      if (request.current === id) onLocated({ territory, latitude, longitude });
+      if (request.current === id) onLocated?.({ territory, latitude, longitude });
     } catch (cause) {
       if (request.current !== id) return;
-      const code = (cause as GeolocationPositionError)?.code;
-      setError(
-        code === 1
-          ? 'Permita a localização no navegador ou use a busca.'
-          : code === 2 || code === 3
-            ? 'Não foi possível obter sua localização. Tente novamente.'
-            : cause instanceof Error
-              ? cause.message
-              : 'Não foi possível localizar seu município.',
-      );
+      setError(locationErrorMessage(cause));
     } finally {
       if (request.current === id) setBusy(false);
     }
