@@ -1,4 +1,4 @@
-import type { MapFeatureProperties, TerritoryOverview } from '@/api/types';
+import type { BasicSchools, MapFeatureProperties, TerritoryOverview } from '@/api/types';
 import { AnimatedText } from '@/components/AnimatedText';
 import { DrillDownButton } from '@/components/DrillDownButton';
 import { ErrorMessage } from '@/components/Feedback';
@@ -8,11 +8,13 @@ import {
   formatCount,
   hasCoverage,
   metricLabel,
+  noSchoolsLabel,
   plural,
   type BasicMetric,
   type BasicStage,
 } from './education';
 import { DetailHeader } from './EducationPanel';
+import { SchoolList } from './SchoolList';
 
 const percent = new Intl.NumberFormat('pt-BR', {
   minimumFractionDigits: 1,
@@ -32,6 +34,7 @@ export function BasicEducationPanel({
   loading,
   error,
   territory,
+  schools,
   onClose,
   onDrillDown,
 }: {
@@ -41,6 +44,8 @@ export function BasicEducationPanel({
   loading: boolean;
   error: Error | null;
   territory?: MapFeatureProperties;
+  // Lista do município; `null` fora dele (no Brasil e na UF seriam milhares).
+  schools: { data?: BasicSchools; loading: boolean; error: Error | null } | null;
   onClose?: () => void;
   onDrillDown: (code: string, name: string) => void;
 }) {
@@ -90,6 +95,18 @@ export function BasicEducationPanel({
           </dd>
         )}
       </dl>
+      {schools ? (
+        <SchoolList
+          key={`${territory?.ibgeCode}:${stage}`}
+          {...schools}
+          year={featured?.year ?? undefined}
+          emptyLabel={noSchoolsLabel(stage)}
+        />
+      ) : (
+        <p className="education-summary education-schools-hint">
+          Abra um município para ver a lista de escolas.
+        </p>
+      )}
       {territory?.level === 'state' && onClose && (
         <DrillDownButton onClick={() => onDrillDown(territory.ibgeCode, territory.name)} />
       )}

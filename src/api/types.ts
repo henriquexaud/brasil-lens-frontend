@@ -633,6 +633,25 @@ export interface EducationCampus extends EducationPlace {
   graduates: number;
 }
 
+// Etapas da aba Básica (ADR-23 do backend), como nos indicadores `basic_*`.
+export type BasicSchoolStage = 'all' | 'early_childhood' | 'elementary' | 'high_school';
+
+export interface BasicSchoolSummary {
+  code: number;
+  name: string;
+  network: EducationCategory;
+  enrollment: number;
+}
+
+/** Escolas públicas de um município no Censo Escolar mais recente. */
+export interface BasicSchools {
+  code: string;
+  name: string;
+  year: number | null;
+  stage: BasicSchoolStage;
+  schools: BasicSchoolSummary[];
+}
+
 export interface EducationInstitutionDetail {
   code: number;
   year: number;

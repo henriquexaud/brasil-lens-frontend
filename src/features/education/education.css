@@ -84,3 +84,47 @@
   font-size: 10.5px;
   white-space: nowrap;
 }
+
+/* Escola da lista da Básica: mesma linha das instituições, mas sem clique. */
+.education-school {
+  cursor: default;
+}
+
+.education-school:hover .education-institution-name {
+  color: inherit;
+}
+
+.education-school-search {
+  width: 100%;
+  margin: 2px 0 6px;
+  padding: 6px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  transition: border-color var(--motion-fast) var(--ease-out);
+}
+
+.education-school-search::placeholder {
+  color: var(--text-faint);
+}
+
+.education-school-search:hover {
+  border-color: var(--focus-border);
+}
+
+.education-school-search:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* 16 px no celular: o iOS não dá zoom ao focar o campo. */
+@media (max-width: 900px) {
+  .education-school-search {
+    min-height: 40px;
+    font-size: 16px;
+  }
+}

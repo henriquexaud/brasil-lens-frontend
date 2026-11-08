@@ -1,4 +1,5 @@
 import type {
+  BasicSchoolStage,
   EducationCategory,
   EducationKind,
   EducationNetwork,
@@ -7,7 +8,7 @@ import type {
 
 // Aba do contexto: educação básica pública (ADR-23) ou ensino superior (ADR-19).
 export type EducationLevel = 'basic' | 'higher';
-export type BasicStage = 'all' | 'early_childhood' | 'elementary' | 'high_school';
+export type BasicStage = BasicSchoolStage;
 export type BasicMetric = 'schools' | 'enrollment' | 'coverage';
 
 export interface EducationPreferences {
@@ -128,6 +129,12 @@ export function metricTitle(stage: BasicStage, metric: BasicMetric): string {
   return stage === 'all'
     ? 'Escolas públicas com matrícula na educação básica'
     : `Escolas públicas ${offer}`;
+}
+
+export function noSchoolsLabel(stage: BasicStage): string {
+  return stage === 'all'
+    ? 'Nenhuma escola pública no Censo.'
+    : `Nenhuma escola pública ${stageOption(stage).offer}.`;
 }
 
 // Unidade curta ao lado da fonte, no cabeçalho do mapa.
@@ -260,6 +267,42 @@ export function institutionName(name: string, acronym: string | null): string {
     /^Instituto Federal de Educação, Ciência e Tecnologia\b/i,
     'Instituto Federal',
   );
+}
+
+// Siglas de tipo de escola mais comuns no Censo Escolar ("EMEF", "CMEI"...): ficam
+// em maiúsculas. "EM" e "CE" só no começo, onde não são preposição nem palavra.
+const SCHOOL_ACRONYMS = new Set(
+  (
+    'CAIC CEEJA CEF CEI CEIM CEMEI CETI CEU CIEP CMEI EC EE EEB EEEFM EEEM EEF EEFM EEM ' +
+    'EEMTI EJA EMEB EMEF EMEFM EMEI EMEIEF EMEIF ETEC PEM UE UEB UI'
+  ).split(' '),
+);
+const LEADING_ACRONYMS = new Set(['EM', 'CE']);
+const ROMAN = /^[IVXL]+$/;
+// Sem vogal não é palavra, é sigla ("PMMG", "SMDF").
+const NO_VOWEL = /^[B-DF-HJ-NP-TV-XZ]{2,}$/;
+
+/** O INEP publica as escolas em maiúsculas e sem acento; a sigla do tipo fica. */
+export function schoolName(name: string): string {
+  return name
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((word, index) => {
+      if (SCHOOL_ACRONYMS.has(word) || ROMAN.test(word) || NO_VOWEL.test(word)) return word;
+      if (index === 0 && LEADING_ACRONYMS.has(word)) return word;
+      const lower = word.toLocaleLowerCase('pt-BR');
+      return index > 0 && CONNECTORS.has(lower) ? lower : capitalize(lower);
+    })
+    .join(' ');
+}
+
+/** Busca sem acento nem caixa, para achar "Joao" digitando "joão". */
+export function searchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('pt-BR');
 }
 
 const countFormat = new Intl.NumberFormat('pt-BR');

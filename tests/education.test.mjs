@@ -12,11 +12,12 @@ const {
   highlightInstitution,
   institutionName,
   normalizeEducation,
+  schoolName,
   SESSION_STORAGE_KEY,
 } = await loadModule(`
   export { default as EducationApp } from './src/features/education/EducationApp';
   export { educationPresentation, highlightInstitution } from './src/features/education/presentation';
-  export { institutionName, normalizeEducation } from './src/features/education/education';
+  export { institutionName, normalizeEducation, schoolName } from './src/features/education/education';
   export { SESSION_STORAGE_KEY } from './src/lib/sessionStorage';
 `, { stubs: {
   '@/features/map/MapView': `import { createElement } from 'react'; export const MapView = (props) => { globalThis.mapProps = props; return createElement('div', {id:'map'}); };`,
@@ -95,6 +96,17 @@ const detail = {
   ],
 };
 
+// 25 escolas: a busca aparece acima de 20. No médio, só a estadual.
+const schoolList = (code, stage) => ({
+  code, name: 'Belo Horizonte', year: 2025, stage,
+  schools: (stage === 'high_school' ? [0] : Array.from({ length: 25 }, (_, i) => i)).map((i) => ({
+    code: i + 1,
+    name: i === 0 ? 'EE GOVERNADOR MILTON CAMPOS' : i === 1 ? 'EMEF JOAO XXIII DE OLIVEIRA' : `EM ESCOLA ${i}`,
+    network: i === 0 ? 'state' : 'municipal',
+    enrollment: 1000 - i,
+  })),
+});
+
 let root, client, calls;
 const stored = () => JSON.parse(window.sessionStorage.getItem(SESSION_STORAGE_KEY));
 beforeEach(() => {
@@ -110,6 +122,7 @@ beforeEach(() => {
     else if (parsed.pathname.endsWith('/values')) body = values(parsed.searchParams.get('indicator'), parsed.searchParams.get('year'));
     else if (parsed.pathname.includes('/education/territories/')) body = territory(parsed.searchParams.get('network'), parsed.searchParams.get('kind'));
     else if (parsed.pathname.includes('/education/institutions/')) body = detail;
+    else if (parsed.pathname.includes('/education/schools/')) body = schoolList(parsed.pathname.split('/').pop(), parsed.searchParams.get('stage'));
     else if (parsed.pathname.includes('/socioeconomic/territories/')) body = overview(parsed.pathname.split('/').pop());
     else throw new Error(`rota inesperada ${parsed.pathname}`);
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -134,6 +147,13 @@ test('nomes em maiúsculas viram nome próprio, sem repetir a sigla; os mistos f
   assert.equal(institutionName('FACULDADE DE TECNOLOGIA NILO DE STÉFANI - JABOTICABAL', 'FATEC JBL'),
     'Faculdade de Tecnologia Nilo de Stéfani - Jaboticabal');
   assert.equal(institutionName('Academia Militar das Agulhas Negras', 'AMAN'), 'Academia Militar das Agulhas Negras');
+});
+
+test('escolas: siglas do tipo, de órgão e números romanos ficam em maiúsculas', () => {
+  assert.equal(schoolName('COLEGIO TIRADENTES PMMG - UNIDADE ARGENTINO MADEIRA'), 'Colegio Tiradentes PMMG - Unidade Argentino Madeira');
+  assert.equal(schoolName('CEU CEI JARDIM PAULISTANO'), 'CEU CEI Jardim Paulistano');
+  assert.equal(schoolName('EM  ESCOLA EM TEMPO INTEGRAL'), 'EM Escola em Tempo Integral');
+  assert.equal(schoolName('E M PROF JOAO XXIII'), 'E M Prof Joao XXIII');
 });
 
 test('preferências guardadas só valem com rede, tipo e ano conhecidos', () => {
@@ -268,4 +288,38 @@ test('trocar para a Básica fecha a instituição aberta no Superior', async () 
   await click('Básica');
   assert.doesNotMatch(globalThis.mapProps.presentation.key, /institution/);
   assert.equal(stored().education.level, 'basic');
+});
+
+test('na básica, o município lista as escolas da etapa, com busca e nome legível', async () => {
+  await render();
+  // No Brasil e na UF, a lista seria de milhares: o painel aponta o município.
+  assert.match(document.querySelector('.education-schools-hint').textContent, /Abra um município/);
+  assert.ok(!calls.some((url) => url.pathname.includes('/education/schools/')));
+
+  await act(async () => globalThis.mapProps.onSelect('3106200'));
+  await settle(); await settle();
+  assert.ok(calls.some((url) => url.pathname.endsWith('/education/schools/3106200') && url.searchParams.get('stage') === 'all'));
+  assert.equal(document.querySelector('.education-schools-hint'), null);
+  const rows = () => [...document.querySelectorAll('.education-school')].map((item) => item.textContent);
+  // As siglas do tipo e os números romanos ficam; o resto ganha caixa de leitura.
+  assert.deepEqual(rows().slice(0, 2), ['EE Governador Milton CamposEstadual1.000', 'EMEF Joao XXIII de OliveiraMunicipal999']);
+  assert.equal(rows().length, 5);
+  assert.ok([...document.querySelectorAll('button')].some((item) => item.textContent === 'Mostrar todas (25)'));
+
+  // Busca sem acento nem caixa.
+  const search = document.querySelector('.education-school-search');
+  assert.equal(search.placeholder, 'Buscar entre 25 escolas');
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(search, 'joão');
+    search.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+  await settle();
+  assert.deepEqual(rows(), ['EMEF Joao XXIII de OliveiraMunicipal999']);
+
+  // A lista segue a etapa; com poucas escolas, sem busca.
+  await click('Médio');
+  assert.ok(calls.some((url) => url.pathname.endsWith('/education/schools/3106200') && url.searchParams.get('stage') === 'high_school'));
+  assert.equal(rows().length, 1);
+  assert.equal(document.querySelector('.education-school-search'), null);
 });

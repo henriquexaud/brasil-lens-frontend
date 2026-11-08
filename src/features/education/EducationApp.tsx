@@ -38,6 +38,7 @@ import { InstitutionDetail } from './InstitutionDetail';
 import { NO_OFFER, educationPresentation, highlightInstitution } from './presentation';
 import {
   prefetchEducationChoice,
+  useBasicSchools,
   useEducationIndicators,
   useEducationInstitution,
   useEducationOverview,
@@ -163,6 +164,13 @@ export default function EducationApp({ contextControl }: { contextControl: React
     pageVisible && institutionCode === null && !basicKey,
   );
   const overview = useEducationOverview(detailCode, year, pageVisible && Boolean(basicKey));
+  // Código de 7 dígitos é município: só nele a Básica lista as escolas.
+  const isMunicipality = detailCode.length === 7;
+  const schools = useBasicSchools(
+    detailCode,
+    preferences.stage,
+    pageVisible && Boolean(basicKey) && isMunicipality,
+  );
   const prefetchChoice = useCallback(
     (choice: EducationPreferences) => {
       if (catalog.data)
@@ -368,6 +376,19 @@ export default function EducationApp({ contextControl }: { contextControl: React
                 data={overview.data?.ibgeCode === detailCode ? overview.data : undefined}
                 loading={overview.isFetching}
                 error={overview.error}
+                schools={
+                  isMunicipality
+                    ? {
+                        data:
+                          schools.data?.code === detailCode &&
+                          schools.data.stage === preferences.stage
+                            ? schools.data
+                            : undefined,
+                        loading: schools.isFetching,
+                        error: schools.error,
+                      }
+                    : null
+                }
                 territory={selectedCode ? selectedFeature?.properties : undefined}
                 onClose={selectedCode ? () => setSelectedCode(null) : undefined}
                 onDrillDown={drillIntoState}

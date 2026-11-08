@@ -9,6 +9,8 @@ import {
   type EducationPreferences,
 } from './education';
 import type {
+  BasicSchoolStage,
+  BasicSchools,
   EducationInstitutionDetail,
   EducationKind,
   EducationNetwork,
@@ -174,5 +176,18 @@ export function useEducationInstitution(code: number | null, year: string) {
     enabled: code !== null,
     staleTime: FRESHNESS,
     gcTime: DATA_GC,
+  });
+}
+
+// Lista de escolas da aba Básica: só por município, do Censo Escolar mais recente.
+export function useBasicSchools(code: string, stage: BasicSchoolStage, enabled: boolean) {
+  return useQuery({
+    queryKey: ['education', 'schools', code, stage],
+    queryFn: ({ signal }) =>
+      apiGet<BasicSchools>(`/education/schools/${encodeURIComponent(code)}`, { stage }, signal),
+    enabled,
+    staleTime: FRESHNESS,
+    gcTime: DATA_GC,
+    placeholderData: keepPreviousData,
   });
 }
