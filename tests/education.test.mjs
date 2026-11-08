@@ -303,8 +303,10 @@ test('na básica, o município lista as escolas da etapa, com busca e nome legí
   const rows = () => [...document.querySelectorAll('.education-school')].map((item) => item.textContent);
   // As siglas do tipo e os números romanos ficam; o resto ganha caixa de leitura.
   assert.deepEqual(rows().slice(0, 2), ['EE Governador Milton CamposEstadual1.000', 'EMEF Joao XXIII de OliveiraMunicipal999']);
-  assert.equal(rows().length, 5);
-  assert.ok([...document.querySelectorAll('button')].some((item) => item.textContent === 'Mostrar todas (25)'));
+  // Todas na mesma lista, que rola dentro do painel em vez de esticá-lo.
+  assert.equal(rows().length, 25);
+  assert.ok(document.querySelector('.education-school').closest('.scroll-list'));
+  assert.ok(![...document.querySelectorAll('button')].some((item) => /^Mostrar/.test(item.textContent)));
 
   // Busca sem acento nem caixa.
   const search = document.querySelector('.education-school-search');

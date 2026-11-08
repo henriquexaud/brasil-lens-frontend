@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import type { EducationInstitutionDetail } from '@/api/types';
 import { AnimatedText } from '@/components/AnimatedText';
 import { ErrorMessage } from '@/components/Feedback';
+import { ScrollList } from '@/components/ScrollList';
 import {
   CATEGORY_LABEL,
   ORGANIZATION_LABEL,
@@ -9,8 +9,6 @@ import {
   institutionName,
   plural,
 } from './education';
-
-const VISIBLE = 5;
 
 export function InstitutionDetail({
   data,
@@ -23,8 +21,6 @@ export function InstitutionDetail({
   onClose: () => void;
   onSelectMunicipality: (code: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const campuses = data ? (expanded ? data.campuses : data.campuses.slice(0, VISIBLE)) : [];
   const rows = data
     ? [
         ...(data.faculty !== null
@@ -101,8 +97,10 @@ export function InstitutionDetail({
           )}
           {data.campuses.length > 1 && (
             <div className="education-institutions">
-              <ol aria-label="Municípios com cursos presenciais">
-                {campuses.map((campus) => (
+              <ScrollList
+                items={data.campuses}
+                label="Municípios com cursos presenciais"
+                render={(campus) => (
                   <li key={campus.code}>
                     <button
                       type="button"
@@ -116,19 +114,8 @@ export function InstitutionDetail({
                       <strong>{formatCount(campus.enrollment)}</strong>
                     </button>
                   </li>
-                ))}
-              </ol>
-              {data.campuses.length > VISIBLE && (
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => setExpanded(!expanded)}
-                >
-                  {expanded
-                    ? 'Mostrar menos'
-                    : `Mostrar todos (${formatCount(data.campuses.length)})`}
-                </button>
-              )}
+                )}
+              />
             </div>
           )}
         </>

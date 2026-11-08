@@ -62,10 +62,6 @@
   outline-offset: 3px;
 }
 
-.education-institutions .text-button {
-  margin-top: 4px;
-}
-
 @media (max-width: 900px) {
   .education-institution {
     min-height: 44px;

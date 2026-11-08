@@ -247,7 +247,7 @@ export function FollowedMunicipalitiesPanel({ current, onOpen }: Props) {
         )}
 
         {municipalities.length > 0 && (
-          <ul className="follow-list">
+          <ul className="follow-list scroll-list">
             {municipalities.map((item) => {
               const code = item.municipalityCode;
               const name = item.name ?? `Município ${code}`;

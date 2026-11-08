@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type {
   EducationInstitutionSummary,
   EducationTerritory,
@@ -6,13 +5,11 @@ import type {
 } from '@/api/types';
 import { AnimatedText } from '@/components/AnimatedText';
 import { DrillDownButton } from '@/components/DrillDownButton';
+import { ScrollList } from '@/components/ScrollList';
 import { ErrorMessage } from '@/components/Feedback';
 import { levelLabel } from '@/features/socioeconomic/format';
 import { formatCount, institutionName, plural } from './education';
 import { NO_OFFER } from './presentation';
-
-// As maiores de uma UF cabem sem rolar; o resto fica a um clique.
-const VISIBLE = 5;
 
 function InstitutionList({
   institutions,
@@ -21,12 +18,12 @@ function InstitutionList({
   institutions: EducationInstitutionSummary[];
   onSelect: (code: number) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? institutions : institutions.slice(0, VISIBLE);
   return (
     <div className="education-institutions">
-      <ol aria-label="Instituições por matrículas">
-        {shown.map((item) => (
+      <ScrollList
+        items={institutions}
+        label="Instituições por matrículas"
+        render={(item) => (
           <li key={item.code}>
             <button
               type="button"
@@ -40,13 +37,8 @@ function InstitutionList({
               <strong>{formatCount(item.enrollment)}</strong>
             </button>
           </li>
-        ))}
-      </ol>
-      {institutions.length > VISIBLE && (
-        <button type="button" className="text-button" onClick={() => setExpanded(!expanded)}>
-          {expanded ? 'Mostrar menos' : `Mostrar todas (${formatCount(institutions.length)})`}
-        </button>
-      )}
+        )}
+      />
     </div>
   );
 }

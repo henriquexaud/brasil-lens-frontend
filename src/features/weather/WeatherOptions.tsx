@@ -124,7 +124,7 @@ export function WeatherOptions({
           {alertsData && territoryLevel === 'state' && (
             <div className="weather-alert-state-view">
               {groupedStateAlerts.length > 0 ? (
-                <div className="weather-alert-list">
+                <div className="weather-alert-list scroll-list">
                   {groupedStateAlerts.map((group) =>
                     group.isGroup ? (
                       <WeatherAlertGroupCard key={group.id} group={group} />
@@ -157,7 +157,7 @@ export function WeatherOptions({
                   )}
                 </div>
                 {localAlerts.length > 0 ? (
-                  <div className="weather-alert-list">
+                  <div className="weather-alert-list scroll-list">
                     {localAlerts.map((feature) => (
                       <WeatherAlertCard
                         key={feature.id}
@@ -190,7 +190,7 @@ export function WeatherOptions({
                     defaultOpen={false}
                     className="weather-alert-secondary-disclosure"
                   >
-                    <div className="weather-alert-list">
+                    <div className="weather-alert-list scroll-list">
                       {otherStateAlerts.map((feature) => (
                         <WeatherAlertCard key={feature.id} feature={feature} showLocation={true} />
                       ))}

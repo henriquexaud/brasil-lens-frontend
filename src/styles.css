@@ -60,6 +60,7 @@
   --status-error: #dc2626;
   --rain-note: #1d4ed8;
   --neutral-badge: rgb(0 0 0 / 4%);
+  --scroll-shadow: rgb(38 55 61 / 14%);
 
   --radius: 14px;
   --radius-sm: 8px;
@@ -98,6 +99,7 @@
   --shadow: 0 2px 5px rgb(0 0 0 / 12%), 0 12px 32px -12px rgb(0 0 0 / 42%);
   --skeleton-highlight: #2d454e;
   --skeleton-sheen: #314952;
+  --scroll-shadow: rgb(0 0 0 / 45%);
   --tooltip-surface: rgb(28 45 53 / 97%);
   --attribution-surface: rgb(17 29 35 / 88%);
   --pill-surface: rgb(28 45 53 / 96%);
@@ -2532,6 +2534,32 @@ body {
 }
 .context-select {
   margin-bottom: 12px;
+}
+
+/*
+ * Lista do painel (ScrollList e listas longas dos contextos): no máximo umas
+ * cinco linhas à vista e rolagem própria, para o painel não crescer com ela.
+ * As sombras das bordas só aparecem quando há mais conteúdo naquele lado: a
+ * cobertura `local` rola junto e esconde a sombra `scroll` fixa no topo/fundo.
+ */
+.scroll-list {
+  max-height: min(var(--scroll-list-height, 236px), 38vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  background:
+    linear-gradient(var(--surface) 30%, transparent) top / 100% 20px no-repeat local,
+    linear-gradient(transparent, var(--surface) 70%) bottom / 100% 20px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, var(--scroll-shadow), transparent) top / 100% 7px
+      no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, var(--scroll-shadow), transparent) bottom / 100%
+      7px no-repeat scroll;
+}
+
+.scroll-list:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 2px;
 }
 
 /* Seletor de contexto: mesmas medidas do campo nativo, com ícone. A lista vive
