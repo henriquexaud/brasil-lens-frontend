@@ -21,8 +21,6 @@ interface Props {
   waypoints: Waypoint[];
   route: RouteResult | undefined;
   stale: boolean;
-  /** Muda quando a rota deve ser enquadrada ao chegar (não ao arrastar um ponto). */
-  fitRequest: number;
   focus: MapFocus | null;
   device: DevicePosition | null;
   picking: boolean;
@@ -53,9 +51,44 @@ function legendHeight(map: ReturnType<typeof useMap>) {
     : 0;
 }
 
-function Fit({ route, fitRequest, focus }: Pick<Props, 'route' | 'fitRequest' | 'focus'>) {
+// Área livre do mapa para a rota: fora da caixa de rota, do painel e da legenda. No
+// celular, medida de verdade (base da caixa e topo da gaveta), sem o teto de
+// `scopeInsets`, que deixava a rota por baixo da gaveta.
+function routePadding(map: ReturnType<typeof useMap>) {
+  const insets = scopeInsets(map);
+  const container = map.getContainer().getBoundingClientRect();
+  const box = document.querySelector('.route-slot')?.getBoundingClientRect();
+  const margin = 16;
+  if (map.getSize().x > 900) {
+    return {
+      paddingTopLeft: [box ? box.right - container.left + margin : margin, margin] as [
+        number,
+        number,
+      ],
+      paddingBottomRight: [
+        insets.paddingBottomRight[0],
+        Math.max(insets.paddingBottomRight[1], legendHeight(map)),
+      ] as [number, number],
+    };
+  }
+  const sheet = document.querySelector('.panel-slot')?.getBoundingClientRect();
+  const top = box ? box.bottom - container.top + 12 : margin;
+  let bottom = sheet && sheet.height > 0 ? container.bottom - sheet.top + 12 : margin;
+  // Com a gaveta alta, sobra pouco: a rota pode passar por baixo dela, nunca da caixa.
+  bottom = Math.max(margin, Math.min(bottom, map.getSize().y - top - 120));
+  // Tema e Pix ficam na coluna da direita, logo abaixo da pilha da rota.
+  const controls = document.querySelector('.theme-switch')?.getBoundingClientRect();
+  const right = controls ? container.right - controls.left + 8 : margin;
+  return {
+    paddingTopLeft: [margin, top] as [number, number],
+    paddingBottomRight: [right, bottom] as [number, number],
+  };
+}
+
+function Fit({ route, stale, focus }: Pick<Props, 'route' | 'stale' | 'focus'>) {
   const map = useMap();
-  const fitted = useRef(fitRequest);
+  // A rota que já estava no mapa ao montar (volta ao contexto) não reenquadra a vista guardada.
+  const fitted = useRef(route?.geometry);
   const focused = useRef(focus?.at);
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -68,27 +101,16 @@ function Fit({ route, fitRequest, focus }: Pick<Props, 'route' | 'fitRequest' | 
   }, [map, focus]);
 
   useEffect(() => {
-    if (!route || fitted.current === fitRequest) return;
-    fitted.current = fitRequest;
+    // Toda rota nova enquadra a viagem inteira; a anterior, mostrada esmaecida enquanto a
+    // nova carrega, não conta (senão o enquadramento seria o da rota velha).
+    if (!route || stale || fitted.current === route.geometry) return;
+    fitted.current = route.geometry;
     const bounds = latLngBounds(decodePolyline(route.geometry));
     if (!bounds.isValid()) return;
-    const insets = scopeInsets(map);
-    const box = document.querySelector('.route-slot')?.getBoundingClientRect();
-    const mapLeft = map.getContainer().getBoundingClientRect().left;
-    // A caixa de rota cobre o canto superior esquerdo no desktop: a linha não fica por baixo.
-    const left = box && map.getSize().x > 900 ? box.right - mapLeft + 16 : insets.paddingTopLeft[0];
-    const top = box && map.getSize().x <= 900 ? box.bottom + 12 : insets.paddingTopLeft[1];
-    map.fitBounds(bounds, {
-      paddingTopLeft: [left, top],
-      // A legenda ocupa o canto inferior esquerdo; o ponto não fica por baixo dela.
-      paddingBottomRight: [
-        insets.paddingBottomRight[0],
-        Math.max(insets.paddingBottomRight[1], legendHeight(map)),
-      ],
-      maxZoom: 16,
-      animate: !reduced(),
-    });
-  }, [map, route, fitRequest]);
+    const options = { ...routePadding(map), maxZoom: 16 };
+    if (reduced()) map.fitBounds(bounds, { ...options, animate: false });
+    else map.flyToBounds(bounds, { ...options, duration: 0.8, easeLinearity: 0.25 });
+  }, [map, route, stale]);
 
   return null;
 }
@@ -102,7 +124,6 @@ export function RouteLayer({
   waypoints,
   route,
   stale,
-  fitRequest,
   focus,
   device,
   picking,
@@ -120,7 +141,7 @@ export function RouteLayer({
 
   return (
     <>
-      <Fit route={route} fitRequest={fitRequest} focus={focus} />
+      <Fit route={route} stale={stale} focus={focus} />
       {picking && <PickOnClick onPick={onPick} />}
       <Pane name="route-line" style={{ zIndex: 455, pointerEvents: 'none' }}>
         {line && (

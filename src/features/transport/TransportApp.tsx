@@ -196,7 +196,6 @@ export default function TransportApp({ contextControl }: { contextControl: React
           waypoints={routing.plan.waypoints}
           route={routing.route}
           stale={routing.stale}
-          fitRequest={routing.fitRequest}
           focus={routing.focus}
           device={routing.device}
           picking={routing.picking !== null}

@@ -32,7 +32,6 @@ export function useRoutePlan({
   const [device, setDevice] = useState<DevicePosition | null>(() => remembered?.device ?? null);
   const [picking, setPicking] = useState<number | null>(null);
   const [focus, setFocus] = useState<MapFocus | null>(null);
-  const [fitRequest, setFitRequest] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,7 +42,7 @@ export function useRoutePlan({
   const query = useRoute(plan.profile, points);
   const route = points ? query.data : undefined;
 
-  // Com um só ponto, o mapa vai até ele; com dois ou mais, enquadra a rota quando ela chegar.
+  // Com um só ponto, o mapa vai até ele; com dois ou mais, a rota nova enquadra a viagem (RouteLayer).
   const place = useCallback(
     (index: number, waypoint: Omit<RoutePlan['waypoints'][number], 'key'>, zoom = PLACE_ZOOM) => {
       const others = plan.waypoints.filter((item, i) => i !== index && hasPoint(item)).length;
@@ -55,7 +54,6 @@ export function useRoutePlan({
           zoom,
           at: Date.now(),
         });
-      else setFitRequest((n) => n + 1);
     },
     [plan.waypoints],
   );
@@ -116,7 +114,6 @@ export function useRoutePlan({
           latitude: point.latitude,
           longitude: point.longitude,
         });
-        if (others > 0) setFitRequest((n) => n + 1);
       } catch (cause) {
         setNotice(describeError(cause).message);
       }
@@ -144,7 +141,6 @@ export function useRoutePlan({
       const others = plan.waypoints.filter((item, i) => i !== index && hasPoint(item)).length;
       dispatch({ type: 'set', index, waypoint });
       if (others === 0) setFocus({ ...position, zoom: zoomFor(position.accuracy), at: Date.now() });
-      else setFitRequest((n) => n + 1);
     },
     [plan.waypoints],
   );
@@ -153,13 +149,11 @@ export function useRoutePlan({
     (latitude: number, longitude: number) => {
       if (picking === null) return;
       const key = plan.waypoints[picking]?.key;
-      const others = plan.waypoints.filter((item, i) => i !== picking && hasPoint(item)).length;
       dispatch({
         type: 'set',
         index: picking,
         waypoint: { label: 'Ponto no mapa', detail: null, latitude, longitude },
       });
-      if (others > 0) setFitRequest((n) => n + 1);
       setPicking(null);
       if (key) void labelFromMap(key, latitude, longitude);
     },
@@ -179,11 +173,8 @@ export function useRoutePlan({
     [plan.waypoints, labelFromMap],
   );
 
-  // Inverter, trocar o meio ou tirar uma parada muda a rota inteira: enquadra de novo.
   const dispatchPlan = useCallback((action: Parameters<typeof dispatch>[0]) => {
     dispatch(action);
-    if (action.type === 'reverse' || action.type === 'profile' || action.type === 'remove')
-      setFitRequest((n) => n + 1);
     if (action.type === 'reset') setPicking(null);
   }, []);
 
@@ -198,7 +189,6 @@ export function useRoutePlan({
     picking,
     setPicking,
     focus,
-    fitRequest,
     onSelectPlace,
     onSelectTerritory,
     notice,
