@@ -85,3 +85,34 @@ test('a busca prioriza o GPS, depois o centro da vista aproximada', () => {
   assert.equal(searchBias('-50,-30,-40,-20', 5, null), null);
   assert.equal(searchBias(undefined, 10, null), null);
 });
+
+test('o ponto do território só entra se o campo ainda for aquele território', () => {
+  let plan = planReducer(emptyPlan(), {
+    type: 'set',
+    index: 1,
+    waypoint: {
+      label: 'Bahia',
+      detail: 'Estado',
+      latitude: null,
+      longitude: null,
+      territory: '29',
+    },
+  });
+  const key = plan.waypoints[1].key;
+  const resolve = {
+    type: 'resolve',
+    key,
+    territory: '29',
+    label: 'Bahia · Salvador',
+    detail: 'Capital, BA',
+    latitude: -12.97,
+    longitude: -38.5,
+  };
+  const resolved = planReducer(plan, resolve);
+  assert.equal(resolved.waypoints[1].label, 'Bahia · Salvador');
+  assert.equal(resolved.waypoints[1].latitude, -12.97);
+
+  // O usuário trocou o destino antes de a capital chegar: a resposta atrasada é ignorada.
+  plan = planReducer(plan, { type: 'set', index: 1, waypoint: point('Recife', -8.05, -34.9) });
+  assert.equal(planReducer(plan, resolve).waypoints[1].label, 'Recife');
+});

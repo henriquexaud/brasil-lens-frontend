@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type Dispatch } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type Dispatch } from 'react';
+import { useTerritorySearch } from '@/api/queries';
 import type { Place, RouteProfile, RouteResult } from '@/api/types';
 import {
   LocationButton,
@@ -6,11 +7,12 @@ import {
   readDevicePosition,
   type DevicePosition,
 } from '@/features/search/LocationButton';
+import type { SearchResult } from '@/features/search/SearchBox';
 import { describeError } from '@/components/Feedback';
 import {
   MAX_WAYPOINTS,
-  emptyWaypoint,
   PROFILE_LABELS,
+  emptyWaypoint,
   formatDistance,
   formatDuration,
   hasPoint,
@@ -25,27 +27,77 @@ interface Props {
   route: RouteResult | undefined;
   routeLoading: boolean;
   routeError: unknown;
+  notice: string | null;
   near: { latitude: number; longitude: number } | null;
   picking: number | null;
   onPick: (index: number | null) => void;
   onSelectPlace: (index: number, place: Place) => void;
+  onSelectTerritory: (index: number, result: SearchResult) => void;
   onPosition: (position: DevicePosition, index: number) => void;
 }
 
-type Option = { kind: 'device' } | { kind: 'map' } | { kind: 'place'; place: Place };
+type Option =
+  | { kind: 'device' }
+  | { kind: 'map' }
+  | { kind: 'territory'; result: SearchResult }
+  | { kind: 'place'; place: Place };
 
 const PROFILES: RouteProfile[] = ['car', 'bike', 'foot'];
+const MAX_TERRITORIES = 4;
 
-function placeholder(index: number, total: number) {
+function fieldName(index: number, total: number) {
   if (index === 0) return 'Partida';
   if (index === total - 1) return 'Destino';
   return 'Parada';
 }
 
+function normalize(text: string) {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+function optionKey(option: Option) {
+  if (option.kind === 'territory') return `t${option.result.ibgeCode}`;
+  if (option.kind === 'place') return `p${option.place.id}`;
+  return option.kind;
+}
+
+function FieldIcon({ role }: { role: 'origin' | 'stop' | 'destination' }) {
+  if (role === 'origin')
+    return (
+      <svg className="search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <path
+          d="M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10Zm4.6-.9 3 3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  if (role === 'stop')
+    return (
+      <svg className="search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <circle cx="8" cy="8" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+    );
+  return (
+    <svg className="search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        d="M8 14.2s4.3-3.9 4.3-7.4a4.3 4.3 0 1 0-8.6 0c0 3.5 4.3 7.4 4.3 7.4Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <circle cx="8" cy="6.8" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 function ProfileIcon({ profile }: { profile: RouteProfile }) {
   const common = {
-    width: 16,
-    height: 16,
+    width: 15,
+    height: 15,
     viewBox: '0 0 20 20',
     fill: 'none',
     stroke: 'currentColor',
@@ -79,16 +131,32 @@ function ProfileIcon({ profile }: { profile: RouteProfile }) {
   );
 }
 
+function ClearIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+      <path
+        d="M4 4l8 8M12 4l-8 8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
 export function RoutePlanner({
   plan,
   dispatch,
   route,
   routeLoading,
   routeError,
+  notice: routeNotice,
   near,
   picking,
   onPick,
   onSelectPlace,
+  onSelectTerritory,
   onPosition,
 }: Props) {
   const { waypoints } = plan;
@@ -98,6 +166,7 @@ export function RoutePlanner({
   const [highlight, setHighlight] = useState(0);
   const [locating, setLocating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [enterPending, setEnterPending] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputs = useRef(new Map<string, HTMLInputElement>());
   const listId = useId();
@@ -107,31 +176,64 @@ export function RoutePlanner({
     return () => clearTimeout(timer);
   }, [draft]);
   useEffect(() => setHighlight(0), [query, active]);
+  useEffect(() => setEnterPending(false), [draft, active]);
 
-  const search = usePlaceSearch(query, near, active !== null);
   const typing = draft.trim().length > 0;
+  const territories = useTerritorySearch(query, active !== null, MAX_TERRITORIES);
+  const places = usePlaceSearch(query, near, active !== null);
+  const territoryResults: SearchResult[] = (territories.data?.territories ?? []).map((row) => ({
+    ibgeCode: row.ibgeCode,
+    name: row.name,
+    level: row.level,
+    abbreviation: row.abbreviation,
+    parentCode: row.parent?.ibgeCode ?? null,
+    parentName: row.parent?.name ?? null,
+  }));
+  // A cidade e o estado também vêm do OSM (só com a UF de detalhe); com o território na
+  // lista, o item do OSM sobra.
+  const covered = new Set(territoryResults.map((item) => normalize(item.name)));
+  const placeResults = (query.length >= MIN_PLACE_QUERY ? (places.data?.places ?? []) : []).filter(
+    (place) => {
+      const parts = place.detail?.split(', ') ?? [];
+      return !(parts.length <= 1 && covered.has(normalize(place.name)));
+    },
+  );
   const options: Option[] = !typing
     ? [{ kind: 'device' }, { kind: 'map' }]
-    : query.length >= MIN_PLACE_QUERY
-      ? (search.data?.places ?? []).map((place) => ({ kind: 'place', place }))
-      : [];
-  const open = active !== null;
+    : [
+        ...territoryResults.map((result) => ({ kind: 'territory' as const, result })),
+        ...placeResults.map((place) => ({ kind: 'place' as const, place })),
+      ];
+  const searching = territories.isFetching || places.isFetching;
   // Resultados de uma consulta anterior ainda na tela: Enter espera os da atual.
-  const settled =
-    !typing || (query === draft.trim() && !search.isPlaceholderData && !search.isFetching);
-  const [enterPending, setEnterPending] = useState(false);
+  const settled = !typing || (query === draft.trim() && !searching && !places.isPlaceholderData);
 
   useEffect(() => {
-    if (!open) return;
+    if (active === null) return;
     function onPointerDown(event: PointerEvent) {
       if (!rootRef.current?.contains(event.target as Node)) setActive(null);
     }
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
+  }, [active]);
 
-  function focusField(index: number) {
-    const key = waypoints[index]?.key;
+  // No celular, tema e Pix ficam abaixo da busca: descem junto com o que a rota acrescenta.
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const app = root?.closest<HTMLElement>('.app');
+    if (!root || !app) return;
+    const update = () =>
+      app.style.setProperty('--route-stack-extra', `${Math.max(0, root.offsetHeight - 32)}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(root);
+    return () => {
+      observer.disconnect();
+      app.style.removeProperty('--route-stack-extra');
+    };
+  }, []);
+
+  function focusKey(key: string | undefined) {
     if (key) requestAnimationFrame(() => inputs.current.get(key)?.focus());
   }
 
@@ -142,10 +244,10 @@ export function RoutePlanner({
 
   // Depois de escolher, o cursor segue para o próximo campo vazio, como num formulário.
   function advanceFrom(index: number) {
-    const next = waypoints.findIndex((item, i) => i !== index && !hasPoint(item));
+    const next = waypoints.findIndex((item, i) => i !== index && !item.label);
     setActive(null);
     setDraft('');
-    if (next >= 0) focusField(next);
+    if (next > 0) focusKey(waypoints[next]?.key);
     else blurField(index);
   }
 
@@ -173,21 +275,23 @@ export function RoutePlanner({
       setActive(null);
       setDraft('');
       blurField(index);
+    } else if (option.kind === 'territory') {
+      onSelectTerritory(index, option.result);
+      advanceFrom(index);
     } else {
       onSelectPlace(index, option.place);
       advanceFrom(index);
     }
   }
 
-  const chooseLatest = useRef(choose);
-  chooseLatest.current = choose;
-  const firstPlace = search.data?.places[0];
+  const latest = useRef({ choose, options });
+  latest.current = { choose, options };
   useEffect(() => {
     if (!enterPending || !settled || active === null) return;
     setEnterPending(false);
-    if (firstPlace) chooseLatest.current({ kind: 'place', place: firstPlace }, active);
-  }, [enterPending, settled, active, firstPlace]);
-  useEffect(() => setEnterPending(false), [draft, active]);
+    const first = latest.current.options[0];
+    if (first) latest.current.choose(first, active);
+  }, [enterPending, settled, active]);
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>, index: number) {
     if (event.key === 'Escape') {
@@ -211,10 +315,6 @@ export function RoutePlanner({
       setHighlight((i) => Math.max(i - 1, 0));
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      if (!settled) {
-        setEnterPending(true);
-        return;
-      }
       const option = options[highlight];
       if (option) choose(option, index);
     }
@@ -222,182 +322,39 @@ export function RoutePlanner({
 
   const filled = waypoints.filter(hasPoint).length;
   const anyContent = waypoints.some((item) => item.label);
-  const canAddStop = waypoints.length < MAX_WAYPOINTS;
-  const showSummary = !open && filled >= 2 && Boolean(route || routeLoading || routeError);
+  const showSummary =
+    active === null && filled >= 2 && Boolean(route || routeLoading || routeError);
+  const message = notice ?? routeNotice;
 
-  return (
-    <div ref={rootRef} className="search-slot route-slot">
-      <div className="search-tools">
-        <div className={`route-box${picking !== null ? ' is-picking' : ''}`}>
-          <div className="route-rows">
-            <ol className="route-fields">
-              {waypoints.map((item, index) => {
-                const last = index === waypoints.length - 1;
-                const role = index === 0 ? 'origin' : last ? 'destination' : 'stop';
-                const editing = active === index;
-                const isStop = role === 'stop';
-                return (
-                  <li key={item.key} className="route-field">
-                    <span className={`route-dot is-${role}`} aria-hidden="true" />
-                    <input
-                      ref={(node) => {
-                        if (node) inputs.current.set(item.key, node);
-                        else inputs.current.delete(item.key);
-                      }}
-                      type="text"
-                      className="search-input"
-                      placeholder={
-                        picking === index ? 'Toque no mapa…' : placeholder(index, waypoints.length)
-                      }
-                      aria-label={placeholder(index, waypoints.length)}
-                      value={editing ? draft : item.label}
-                      title={item.detail ? `${item.label} · ${item.detail}` : undefined}
-                      onFocus={(event) => {
-                        setActive(index);
-                        setDraft(item.label && !item.device ? item.label : '');
-                        setNotice(null);
-                        if (picking !== null) onPick(null);
-                        const input = event.target;
-                        const initial = item.label && !item.device ? item.label : '';
-                        // Seleciona para substituir com um toque, sem engolir o que já foi digitado.
-                        requestAnimationFrame(() => {
-                          if (input.value === initial && initial) input.select();
-                        });
-                      }}
-                      onChange={(event) => setDraft(event.target.value)}
-                      onKeyDown={(event) => onKeyDown(event, index)}
-                      role="combobox"
-                      aria-expanded={editing && options.length > 0}
-                      aria-controls={listId}
-                      aria-autocomplete="list"
-                      aria-activedescendant={
-                        editing && options[highlight] ? `${listId}-${highlight}` : undefined
-                      }
-                    />
-                    {(isStop || item.label || (editing && draft)) && (
-                      <button
-                        type="button"
-                        className="search-clear route-clear"
-                        aria-label={isStop ? 'Remover parada' : 'Limpar campo'}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => {
-                          if (editing && draft && !isStop) {
-                            setDraft('');
-                            return;
-                          }
-                          dispatch({ type: isStop ? 'remove' : 'clear', index });
-                          if (!isStop) focusField(index);
-                          else setActive(null);
-                        }}
-                      >
-                        <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
-                          <path
-                            d="M4 4l8 8M12 4l-8 8"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            fill="none"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-            <button
-              type="button"
-              className="route-swap"
-              title="Inverter o sentido"
-              aria-label="Inverter partida e destino"
-              onClick={() => {
-                setActive(null);
-                dispatch({ type: 'reverse' });
-              }}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M7 3v14M7 3 4 6M7 3l3 3M13 17V3M13 17l-3-3M13 17l3-3" />
-              </svg>
-            </button>
-          </div>
-          <div className="route-footer">
-            <div className="route-profiles" role="radiogroup" aria-label="Meio de transporte">
-              {PROFILES.map((profile) => (
-                <button
-                  key={profile}
-                  type="button"
-                  role="radio"
-                  aria-checked={plan.profile === profile}
-                  className={`route-profile${plan.profile === profile ? ' is-active' : ''}`}
-                  title={PROFILE_LABELS[profile]}
-                  aria-label={PROFILE_LABELS[profile]}
-                  onClick={() => dispatch({ type: 'profile', profile })}
-                >
-                  <ProfileIcon profile={profile} />
-                </button>
-              ))}
-            </div>
-            <div className="route-actions">
-              {canAddStop && (
-                <button
-                  type="button"
-                  className="route-text-button"
-                  onClick={() => {
-                    const stop = emptyWaypoint();
-                    dispatch({ type: 'addStop', waypoint: stop });
-                    requestAnimationFrame(() => inputs.current.get(stop.key)?.focus());
-                  }}
-                >
-                  + Parada
-                </button>
-              )}
-              {anyContent && (
-                <button
-                  type="button"
-                  className="route-text-button"
-                  onClick={() => {
-                    setActive(null);
-                    onPick(null);
-                    dispatch({ type: 'reset' });
-                  }}
-                >
-                  Limpar
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-        <LocationButton onPosition={(position) => onPosition(position, 0)} />
-      </div>
-
-      {open && options.length > 0 && (
-        <ul className="search-results" id={listId} role="listbox">
+  function dropdown(index: number) {
+    if (active !== index) return null;
+    if (options.length > 0)
+      return (
+        <ul className="search-results route-dropdown" id={listId} role="listbox">
           {options.map((option, i) => (
-            <li
-              key={option.kind === 'place' ? option.place.id + i : option.kind}
-              role="presentation"
-            >
+            <li key={optionKey(option)} role="presentation">
               <button
                 type="button"
                 id={`${listId}-${i}`}
                 role="option"
                 aria-selected={i === highlight}
-                className={`search-result route-option${i === highlight ? ' is-active' : ''}`}
+                className={`search-result${i === highlight ? ' is-active' : ''}`}
                 onMouseEnter={() => setHighlight(i)}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => active !== null && choose(option, active)}
+                onClick={() => choose(option, index)}
               >
-                {option.kind === 'place' ? (
+                {option.kind === 'territory' ? (
+                  <>
+                    <span className="search-result-name">{option.result.name}</span>
+                    <span className="search-result-meta">
+                      {option.result.level === 'state'
+                        ? index === 0
+                          ? 'Estado'
+                          : 'Estado · até a capital'
+                        : (option.result.parentName ?? 'Município')}
+                    </span>
+                  </>
+                ) : option.kind === 'place' ? (
                   <>
                     <span className="search-result-name">{option.place.name}</span>
                     {option.place.detail && (
@@ -417,62 +374,226 @@ export function RoutePlanner({
             </li>
           ))}
         </ul>
-      )}
-      {open && typing && query.length >= MIN_PLACE_QUERY && !options.length && (
-        <p className="search-empty" role="status">
-          {search.isFetching
-            ? 'Buscando endereços…'
-            : search.isError
-              ? describeError(search.error).message
+      );
+    if (typing && query.length >= 2 && query === draft.trim())
+      return (
+        <p className="search-empty route-dropdown" role="status">
+          {searching
+            ? 'Buscando lugares…'
+            : places.isError
+              ? describeError(places.error).message
               : 'Nada encontrado no Brasil'}
         </p>
-      )}
-      {notice && (
-        <p className="search-empty" role="alert">
-          {notice}
-        </p>
-      )}
-      {picking !== null && (
-        <p className="search-empty route-hint" role="status">
-          Toque no mapa para marcar {placeholder(picking, waypoints.length).toLowerCase()}.{' '}
-          <button type="button" className="route-text-button" onClick={() => onPick(null)}>
-            Cancelar
-          </button>
-        </p>
-      )}
+      );
+    return null;
+  }
 
-      {showSummary && (
-        <div className={`route-summary${routeLoading ? ' is-loading' : ''}`} aria-live="polite">
-          {routeError && !routeLoading ? (
-            <p className="route-summary-error">{describeError(routeError).message}</p>
-          ) : route ? (
-            <>
-              <p className="route-summary-main">
-                <strong>{formatDuration(route.durationS)}</strong>
-                <span>{formatDistance(route.distanceM)}</span>
-              </p>
-              {route.legs.length === 1 && route.legs[0]?.summary && (
-                <p className="route-summary-via">via {route.legs[0].summary}</p>
-              )}
-              {route.legs.length > 1 && (
-                <ol className="route-legs">
-                  {route.legs.map((leg, i) => (
-                    <li key={i}>
-                      <span className="route-leg-index">{i + 1}</span>
-                      <span className="route-leg-via">{leg.summary ?? `Trecho ${i + 1}`}</span>
-                      <span className="route-leg-value">
-                        {formatDistance(leg.distanceM)} · {formatDuration(leg.durationS)}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </>
+  function row(index: number) {
+    const item = waypoints[index];
+    if (!item) return null;
+    const total = waypoints.length;
+    const role = index === 0 ? 'origin' : index === total - 1 ? 'destination' : 'stop';
+    const editing = active === index;
+    const name = fieldName(index, total);
+    const pending = Boolean(item.territory) && !hasPoint(item);
+    return (
+      <div key={item.key} className="route-row">
+        <div className="search-tools">
+          <div className={`search-box${picking === index ? ' is-picking' : ''}`}>
+            <FieldIcon role={role} />
+            <input
+              ref={(node) => {
+                if (node) inputs.current.set(item.key, node);
+                else inputs.current.delete(item.key);
+              }}
+              type="text"
+              className={`search-input${pending ? ' is-pending' : ''}`}
+              placeholder={
+                picking === index
+                  ? 'Toque no mapa…'
+                  : index === 0
+                    ? 'Buscar estado ou município'
+                    : name
+              }
+              aria-label={index === 0 ? `${name}: buscar estado, município ou endereço` : name}
+              value={editing ? draft : item.label}
+              title={item.detail ? `${item.label} · ${item.detail}` : undefined}
+              onFocus={(event) => {
+                const input = event.target;
+                const initial = item.label && !item.device ? item.label : '';
+                setActive(index);
+                setDraft(initial);
+                setNotice(null);
+                if (picking !== null) onPick(null);
+                // Seleciona para substituir com um toque, sem engolir o que já foi digitado.
+                requestAnimationFrame(() => {
+                  if (initial && input.value === initial) input.select();
+                });
+              }}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => onKeyDown(event, index)}
+              role="combobox"
+              aria-expanded={editing && options.length > 0}
+              aria-controls={listId}
+              aria-autocomplete="list"
+              aria-activedescendant={
+                editing && options[highlight] ? `${listId}-${highlight}` : undefined
+              }
+            />
+            {(role === 'stop' || item.label || (editing && draft)) && (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label={role === 'stop' ? 'Remover parada' : `Limpar ${name.toLowerCase()}`}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  if (editing && draft && role !== 'stop') {
+                    setDraft('');
+                    return;
+                  }
+                  dispatch({ type: role === 'stop' ? 'remove' : 'clear', index });
+                  if (role === 'stop') setActive(null);
+                  else focusKey(item.key);
+                }}
+              >
+                <ClearIcon />
+              </button>
+            )}
+          </div>
+          {index === 0 ? (
+            <LocationButton onPosition={(position) => onPosition(position, 0)} />
+          ) : role === 'destination' ? (
+            <button
+              type="button"
+              className="location-button"
+              title="Inverter o sentido"
+              aria-label="Inverter partida e destino"
+              onClick={() => {
+                setActive(null);
+                dispatch({ type: 'reverse' });
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M7 3.5v13M7 3.5 4 6.5M7 3.5l3 3M13 16.5v-13M13 16.5l-3-3M13 16.5l3-3" />
+              </svg>
+            </button>
           ) : (
-            <p className="route-summary-via">Calculando rota…</p>
+            <span className="route-column" aria-hidden="true" />
           )}
         </div>
-      )}
+        {dropdown(index)}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={rootRef} className="search-slot route-slot">
+      {row(0)}
+      <div className="route-extra">
+        {waypoints.slice(1).map((_, i) => row(i + 1))}
+        <div className="route-toolbar">
+          <div className="route-profiles" role="radiogroup" aria-label="Meio de transporte">
+            {PROFILES.map((profile) => (
+              <button
+                key={profile}
+                type="button"
+                role="radio"
+                aria-checked={plan.profile === profile}
+                className={`route-profile${plan.profile === profile ? ' is-active' : ''}`}
+                title={PROFILE_LABELS[profile]}
+                aria-label={PROFILE_LABELS[profile]}
+                onClick={() => dispatch({ type: 'profile', profile })}
+              >
+                <ProfileIcon profile={profile} />
+              </button>
+            ))}
+          </div>
+          <div className="route-actions">
+            {waypoints.length < MAX_WAYPOINTS && (
+              <button
+                type="button"
+                className="route-text-button"
+                onClick={() => {
+                  const stop = emptyWaypoint();
+                  dispatch({ type: 'addStop', waypoint: stop });
+                  focusKey(stop.key);
+                }}
+              >
+                + Parada
+              </button>
+            )}
+            {anyContent && (
+              <button
+                type="button"
+                className="route-text-button"
+                onClick={() => {
+                  setActive(null);
+                  onPick(null);
+                  dispatch({ type: 'reset' });
+                }}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        </div>
+
+        {message && (
+          <p className="search-empty" role="alert">
+            {message}
+          </p>
+        )}
+        {picking !== null && (
+          <p className="search-empty route-hint" role="status">
+            Toque no mapa para marcar {fieldName(picking, waypoints.length).toLowerCase()}.
+            <button type="button" className="route-text-button" onClick={() => onPick(null)}>
+              Cancelar
+            </button>
+          </p>
+        )}
+        {showSummary && (
+          <div className={`route-summary${routeLoading ? ' is-loading' : ''}`} aria-live="polite">
+            {routeError && !routeLoading ? (
+              <p className="route-summary-error">{describeError(routeError).message}</p>
+            ) : route ? (
+              <>
+                <p className="route-summary-main">
+                  <strong>{formatDuration(route.durationS)}</strong>
+                  <span>{formatDistance(route.distanceM)}</span>
+                </p>
+                {route.legs.length === 1 && route.legs[0]?.summary && (
+                  <p className="route-summary-via">via {route.legs[0].summary}</p>
+                )}
+                {route.legs.length > 1 && (
+                  <ol className="route-legs">
+                    {route.legs.map((leg, i) => (
+                      <li key={i}>
+                        <span className="route-leg-index">{i + 1}</span>
+                        <span className="route-leg-via">{leg.summary ?? `Trecho ${i + 1}`}</span>
+                        <span className="route-leg-value">
+                          {formatDistance(leg.distanceM)} · {formatDuration(leg.durationS)}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </>
+            ) : (
+              <p className="route-summary-via">Calculando rota…</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

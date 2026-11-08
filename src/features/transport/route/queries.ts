@@ -50,6 +50,15 @@ export function reversePlace(queryClient: QueryClient, latitude: number, longitu
   });
 }
 
+export function territoryPoint(queryClient: QueryClient, code: string) {
+  return queryClient.fetchQuery({
+    queryKey: ['transport', 'territory-point', code],
+    queryFn: ({ signal }) =>
+      apiGet<Place>(`/transport/territories/${encodeURIComponent(code)}/point`, {}, signal),
+    staleTime: 24 * HOUR,
+  });
+}
+
 export function useRoute(profile: RouteProfile, points: string | null) {
   return useQuery({
     queryKey: ['transport', 'route', profile, points],

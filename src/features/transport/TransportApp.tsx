@@ -13,6 +13,7 @@ import { useTerritoryMap } from '@/features/map/useTerritoryMap';
 import { usePageVisible } from '@/lib/usePageVisible';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
 import { useMobileSheet } from '@/app/useMobileSheet';
+import type { SearchResult } from '@/features/search/SearchBox';
 import { buildUrl } from '@/api/client';
 import { COLORS, DEFAULT_TRANSPORT, networkArea, networkDetail } from './layers';
 import { NetworkLayer } from './NetworkLayer';
@@ -55,7 +56,6 @@ export default function TransportApp({ contextControl }: { contextControl: React
     () => loadSessionState().transport ?? DEFAULT_TRANSPORT,
   );
   const [viewport, setViewport] = useState<MapViewport>({ zoom: 4 });
-  const routing = useRoutePlan();
   const pageVisible = usePageVisible();
   const sheet = useMobileSheet();
   useEffect(() => saveSessionState({ transport: preferences }), [preferences]);
@@ -93,6 +93,20 @@ export default function TransportApp({ contextControl }: { contextControl: React
       void queryClient.prefetchQuery(networkOptions('waterway', detail, viewport.zoom, area));
   }, [queryClient, scopeReady, detail, area, viewport.zoom]);
   const detailCode = selectedCode ?? scope.parent ?? 'BR';
+  // Estado ou município na busca, sem rota ainda: o mapa vai até ele, como no resto do app.
+  const showTerritory = useCallback(
+    (result: SearchResult) => {
+      if (result.level === 'state') {
+        if (isDrilledDown) resetScope();
+        setSelectedCode(result.ibgeCode);
+      } else if (result.parentCode) {
+        drillIntoState(result.parentCode, result.parentName ?? result.parentCode);
+        setSelectedCode(result.ibgeCode);
+      }
+    },
+    [drillIntoState, isDrilledDown, resetScope, setSelectedCode],
+  );
+  const routing = useRoutePlan({ onTerritoryView: showTerritory });
   const summary = useTransportSummary(detailCode, pageVisible);
 
   const selectMapTerritory = useCallback(
@@ -200,6 +214,8 @@ export default function TransportApp({ contextControl }: { contextControl: React
         picking={routing.picking}
         onPick={routing.setPicking}
         onSelectPlace={routing.onSelectPlace}
+        onSelectTerritory={(index, result) => void routing.onSelectTerritory(index, result)}
+        notice={routing.notice}
         onPosition={routing.onPosition}
       />
       <div ref={sheet.slotRef} className={`panel-slot ${sheet.collapsed ? 'is-peek' : ''}`}>

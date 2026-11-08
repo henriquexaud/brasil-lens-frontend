@@ -2,8 +2,10 @@ import { useCallback, useEffect, useReducer, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Place } from '@/api/types';
 import type { DevicePosition } from '@/features/search/LocationButton';
+import type { SearchResult } from '@/features/search/SearchBox';
+import { describeError } from '@/components/Feedback';
 import { emptyPlan, fromPlace, hasPoint, planReducer, routePoints, type RoutePlan } from './model';
-import { reversePlace, useRoute } from './queries';
+import { reversePlace, territoryPoint, useRoute } from './queries';
 import type { MapFocus } from './RouteLayer';
 
 // A rota sobrevive à troca de contexto (o app desmonta o Transporte), não ao recarregar.
@@ -15,7 +17,12 @@ function zoomFor(accuracy: number) {
 
 const PLACE_ZOOM = 15;
 
-export function useRoutePlan() {
+export function useRoutePlan({
+  onTerritoryView,
+}: {
+  /** Território escolhido sem outro ponto: o mapa o mostra como a busca normal. */
+  onTerritoryView: (result: SearchResult) => void;
+}) {
   const queryClient = useQueryClient();
   const [plan, dispatch] = useReducer(
     planReducer,
@@ -26,6 +33,7 @@ export function useRoutePlan() {
   const [picking, setPicking] = useState<number | null>(null);
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [fitRequest, setFitRequest] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     remembered = { plan, device };
@@ -76,6 +84,44 @@ export function useRoutePlan() {
   const onSelectPlace = useCallback(
     (index: number, found: Place) => place(index, fromPlace('', found)),
     [place],
+  );
+
+  // Estado vai até a capital e município até a sede: o ponto vem da API e chega depois.
+  const onSelectTerritory = useCallback(
+    async (index: number, result: SearchResult) => {
+      const key = plan.waypoints[index]?.key;
+      if (!key) return;
+      const others = plan.waypoints.filter((item, i) => i !== index && hasPoint(item)).length;
+      setNotice(null);
+      dispatch({
+        type: 'set',
+        index,
+        waypoint: {
+          label: result.name,
+          detail: result.level === 'state' ? 'Estado' : result.parentName,
+          latitude: null,
+          longitude: null,
+          territory: result.ibgeCode,
+        },
+      });
+      if (others === 0) onTerritoryView(result);
+      try {
+        const point = await territoryPoint(queryClient, result.ibgeCode);
+        dispatch({
+          type: 'resolve',
+          key,
+          territory: result.ibgeCode,
+          label: result.level === 'state' ? `${result.name} · ${point.name}` : point.name,
+          detail: point.detail,
+          latitude: point.latitude,
+          longitude: point.longitude,
+        });
+        if (others > 0) setFitRequest((n) => n + 1);
+      } catch (cause) {
+        setNotice(describeError(cause).message);
+      }
+    },
+    [plan.waypoints, queryClient, onTerritoryView],
   );
 
   const onPosition = useCallback(
@@ -154,6 +200,8 @@ export function useRoutePlan() {
     focus,
     fitRequest,
     onSelectPlace,
+    onSelectTerritory,
+    notice,
     onPosition,
     onPickPoint,
     onDrag,

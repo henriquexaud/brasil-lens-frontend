@@ -6,10 +6,9 @@ import type { DevicePosition } from '@/features/search/LocationButton';
 import { scopeInsets } from '@/features/map/viewport';
 import { decodePolyline, hasPoint, type Waypoint } from './model';
 
-// Azul de navegação: fora das cores da malha (ocre, violeta, azul-petróleo das
-// hidrovias) e igual nos dois temas, como o resto do traçado.
-export const ROUTE_COLOR = '#1A66E0';
-const DEVICE_COLOR = '#1A66E0';
+// A cor vem de `--route-line` (route.css), da família do destaque do app: o
+// atributo do SVG é só o padrão antes do CSS.
+const ROUTE_COLOR = '#2d6a79';
 
 export interface MapFocus {
   latitude: number;
@@ -46,6 +45,14 @@ function waypointIcon(role: string) {
   return icon;
 }
 
+function legendHeight(map: ReturnType<typeof useMap>) {
+  if (map.getSize().x <= 900) return 0;
+  const legend = document.querySelector('.legend-slot')?.getBoundingClientRect();
+  return legend && legend.height > 0
+    ? map.getContainer().getBoundingClientRect().bottom - legend.top + 12
+    : 0;
+}
+
 function Fit({ route, fitRequest, focus }: Pick<Props, 'route' | 'fitRequest' | 'focus'>) {
   const map = useMap();
   const fitted = useRef(fitRequest);
@@ -73,7 +80,11 @@ function Fit({ route, fitRequest, focus }: Pick<Props, 'route' | 'fitRequest' | 
     const top = box && map.getSize().x <= 900 ? box.bottom + 12 : insets.paddingTopLeft[1];
     map.fitBounds(bounds, {
       paddingTopLeft: [left, top],
-      paddingBottomRight: insets.paddingBottomRight,
+      // A legenda ocupa o canto inferior esquerdo; o ponto não fica por baixo dela.
+      paddingBottomRight: [
+        insets.paddingBottomRight[0],
+        Math.max(insets.paddingBottomRight[1], legendHeight(map)),
+      ],
       maxZoom: 16,
       animate: !reduced(),
     });
@@ -120,7 +131,7 @@ export function RouteLayer({
               className="route-casing"
               pathOptions={{
                 color: '#ffffff',
-                weight: 8,
+                weight: 7,
                 opacity: stale ? 0.5 : 0.95,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -129,9 +140,10 @@ export function RouteLayer({
             <Polyline
               positions={line}
               interactive={false}
+              className="route-path"
               pathOptions={{
                 color: ROUTE_COLOR,
-                weight: 4.5,
+                weight: 4,
                 opacity: stale ? 0.45 : 1,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -144,7 +156,8 @@ export function RouteLayer({
             center={[device.latitude, device.longitude]}
             radius={device.accuracy}
             interactive={false}
-            pathOptions={{ color: DEVICE_COLOR, weight: 1, opacity: 0.35, fillOpacity: 0.08 }}
+            className="route-device-accuracy"
+            pathOptions={{ color: ROUTE_COLOR, weight: 1, opacity: 0.35, fillOpacity: 0.08 }}
           />
         )}
         {device && (
@@ -153,7 +166,7 @@ export function RouteLayer({
             radius={6.5}
             interactive={false}
             className="route-device-dot"
-            pathOptions={{ color: '#ffffff', weight: 2.5, fillColor: DEVICE_COLOR, fillOpacity: 1 }}
+            pathOptions={{ color: '#ffffff', weight: 2.5, fillColor: ROUTE_COLOR, fillOpacity: 1 }}
           />
         )}
       </Pane>

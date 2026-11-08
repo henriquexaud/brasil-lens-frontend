@@ -12,6 +12,8 @@ export interface Waypoint {
   longitude: number | null;
   /** Ponto vindo do GPS do aparelho ("Minha localização"). */
   device?: boolean;
+  /** Estado ou município escolhido na busca; o ponto (capital ou sede) chega depois. */
+  territory?: string;
 }
 
 export interface RoutePlan {
@@ -46,6 +48,15 @@ export type PlanAction =
   | { type: 'set'; index: number; waypoint: Omit<Waypoint, 'key'> }
   | { type: 'clear'; index: number }
   | {
+      type: 'resolve';
+      key: string;
+      territory: string;
+      label: string;
+      detail: string | null;
+      latitude: number;
+      longitude: number;
+    }
+  | {
       type: 'label';
       key: string;
       latitude: number;
@@ -78,6 +89,22 @@ export function planReducer(plan: RoutePlan, action: PlanAction): RoutePlan {
           item.latitude === action.latitude &&
           item.longitude === action.longitude
             ? { ...item, label: action.label, detail: action.detail }
+            : item,
+        ),
+      };
+    case 'resolve':
+      // O ponto do território chega depois: só vale se o campo ainda for aquele território.
+      return {
+        ...plan,
+        waypoints: waypoints.map((item) =>
+          item.key === action.key && item.territory === action.territory && !hasPoint(item)
+            ? {
+                ...item,
+                label: action.label,
+                detail: action.detail,
+                latitude: action.latitude,
+                longitude: action.longitude,
+              }
             : item,
         ),
       };

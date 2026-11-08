@@ -1,120 +1,73 @@
-/* Navegação do Transporte: a busca do canto vira partida, paradas e destino,
-   no mesmo cartão (superfície, borda, raio e sombra da .search-box). */
+/* Navegação do Transporte. A primeira linha é a busca do app, sem mudança de
+   medida (largura, altura, ícone, botão de localização); Destino, paradas e a
+   barra de meios surgem embaixo, com as mesmas caixas e o mesmo botão à direita. */
 
-.route-slot {
-  width: 300px;
-  --route-color: #1a66e0;
+.route-row {
+  position: relative;
 }
 
-/* O azul da linha é o mesmo nos dois temas; texto e ícones clareiam no escuro. */
-:root[data-theme='dark'] .route-slot {
-  --route-color: #6ea6ff;
+.route-extra {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  /* Ao entrar no Transporte, a busca fica parada e o resto desce dela. */
+  animation: route-reveal var(--motion-ui) var(--ease-out) 60ms backwards;
 }
 
-.route-box {
-  flex: 1;
-  min-width: 0;
+@keyframes route-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-extra {
+    animation: none;
+  }
+}
+
+/* Coluna do botão de localização nas linhas de parada: mantém as caixas alinhadas. */
+.route-column {
+  flex: 0 0 32px;
+}
+
+.search-box.is-picking {
+  border-color: var(--focus-border);
+}
+
+.search-input.is-pending {
+  color: var(--text-faint);
+}
+
+/* A lista abre sob o campo ativo, por cima das linhas de baixo. */
+.route-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 5;
+}
+
+.route-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: 32px;
+  padding: 0 4px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
-  transition: border-color var(--motion-fast) var(--ease-out);
 }
 
-.route-box:focus-within,
-.route-box.is-picking {
-  border-color: var(--focus-border);
-}
-
-.route-rows {
+.route-profiles,
+.route-actions {
   display: flex;
-  align-items: center;
-  padding: 2px 2px 0 0;
+  gap: 2px;
 }
 
-.route-fields {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* Fio pontilhado entre os pontos, como o traçado de uma viagem. */
-.route-fields::before {
-  content: '';
-  position: absolute;
-  top: 17px;
-  bottom: 17px;
-  left: 13.5px;
-  border-left: 1.5px dotted var(--border-strong);
-}
-
-.route-field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 4px 0 9px;
-}
-
-.route-field + .route-field::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 4px;
-  left: 28px;
-  border-top: 1px solid var(--border);
-}
-
-.route-dot {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  box-sizing: border-box;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 2px solid var(--text-soft);
-}
-
-.route-dot.is-stop {
-  width: 8px;
-  height: 8px;
-  margin: 0 1px;
-  border-width: 1.5px;
-}
-
-.route-dot.is-destination {
-  background: var(--text);
-  border-color: var(--text);
-  box-shadow: 0 0 0 2px var(--surface);
-}
-
-.route-clear {
-  opacity: 0;
-  transition:
-    opacity var(--motion-fast) var(--ease-out),
-    background-color var(--motion-fast) var(--ease-out),
-    color var(--motion-fast) var(--ease-out);
-}
-
-.route-field:hover .route-clear,
-.route-field:focus-within .route-clear,
-.route-clear:focus-visible {
-  opacity: 1;
-}
-
-@media (hover: none) {
-  .route-clear {
-    opacity: 1;
-  }
-}
-
-.route-swap,
 .route-profile,
 .route-text-button {
   border: none;
@@ -126,68 +79,35 @@
     color var(--motion-fast) var(--ease-out);
 }
 
-.route-swap {
+.route-profile {
   display: grid;
-  flex: none;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  margin: 0 2px;
-  border-radius: 999px;
+  width: 30px;
+  height: 24px;
+  border-radius: 6px;
   color: var(--text-faint);
 }
 
-.route-swap:hover,
 .route-profile:hover,
 .route-text-button:hover {
   background: var(--surface-muted);
   color: var(--text);
 }
 
-.route-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  min-height: 30px;
-  padding: 2px 4px 3px 5px;
-  border-top: 1px solid var(--border);
-}
-
-.route-profiles {
-  display: flex;
-  gap: 2px;
-}
-
-.route-profile {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 24px;
-  border-radius: var(--radius-sm);
-  color: var(--text-faint);
-}
-
 .route-profile.is-active,
 .route-profile.is-active:hover {
-  background: color-mix(in srgb, var(--route-color) 12%, transparent);
-  color: var(--route-color);
-}
-
-.route-actions {
-  display: flex;
-  gap: 2px;
+  background: var(--surface-muted);
+  color: var(--accent);
 }
 
 .route-text-button {
   padding: 4px 7px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   color: var(--text-soft);
   font-size: 11.5px;
   white-space: nowrap;
 }
 
-.route-swap:focus-visible,
 .route-profile:focus-visible,
 .route-text-button:focus-visible {
   outline: 2px solid var(--focus-border);
@@ -196,16 +116,25 @@
 
 .route-option-action {
   color: var(--text-soft);
-  font-weight: 500;
+}
+
+.route-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .route-hint .route-text-button {
-  margin-left: 2px;
   padding: 2px 6px;
 }
 
+/* .search-empty traz margem própria; dentro da pilha vale o gap. */
+.route-extra > .search-empty {
+  margin: 0;
+}
+
 .route-summary {
-  margin: 6px 0 0;
   padding: 9px 11px 10px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -230,8 +159,8 @@
 }
 
 .route-summary-main strong {
-  color: var(--route-color);
-  font-size: 17px;
+  color: var(--text);
+  font-size: 16px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -269,7 +198,7 @@
 
 .route-legs li {
   display: grid;
-  grid-template-columns: 14px minmax(0, 1fr) auto;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
 }
@@ -292,14 +221,14 @@
   white-space: nowrap;
 }
 
-/* Marcadores no mapa: os mesmos pontos dos campos, arrastáveis. O azul fica
-   para a linha e para o ponto do GPS; os pontos da viagem seguem o tema. */
+/* Marcadores no mapa: pontos neutros que seguem o tema, arrastáveis. A cor da
+   rota fica só na linha e no ponto do aparelho. */
 .route-marker {
   box-sizing: border-box;
   border-radius: 50%;
   background: var(--surface);
   border: 3px solid var(--text);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
   cursor: grab;
 }
 
@@ -312,12 +241,35 @@
   border-color: var(--surface);
   box-shadow:
     0 0 0 1px var(--border-strong),
-    0 1px 4px rgb(0 0 0 / 30%);
+    0 1px 4px rgb(0 0 0 / 25%);
 }
 
-/* Contorno da linha na cor da superfície: some no fundo e separa a rota da malha. */
+/* Linha da rota no tom do destaque do app: firme sobre a malha ocre, sem gritar.
+   Contorno na cor da superfície, para separar da malha sem moldura escura. */
+:root {
+  --route-line: #2d6a79;
+}
+
+:root[data-theme='dark'] {
+  --route-line: #86bcc8;
+}
+
+.route-path {
+  stroke: var(--route-line);
+}
+
 .route-casing {
   stroke: var(--surface);
+}
+
+.route-device-dot {
+  fill: var(--route-line);
+  stroke: var(--surface);
+}
+
+.route-device-accuracy {
+  stroke: var(--route-line);
+  fill: var(--route-line);
 }
 
 .leaflet-dragging .route-marker {
@@ -330,20 +282,15 @@
 }
 
 @media (max-width: 900px) {
-  /* Deixa livre a coluna da direita, onde ficam o tema e o Pix abaixo da busca. */
-  .route-slot {
-    width: min(
-      360px,
-      calc(100% - var(--gutter) - max(var(--gutter), env(safe-area-inset-right)) - 72px)
+  /* Tema e Pix ficam abaixo da busca no celular; descem o tanto que a rota cresce. */
+  .app.transport-app:not(.auth-page) .theme-switch {
+    top: calc(max(var(--gutter), env(safe-area-inset-top)) + 44px + var(--route-stack-extra, 0px));
+  }
+
+  .transport-app .donation-button {
+    top: calc(
+      max(var(--gutter), env(safe-area-inset-top)) + 44px + 34px + 8px +
+        var(--route-stack-extra, 0px)
     );
-  }
-
-  .route-field {
-    height: 38px;
-  }
-
-  .route-fields::before {
-    top: 20px;
-    bottom: 20px;
   }
 }
