@@ -136,10 +136,15 @@ test('trocar contexto preserva preferências climáticas e território', async (
   window.sessionStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify(state));
   function Probe() { return useDataContext().control; }
   await act(async()=>root.render(h(QueryClientProvider,{client},h(Probe))));
-  const select = document.querySelector('#data-context');
-  await act(async()=>{ select.value='socioeconomic'; select.dispatchEvent(new window.Event('change',{bubbles:true})); });
+  const choose = async (label) => {
+    await act(async()=>document.querySelector('#data-context').click());
+    const option = [...document.querySelectorAll('[role="option"]')].find(item=>item.textContent===label);
+    await act(async()=>option.click());
+  };
+  await choose('Socioeconômico');
   assert.deepEqual(stored(), {...state,dataContext:'socioeconomic'});
-  await act(async()=>{ select.value='climate'; select.dispatchEvent(new window.Event('change',{bubbles:true})); });
+  assert.equal(document.querySelector('[role="listbox"]'),null);
+  await choose('Clima');
   assert.deepEqual(stored(),state);
 });
 

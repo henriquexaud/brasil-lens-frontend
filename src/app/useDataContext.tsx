@@ -1,8 +1,8 @@
 import { startTransition, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { DataContext } from '@/api/types';
-import { Select } from '@/components/Select';
 import { loadSessionState, saveSessionState } from '@/lib/sessionStorage';
+import { ContextSelect } from './ContextSelect';
 import { crossfade, finishEntryAnimations, waitFor } from './crossfade';
 
 // Tempo máximo com a tela anterior parada à espera dos dados do contexto novo
@@ -32,7 +32,7 @@ export function useDataContext(
       ? 'climate'
       : (loadSessionState().dataContext ?? 'climate'),
   );
-  // O select mostra a escolha na hora; `context` só muda dentro do cross-fade.
+  // O seletor mostra a escolha na hora; `context` só muda dentro do cross-fade.
   const [choice, setChoice] = useState(context);
   const committed = useRef(context);
   const latest = useRef(context);
@@ -63,6 +63,9 @@ export function useDataContext(
         MAP_READY_MS,
       );
       finishEntryAnimations();
+      // O painel novo traz outro seletor; o foco do teclado continua nele.
+      if (document.activeElement === document.body)
+        document.getElementById('data-context')?.focus({ preventScroll: true });
     });
   };
 
@@ -73,21 +76,7 @@ export function useDataContext(
       onPointerDown={warm}
       onFocusCapture={warm}
     >
-      <Select
-        id="data-context"
-        label="Contexto do mapa"
-        hideLabel
-        value={choice}
-        options={[
-          { value: 'climate', label: 'Clima' },
-          { value: 'environment', label: 'Meio ambiente' },
-          { value: 'socioeconomic', label: 'Socioeconômico' },
-          { value: 'political', label: 'Política' },
-          { value: 'transport', label: 'Transporte' },
-          { value: 'education', label: 'Educação' },
-        ]}
-        onChange={(value) => void change(value as DataContext)}
-      />
+      <ContextSelect value={choice} onChange={(value) => void change(value)} />
     </div>
   );
   return { context, control };
