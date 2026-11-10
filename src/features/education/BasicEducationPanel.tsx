@@ -102,7 +102,7 @@ export function BasicEducationPanel({
           year={featured?.year ?? undefined}
           emptyLabel={noSchoolsLabel(stage)}
         />
-      ) : (
+      ) : territory?.level === 'state' && onClose ? null : (
         <p className="education-summary education-schools-hint">
           Abra um município para ver a lista de escolas.
         </p>

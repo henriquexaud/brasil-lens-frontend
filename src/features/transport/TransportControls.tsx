@@ -56,7 +56,10 @@ export function TransportControls({
         </div>
       )}
       <LayerMetadata sources={map ? [map] : []} unit="traçado">
-        <span className="indicator-year-label">{edition ?? ''}</span>
+        <span className="indicator-year-label">
+          {/* A fonte já está na etiqueta ao lado: aqui fica só a data. */}
+          {edition?.replace(/^OSM\s+/, '').replace(/(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1') ?? ''}
+        </span>
       </LayerMetadata>
     </section>
   );

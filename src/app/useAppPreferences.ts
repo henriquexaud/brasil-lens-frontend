@@ -23,6 +23,10 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
   const [showDeforestationAlerts, setShowDeforestationAlerts] = useState<boolean>(
     () => loadSessionState().showDeforestationAlerts === true,
   );
+  // Contornos das unidades de conservação sobre o Meio ambiente: desligados de início.
+  const [showProtectedAreas, setShowProtectedAreas] = useState<boolean>(
+    () => loadSessionState().showProtectedAreas === true,
+  );
   const [climateLayer, setClimateLayer] = useState<ClimateLayer>(
     () => loadSessionState().activeThematicLayer ?? 'climate',
   );
@@ -60,10 +64,18 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
       showWeatherAlerts,
       showHydrography,
       showDeforestationAlerts,
+      showProtectedAreas,
       activeThematicLayer: climateLayer,
       environmentLayer,
     });
-  }, [showWeatherAlerts, showHydrography, showDeforestationAlerts, climateLayer, environmentLayer]);
+  }, [
+    showWeatherAlerts,
+    showHydrography,
+    showDeforestationAlerts,
+    showProtectedAreas,
+    climateLayer,
+    environmentLayer,
+  ]);
 
   return {
     showWeatherAlerts: climate && showWeatherAlerts,
@@ -72,6 +84,8 @@ export function useAppPreferences(variant: MapVariant = 'climate') {
     setShowHydrography,
     showDeforestationAlerts: !climate && showDeforestationAlerts,
     setShowDeforestationAlerts,
+    showProtectedAreas: !climate && showProtectedAreas,
+    setShowProtectedAreas,
     showClimate,
     showFireHotspots,
     showRainfall,

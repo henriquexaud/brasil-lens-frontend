@@ -1,6 +1,6 @@
 # Brasil Lens — frontend
 
-React 18 + TypeScript + Vite, react-leaflet 4 e TanStack Query 5: o mapa de clima e meio ambiente do Brasil. Consome só a API própria. A documentação de sistema (arquitetura, invariantes, domínios, decisões) fica no repositório backend (`../backend/docs/` no workspace).
+React 18 + TypeScript + Vite, react-leaflet 4 e TanStack Query 5: o mapa do Brasil em nove contextos de dados públicos. Consome só a API própria. A documentação de sistema (arquitetura, invariantes, domínios, decisões) fica no repositório backend (`../backend/docs/` no workspace).
 
 **Antes de mudar algo visível, leia [docs/ui.md](docs/ui.md). O dono gosta da interface atual: pergunte antes de alterar a aparência.**
 

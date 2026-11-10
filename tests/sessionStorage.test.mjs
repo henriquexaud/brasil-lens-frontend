@@ -15,6 +15,10 @@ const source = (await readFile(new URL('../src/lib/sessionStorage.ts', import.me
   .replace(
     '@/features/education/education',
     new URL('../src/features/education/education.ts', import.meta.url).href,
+  )
+  .replace(
+    '@/features/places/places',
+    new URL('../src/features/places/places.ts', import.meta.url).href,
   );
 const { outputText } = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
@@ -294,4 +298,16 @@ test('o contexto Educação guarda rede, tipo e ano; valores inválidos caem', (
     JSON.stringify({ dataContext: 'education', education: { network: 'public', kind: 'all', year: '2022' } }),
   );
   assert.deepEqual(loadSessionState(), { dataContext: 'education' });
+});
+
+test('os contextos de lugares e suas escolhas sobrevivem à sessão', () => {
+  saveSessionState({
+    dataContext: 'sports',
+    places: { sports: { tab: 'places', categories: { places: 'skate' }, group: 'birds' } },
+  });
+  const state = loadSessionState();
+  assert.equal(state.dataContext, 'sports');
+  assert.deepEqual(state.places, {
+    sports: { tab: 'places', categories: { places: 'skate' }, group: 'birds' },
+  });
 });

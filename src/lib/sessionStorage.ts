@@ -3,6 +3,7 @@ import { validSelection } from '@/features/political/selection';
 import type { PoliticalSelection, DataContext } from '@/api/types';
 import { normalizeTransport, type TransportPreferences } from '@/features/transport/layers';
 import { normalizeEducation, type EducationPreferences } from '@/features/education/education';
+import { normalizePlaces, type PlacesSession } from '@/features/places/places';
 
 export const SESSION_STORAGE_KEY = 'brasil_lens_session_v6';
 const LEGACY_STORAGE_KEYS = [
@@ -22,10 +23,12 @@ export interface AppSessionState {
   showWeatherAlerts?: boolean;
   showHydrography?: boolean;
   showDeforestationAlerts?: boolean;
+  showProtectedAreas?: boolean;
   activeThematicLayer?: ClimateLayer;
   environmentLayer?: EnvironmentLayer;
   transport?: TransportPreferences;
   education?: EducationPreferences;
+  places?: PlacesSession;
 }
 
 export type ClimateLayer = 'climate' | 'rainfall' | 'humidity' | 'none';
@@ -37,6 +40,9 @@ const DATA_CONTEXTS: DataContext[] = [
   'political',
   'transport',
   'education',
+  'nature',
+  'resources',
+  'sports',
 ];
 
 function getStorage(): Storage | null {
@@ -105,6 +111,9 @@ function climateState(value: unknown): AppSessionState {
     ...(typeof source.showDeforestationAlerts === 'boolean'
       ? { showDeforestationAlerts: source.showDeforestationAlerts }
       : {}),
+    ...(typeof source.showProtectedAreas === 'boolean'
+      ? { showProtectedAreas: source.showProtectedAreas }
+      : {}),
     ...(['climate', 'rainfall', 'humidity', 'none'].includes(String(source.activeThematicLayer))
       ? { activeThematicLayer: source.activeThematicLayer as ClimateLayer }
       : {}),
@@ -117,6 +126,7 @@ function climateState(value: unknown): AppSessionState {
     ...(normalizeEducation(source.education)
       ? { education: normalizeEducation(source.education) }
       : {}),
+    ...(normalizePlaces(source.places) ? { places: normalizePlaces(source.places) } : {}),
   };
 }
 

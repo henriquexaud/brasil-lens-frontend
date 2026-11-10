@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Place } from '@/api/types';
-import type { DevicePosition } from '@/features/search/LocationButton';
+import {
+  locationErrorMessage,
+  readDevicePosition,
+  type DevicePosition,
+} from '@/features/search/LocationButton';
 import type { SearchResult } from '@/features/search/SearchBox';
 import { describeError } from '@/components/Feedback';
 import { emptyPlan, fromPlace, hasPoint, planReducer, routePoints, type RoutePlan } from './model';
@@ -173,6 +177,46 @@ export function useRoutePlan({
     [plan.waypoints, labelFromMap],
   );
 
+  // "Como chegar" de um lugar do mapa: ele vira o destino e a partida, se estiver
+  // vazia, é o próprio aparelho. Sem a localização, o campo fica para o usuário.
+  const routeTo = useCallback(
+    async (destination: {
+      label: string;
+      detail: string | null;
+      latitude: number;
+      longitude: number;
+    }) => {
+      setPicking(null);
+      setNotice(null);
+      dispatch({ type: 'goTo', destination });
+      const origin = plan.waypoints[0];
+      if (origin && hasPoint(origin)) return;
+      try {
+        const { coords } = await readDevicePosition(true);
+        setDevice({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          accuracy: coords.accuracy,
+        });
+        dispatch({
+          type: 'origin',
+          waypoint: {
+            label: 'Minha localização',
+            detail: null,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            device: true,
+          },
+        });
+      } catch (cause) {
+        setNotice(
+          `${locationErrorMessage(cause).replace(/ ou use a busca\.$/, '.')} Informe a partida.`,
+        );
+      }
+    },
+    [plan.waypoints],
+  );
+
   const dispatchPlan = useCallback((action: Parameters<typeof dispatch>[0]) => {
     dispatch(action);
     if (action.type === 'reset') setPicking(null);
@@ -195,5 +239,6 @@ export function useRoutePlan({
     onPosition,
     onPickPoint,
     onDrag,
+    routeTo,
   };
 }

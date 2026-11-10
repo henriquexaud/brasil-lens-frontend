@@ -76,6 +76,7 @@ export function WeatherOptions({
       <div className="weather-layers-panel">
         <LayerToggle
           label="Alertas"
+          icon="alert"
           sources={[
             { label: 'INMET', description: 'Instituto Nacional de Meteorologia.' },
             {

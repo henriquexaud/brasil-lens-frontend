@@ -1,4 +1,5 @@
 import type { EducationInstitutionDetail } from '@/api/types';
+import { DetailHeader } from '@/components/DetailHeader';
 import { AnimatedText } from '@/components/AnimatedText';
 import { ErrorMessage } from '@/components/Feedback';
 import { ScrollList } from '@/components/ScrollList';
@@ -39,33 +40,16 @@ export function InstitutionDetail({
     : [];
   return (
     <section className="panel-section territory-detail" aria-label="Instituição selecionada">
-      <header className="detail-header">
-        <div>
-          {data ? (
-            <>
-              <p className="detail-kicker">
-                {CATEGORY_LABEL[data.category]} · {ORGANIZATION_LABEL[data.organization]}
-                {data.acronym && ` · ${data.acronym}`}
-              </p>
-              <AnimatedText
-                as="h2"
-                className="detail-title"
-                text={institutionName(data.name, data.acronym)}
-              />
-            </>
-          ) : (
-            <span role="status">{error ? 'Instituição' : 'Carregando instituição…'}</span>
-          )}
-        </div>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onClose}
-          aria-label="Fechar instituição"
-        >
-          ×
-        </button>
-      </header>
+      <DetailHeader
+        kicker={
+          data &&
+          `${CATEGORY_LABEL[data.category]} · ${ORGANIZATION_LABEL[data.organization]}${data.acronym ? ` · ${data.acronym}` : ''}`
+        }
+        title={data && institutionName(data.name, data.acronym)}
+        placeholder={error ? 'Instituição' : 'Carregando instituição…'}
+        onClose={onClose}
+        closeLabel="Fechar instituição"
+      />
       {error && <ErrorMessage error={error} />}
       {data && (
         <>

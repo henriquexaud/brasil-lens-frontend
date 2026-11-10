@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { DataContext } from '@/api/types';
+import { Icon as BaseIcon } from '@/components/Icon';
 
 interface ContextOption {
   value: DataContext;
@@ -17,24 +18,8 @@ interface ContextOption {
   icon: ReactNode;
 }
 
-// Traço de 1,6 em caixa 24, como os ícones do tema.
 function Icon({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      className="context-select-icon"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
+  return <BaseIcon className="context-select-icon">{children}</BaseIcon>;
 }
 
 export const CONTEXT_OPTIONS: ContextOption[] = [
@@ -96,6 +81,36 @@ export const CONTEXT_OPTIONS: ContextOption[] = [
       <Icon>
         <path d="M2.5 9 12 4.5 21.5 9 12 13.5Z" />
         <path d="M6.5 11.3V16c0 1.4 2.5 3 5.5 3s5.5-1.6 5.5-3v-4.7M21.5 9v5" />
+      </Icon>
+    ),
+  },
+  {
+    value: 'nature',
+    label: 'Fauna e flora',
+    icon: (
+      <Icon>
+        <path d="M5 19c0-8 5-13 14-14 0 9-4 14-12 14" />
+        <path d="M5 19c2-5 5-8 9-10" />
+      </Icon>
+    ),
+  },
+  {
+    value: 'resources',
+    label: 'Minérios',
+    icon: (
+      <Icon>
+        <path d="M7 4h10l4 6-9 10L3 10Z" />
+        <path d="M3 10h18M9.5 10 12 20l2.5-10M7 4l2.5 6M17 4l-2.5 6" />
+      </Icon>
+    ),
+  },
+  {
+    value: 'sports',
+    label: 'Esportes',
+    icon: (
+      <Icon>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M3.5 12h17M12 3.5v17M6 6c2.2 1.7 3.4 3.7 3.4 6S8.2 16.3 6 18M18 6c-2.2 1.7-3.4 3.7-3.4 6s1.2 4.3 3.4 6" />
       </Icon>
     ),
   },
@@ -202,7 +217,10 @@ export function ContextSelect({ value, onChange }: Props) {
     const text = now - typed.current.at > 600 ? key : typed.current.text + key;
     typed.current = { text, at: now };
     const normalize = (label: string) =>
-      label.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+      label
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase();
     const query = normalize(text);
     const count = CONTEXT_OPTIONS.length;
     const start = text.length === 1 ? from + 1 : from;

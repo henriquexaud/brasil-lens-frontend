@@ -7,6 +7,7 @@ import { AnimatedText } from '@/components/AnimatedText';
 import { DrillDownButton } from '@/components/DrillDownButton';
 import { ScrollList } from '@/components/ScrollList';
 import { ErrorMessage } from '@/components/Feedback';
+import { DetailHeader as SharedDetailHeader } from '@/components/DetailHeader';
 import { levelLabel } from '@/features/socioeconomic/format';
 import { formatCount, institutionName, plural } from './education';
 import { NO_OFFER } from './presentation';
@@ -54,24 +55,15 @@ export function DetailHeader({
   onClose: () => void;
 }) {
   return (
-    <header className="detail-header">
-      <div>
-        {territory ? (
-          <>
-            <p className="detail-kicker">
-              {levelLabel(territory.level)}
-              {territory.parentName && ` · ${territory.parentName}`}
-            </p>
-            <AnimatedText as="h2" className="detail-title" text={territory.name} />
-          </>
-        ) : (
-          <span role="status">{fallback ?? 'Carregando local…'}</span>
-        )}
-      </div>
-      <button type="button" className="icon-button" onClick={onClose} aria-label="Fechar detalhe">
-        ×
-      </button>
-    </header>
+    <SharedDetailHeader
+      kicker={
+        territory &&
+        `${levelLabel(territory.level)}${territory.parentName ? ` · ${territory.parentName}` : ''}`
+      }
+      title={territory?.name}
+      placeholder={fallback ?? 'Carregando local…'}
+      onClose={onClose}
+    />
   );
 }
 

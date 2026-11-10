@@ -68,6 +68,7 @@ export default function TransportApp({ contextControl }: { contextControl: React
     selectedBoundary,
     scopeReady,
     visibleMunicipalities,
+    selectedFeature,
   } = useTerritoryMap({ scope, isDrilledDown, viewport, selectedCode, pageVisible });
 
   const catalog = useTransportCatalog();
@@ -256,6 +257,9 @@ export default function TransportApp({ contextControl }: { contextControl: React
             summary={summary.data}
             loading={summary.isPending}
             error={summary.error}
+            territory={selectedCode ? selectedFeature?.properties : undefined}
+            onClose={selectedCode ? () => setSelectedCode(null) : undefined}
+            onDrillDown={drillIntoState}
           />
           <AccountMenu />
         </aside>

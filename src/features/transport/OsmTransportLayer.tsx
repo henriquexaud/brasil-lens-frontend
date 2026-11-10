@@ -106,6 +106,16 @@ function waterRules(): PaintRule[] {
   ];
 }
 
+// Só as vias, discretas: dão endereço aos pontos de outros contextos.
+function backdropRules(): PaintRule[] {
+  return [
+    {
+      dataLayer: 'roads',
+      symbolizer: new LineSymbolizer({ color: COLORS.context, width: width(0.8), opacity: 0.6 }),
+    },
+  ];
+}
+
 export function paintRules(preferences: TransportPreferences): PaintRule[] {
   if (preferences.tab === 'rail') return railRules();
   if (preferences.tab === 'waterways') return waterRules();
@@ -123,22 +133,28 @@ export function OsmTransportLayer({
   url,
   maxDataZoom,
   preferences,
+  backdrop = false,
 }: {
   url: string;
   maxDataZoom: number;
   preferences: TransportPreferences;
+  /** Pano de fundo de outro contexto: vias em cinza, sem identificação no clique. */
+  backdrop?: boolean;
 }) {
   const layerRef = useRef<ReturnType<typeof leafletLayer> | null>(null);
   const [picked, setPicked] = useState<{ position: [number, number]; detail: OsmDetail } | null>(
     null,
   );
   const timer = useRef<number>();
-  const rules = useMemo(() => paintRules(preferences), [preferences]);
+  const rules = useMemo(
+    () => (backdrop ? backdropRules() : paintRules(preferences)),
+    [backdrop, preferences],
+  );
   const map = useMapEvents({
     click(event: LeafletMouseEvent) {
       window.clearTimeout(timer.current);
       const layer = layerRef.current;
-      if (!layer || map.getZoom() < MIN_IDENTIFY_ZOOM) return;
+      if (backdrop || !layer || map.getZoom() < MIN_IDENTIFY_ZOOM) return;
       const { lat, lng } = event.latlng;
       // Espera o duplo clique (que abre o território) antes de mostrar a via.
       timer.current = window.setTimeout(() => {

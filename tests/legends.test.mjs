@@ -65,6 +65,16 @@ test('carregamento e ausência socioeconômicos mantêm dez segmentos neutros se
   assert.match(segments()[1].title,/Sem valores distintos/);
 });
 
+test('dentro de uma UF a legenda nacional mostra só as faixas e os números do recorte', async () => {
+  await render(Legend, {indicator, classification, statistics, range:{min:12, max:37}});
+  assert.equal(segments().length, 3);
+  assert.match(segments()[0].title, /^12 a 20/);
+  assert.match(segments()[2].title, /^30 a 37/);
+  const text = document.querySelector('.scale-legend').textContent;
+  assert.match(text, /37/);
+  assert.doesNotMatch(text, /100/);
+});
+
 const politicalData = {
   year:2026, office:'president', round:1, metric:'leading_candidate', status:'partial',
   values:[

@@ -1302,6 +1302,12 @@ test('ScopeHeader navegação hierárquica: exibe Brasil na visão de estado e n
   });
   assert.equal(backClicked, true);
 
+  // No Brasil com um estado aberto, o título já é o destino: sem botão de voltar.
+  await act(async () =>
+    root.render(h(ScopeHeader, { name: 'Brasil', onBack: () => {}, backLabel: 'Brasil' })),
+  );
+  assert.equal(document.querySelector('.ghost-button'), null);
+
   let municipalityBackClicked = false;
   await act(async () =>
     root.render(

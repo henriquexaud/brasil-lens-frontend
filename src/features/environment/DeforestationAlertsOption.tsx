@@ -30,6 +30,7 @@ export function DeforestationAlertsOption({
       <div className="weather-layers-panel">
         <LayerToggle
           label="Alertas"
+          icon="alert"
           sources={[
             {
               label: 'INPE DETER',

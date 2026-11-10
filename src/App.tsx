@@ -26,6 +26,11 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MapView } from '@/features/map/MapView';
 import type { MapViewport } from '@/features/map/ViewportObserver';
 import { DeforestationAlertsOption } from '@/features/environment/DeforestationAlertsOption';
+import {
+  ProtectedAreasLayer,
+  ProtectedAreasOption,
+  useProtectedAreas,
+} from '@/features/environment/ProtectedAreas';
 import { useDeforestationAlerts } from '@/features/environment/queries';
 import { pointInState } from '@/features/environment/stateClip';
 import { fireMode, hydroZoom } from '@/features/fire/fireDensity';
@@ -63,6 +68,7 @@ import { prefetchSocioeconomic } from '@/features/socioeconomic/queries';
 import { prefetchPolitical } from '@/features/political/queries';
 import { prefetchTransport } from '@/features/transport/queries';
 import { prefetchEducation } from '@/features/education/queries';
+import { prefetchPlaces } from '@/features/places/queries';
 import { prefetchEnvironment } from '@/features/environment/queries';
 import '@/features/socioeconomic/socioeconomic.css';
 
@@ -70,6 +76,8 @@ const PoliticalApp = lazyPreload(() => import('@/features/political/PoliticalApp
 const SocioeconomicApp = lazyPreload(() => import('@/features/socioeconomic/SocioeconomicApp'));
 const TransportApp = lazyPreload(() => import('@/features/transport/TransportApp'));
 const EducationApp = lazyPreload(() => import('@/features/education/EducationApp'));
+// Fauna e flora, Minérios e Esportes são a mesma tela com outra configuração.
+const PlacesApp = lazyPreload(() => import('@/features/places/PlacesApp'));
 
 const HydrographyLayer = lazyPreload(() =>
   import('@/features/map/HydrographyLayer').then((module) => ({
@@ -135,6 +143,9 @@ const CONTEXT_CODE = {
   socioeconomic: SocioeconomicApp.preload,
   transport: TransportApp.preload,
   education: EducationApp.preload,
+  nature: PlacesApp.preload,
+  resources: PlacesApp.preload,
+  sports: PlacesApp.preload,
 };
 // Dados do primeiro quadro de cada contexto. O Clima fica de fora: depende das
 // fontes externas de tempo, e as leituras vêm em ondas próprias.
@@ -144,6 +155,9 @@ const CONTEXT_DATA = {
   political: prefetchPolitical,
   transport: prefetchTransport,
   education: prefetchEducation,
+  nature: prefetchPlaces('nature'),
+  resources: prefetchPlaces('resources'),
+  sports: prefetchPlaces('sports'),
 };
 
 // Peças do painel e do mapa que só montam com outra camada ou com uma seleção.
@@ -171,9 +185,16 @@ export default function App() {
         void SocioeconomicApp.preload();
         void TransportApp.preload();
         void EducationApp.preload();
+        void PlacesApp.preload();
       }, 1500),
     [],
   );
+  if (context === 'nature' || context === 'resources' || context === 'sports')
+    return (
+      <Suspense fallback={<TopProgress />}>
+        <PlacesApp key={context} context={context} contextControl={control} />
+      </Suspense>
+    );
   if (context === 'transport')
     return (
       <Suspense fallback={<TopProgress />}>
@@ -226,6 +247,8 @@ function ClimateApp({
     setShowHydrography,
     showDeforestationAlerts,
     setShowDeforestationAlerts,
+    showProtectedAreas,
+    setShowProtectedAreas,
     showClimate,
     showFireHotspots,
     showRainfall,
@@ -241,6 +264,7 @@ function ClimateApp({
 
   const [viewport, setViewport] = useState<MapViewport>({ zoom: 4 });
   const activeFireMode = fireMode(viewport.zoom, isDrilledDown);
+  const protectedAreas = useProtectedAreas(viewport, showProtectedAreas);
   const [locationTarget, setLocationTarget] = useState<{
     code: string;
     latitude: number;
@@ -895,6 +919,9 @@ function ClimateApp({
             />
           )}
         </Suspense>
+        {showProtectedAreas && protectedAreas.data && (
+          <ProtectedAreasLayer areas={protectedAreas.data} />
+        )}
         <Suspense fallback={null}>
           {showHydrography && hydrographyLayer.data && (
             <HydrographyLayer
@@ -1113,6 +1140,12 @@ function ClimateApp({
                   alertStateCode ? stateAlertPoints.length : (deforestationAlerts.data?.total ?? 0)
                 }
                 scopeName={isDrilledDown ? (scope.parentName ?? undefined) : undefined}
+              />
+              <ProtectedAreasOption
+                checked={showProtectedAreas}
+                onChange={setShowProtectedAreas}
+                pending={protectedAreas.isFetching && !protectedAreas.data}
+                error={showProtectedAreas && protectedAreas.error != null}
               />
               <RiversOption
                 checked={showHydrography}

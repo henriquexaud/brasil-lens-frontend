@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DetailHeader } from '@/components/DetailHeader';
 import type { PoliticalSelection } from '@/api/types';
 import { ErrorMessage } from '@/components/Feedback';
 import { Disclosure } from '@/components/Disclosure';
@@ -85,28 +86,17 @@ export function TerritoryPanel({
   return (
     <section className="panel-section territory-detail" aria-label="Resumo político do território">
       {onClose && (
-        <header className="detail-header">
-          <div>
-            <p className="detail-kicker">
-              {(data?.level ??
-                (code.length === 7 ? 'municipality' : code === 'BR' ? 'country' : 'state')) ===
-              'municipality'
-                ? 'Município'
-                : (data?.level ?? (code === 'BR' ? 'country' : 'state')) === 'state'
-                  ? 'Estado'
-                  : 'País'}
-            </p>
-            <h2 className="detail-title">{data?.name ?? 'Carregando…'}</h2>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Fechar seleção"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </header>
+        <DetailHeader
+          kicker={
+            (data?.level ?? (code.length === 7 ? 'municipality' : 'state')) === 'municipality'
+              ? 'Município'
+              : 'Estado'
+          }
+          title={data?.name}
+          placeholder="Carregando…"
+          onClose={onClose}
+          closeLabel="Fechar seleção"
+        />
       )}
       {query.error ? (
         <>

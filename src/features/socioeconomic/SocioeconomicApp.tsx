@@ -210,6 +210,15 @@ export default function SocioeconomicApp({ contextControl }: { contextControl: R
     publishedLegend.indicator.requestedYear === year
       ? publishedLegend
       : values.data;
+  // Dentro de uma UF a API classifica pelos municípios do país (cores comparáveis), mas os números da
+  // legenda são os do recorte: o maior município do país não é daqui.
+  const scopeStatistics =
+    isDrilledDown &&
+    values.data?.parent === scope.parent &&
+    values.data.indicator.key === legendData?.indicator.key &&
+    values.data.indicator.year === legendData.indicator.year
+      ? values.data.statistics
+      : null;
   const detailCode = selectedCode ?? scope.parent ?? 'BR';
   const indicator =
     values.data?.indicator ??
@@ -343,7 +352,8 @@ export default function SocioeconomicApp({ contextControl }: { contextControl: R
           <Legend
             indicator={legendData?.indicator ?? indicator}
             classification={legendData?.classification ?? null}
-            statistics={legendData?.statistics ?? null}
+            statistics={scopeStatistics ?? legendData?.statistics ?? null}
+            range={scopeStatistics}
             loading={values.isPending}
           />
         </div>

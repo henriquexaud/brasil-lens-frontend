@@ -283,11 +283,13 @@
 
 @media (max-width: 900px) {
   /* Tema e Pix ficam abaixo da busca no celular; descem o tanto que a rota cresce. */
-  .app.transport-app:not(.auth-page) .theme-switch {
+  .app.transport-app:not(.auth-page) .theme-switch,
+  .app.places-app:not(.auth-page) .theme-switch {
     top: calc(max(var(--gutter), env(safe-area-inset-top)) + 44px + var(--route-stack-extra, 0px));
   }
 
-  .transport-app .donation-button {
+  .transport-app .donation-button,
+  .places-app .donation-button {
     top: calc(
       max(var(--gutter), env(safe-area-inset-top)) + 44px + 34px + 8px +
         var(--route-stack-extra, 0px)

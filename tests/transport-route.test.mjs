@@ -116,3 +116,20 @@ test('o ponto do território só entra se o campo ainda for aquele território',
   plan = planReducer(plan, { type: 'set', index: 1, waypoint: point('Recife', -8.05, -34.9) });
   assert.equal(planReducer(plan, resolve).waypoints[1].label, 'Recife');
 });
+
+test('"Como chegar" troca o destino, mantém a partida e tira as paradas', () => {
+  let plan = emptyPlan();
+  plan = planReducer(plan, { type: 'set', index: 0, waypoint: point('Casa', -23.5, -46.6) });
+  plan = planReducer(plan, { type: 'addStop' });
+  plan = planReducer(plan, { type: 'goTo', destination: point('Quadra', -23.6, -46.7) });
+  assert.deepEqual(
+    plan.waypoints.map((item) => item.label),
+    ['Casa', 'Quadra'],
+  );
+  // A posição do aparelho só preenche a partida vazia.
+  plan = planReducer(plan, { type: 'origin', waypoint: point('Minha localização', -23, -46) });
+  assert.equal(plan.waypoints[0].label, 'Casa');
+  plan = planReducer(emptyPlan(), { type: 'goTo', destination: point('Quadra', -23.6, -46.7) });
+  plan = planReducer(plan, { type: 'origin', waypoint: point('Minha localização', -23, -46) });
+  assert.equal(routePoints(plan), '-23.00000,-46.00000;-23.60000,-46.70000');
+});

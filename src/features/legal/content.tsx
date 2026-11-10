@@ -412,9 +412,10 @@ export const TERMS: LegalText = {
         <>
           <p>
             Os dados provêm de fontes públicas, como IBGE, INMET, CEMADEN, INPE, ANA, TSE, INEP,
-            MapBiomas, Open-Meteo e OpenStreetMap, e são exibidos com a indicação da respectiva
-            fonte. Valores estimados são identificados com o símbolo “≈”. As fontes podem apresentar
-            atrasos, alterações, indisponibilidades ou erros, que se refletem no serviço.
+            MMA, ICMBio, ANM, SGB, ANP, MapBiomas, GBIF, Open-Meteo e OpenStreetMap, e são exibidos
+            com a indicação da respectiva fonte. Valores estimados são identificados com o símbolo
+            “≈”. As fontes podem apresentar atrasos, alterações, indisponibilidades ou erros, que se
+            refletem no serviço.
           </p>
           <p>
             <strong>
@@ -463,10 +464,10 @@ export const TERMS: LegalText = {
       body: (
         <p>
           Os dados pertencem às respectivas fontes e são utilizados conforme as licenças de cada
-          uma, como a CC BY 4.0 (MapBiomas e Open-Meteo) e a ODbL (OpenStreetMap), com a atribuição
-          exibida no mapa. O nome e a identidade visual do Brasil Lens pertencem ao projeto. O
-          código-fonte é público no GitHub, e o seu uso está sujeito à licença indicada em cada
-          repositório.
+          uma, como a CC BY 4.0 (MapBiomas, Open-Meteo e parte dos registros do GBIF) e a ODbL
+          (OpenStreetMap), com a atribuição exibida no mapa. O nome e a identidade visual do Brasil
+          Lens pertencem ao projeto. O código-fonte é público no GitHub, e o seu uso está sujeito à
+          licença indicada em cada repositório.
         </p>
       ),
     },

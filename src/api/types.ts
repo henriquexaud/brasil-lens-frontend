@@ -3,7 +3,16 @@ import type { FeatureCollection, Geometry, MultiPolygon, Point } from 'geojson';
 export type TerritoryLevel = 'country' | 'region' | 'state' | 'municipality';
 
 export type DataContext =
-  'climate' | 'environment' | 'socioeconomic' | 'political' | 'transport' | 'education';
+  | 'climate'
+  | 'environment'
+  | 'socioeconomic'
+  | 'political'
+  | 'transport'
+  | 'education'
+  | PlaceContext;
+
+// Contextos de lugares (ADR-25 do backend): pontos e áreas sobre o território.
+export type PlaceContext = 'nature' | 'resources' | 'sports';
 
 export type IndicatorContext = 'socioeconomic' | 'environment' | 'education';
 
@@ -691,4 +700,130 @@ export interface EducationInstitutionDetail {
   distanceEnrollment: number;
   courses: number;
   campuses: EducationCampus[];
+}
+
+export type PlaceLayer =
+  | 'biome'
+  | 'conservation_unit'
+  | 'cave'
+  | 'mining_title'
+  | 'mineral_occurrence'
+  | 'oil_field'
+  | 'sport';
+
+export interface PlaceCategory {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface PlaceLayerInfo {
+  key: PlaceLayer;
+  label: string;
+  source: string;
+  hasShapes: boolean;
+  pointZoom: number | null;
+  count: number;
+  categories: PlaceCategory[];
+}
+
+export interface PlaceSource {
+  key: string;
+  label: string;
+  edition: string | null;
+  description: string;
+  url: string | null;
+}
+
+export interface PlaceCatalog {
+  context: PlaceContext;
+  version: number;
+  layers: PlaceLayerInfo[];
+  sources: PlaceSource[];
+}
+
+export interface PlaceValues {
+  layer: PlaceLayer;
+  category: string | null;
+  level: 'state' | 'municipality';
+  parent: string | null;
+  total: number;
+  values: Record<string, number>;
+}
+
+export interface PlacePoint {
+  id: number;
+  name: string | null;
+  category: string | null;
+  longitude: number;
+  latitude: number;
+}
+
+export interface PlacePoints {
+  layer: PlaceLayer;
+  truncated: boolean;
+  points: PlacePoint[];
+}
+
+export type PlaceAreas = FeatureCollection<
+  Geometry,
+  { name: string | null; category: string | null }
+> & { layer: PlaceLayer; detail: string };
+
+export interface PlaceDetail {
+  id: number;
+  layer: PlaceLayer;
+  layerLabel: string;
+  category: string | null;
+  categoryLabel: string | null;
+  name: string | null;
+  summary: string | null;
+  municipality: { code: string; name: string; state: string | null } | null;
+  longitude: number;
+  latitude: number;
+  attributes: { label: string; value: string }[];
+  source: PlaceSource | null;
+}
+
+export interface PlaceItem {
+  id: number;
+  name: string | null;
+  category: string | null;
+  categoryLabel: string | null;
+  summary: string | null;
+  longitude: number;
+  latitude: number;
+}
+
+export interface PlaceSummary {
+  code: string;
+  name: string;
+  layer: PlaceLayer;
+  category: string | null;
+  total: number | null;
+  categories: PlaceCategory[];
+  items: PlaceItem[];
+  biomes: { key: string; label: string; share: number }[];
+}
+
+export type SpeciesGroup =
+  'birds' | 'mammals' | 'reptiles' | 'amphibians' | 'insects' | 'plants' | 'fungi' | 'threatened';
+
+export interface Species {
+  key: number;
+  scientificName: string;
+  commonName: string | null;
+  family: string | null;
+  records: number;
+  threat: 'CR' | 'EN' | 'VU' | null;
+}
+
+export interface SpeciesSummary {
+  code: string;
+  name: string;
+  group: SpeciesGroup;
+  records: number;
+  speciesCount: number | null;
+  species: Species[];
+  source: PlaceSource;
 }

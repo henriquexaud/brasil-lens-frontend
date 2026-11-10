@@ -19,7 +19,8 @@ export function ScopeHeader({
         {onBack && name !== 'Brasil' && <p className="scope-kicker">Municípios de</p>}
         <AnimatedText key={name} as="h1" className="scope-title" text={name} />
       </div>
-      {onBack && (
+      {/* No Brasil, voltar só fecharia o território aberto: o × do detalhe já faz isso. */}
+      {onBack && name !== 'Brasil' && (
         <button
           className="ghost-button"
           onClick={onBack}

@@ -4,6 +4,7 @@ import type {
   WeatherCity,
   WeatherCurrentResponse,
 } from '@/api/types';
+import { DetailHeader } from '@/components/DetailHeader';
 import { AnimatedText } from '@/components/AnimatedText';
 import { ErrorMessage } from '@/components/Feedback';
 import { Disclosure } from '@/components/Disclosure';
@@ -118,22 +119,15 @@ export function WeatherPanel({
                 : 'Local selecionado'
       }
     >
-      <header className="detail-header">
-        <div>
-          {isState && <p className="detail-kicker">Estado</p>}
-          <AnimatedText
-            as="h2"
-            className="detail-title"
-            text={territory?.name ?? city?.name ?? fireMunicipality?.name ?? 'Carregando local…'}
-          />
-          {isState && city && (showClimateDetails || rainActive || humidityActive) && (
-            <p className="detail-capital">{city.name} · capital</p>
-          )}
-        </div>
-        <button className="icon-button" onClick={onClose} aria-label="Fechar detalhe">
-          ×
-        </button>
-      </header>
+      <DetailHeader
+        kicker={isState ? 'Estado' : undefined}
+        title={territory?.name ?? city?.name ?? fireMunicipality?.name}
+        onClose={onClose}
+      >
+        {isState && city && (showClimateDetails || rainActive || humidityActive) && (
+          <p className="detail-capital">{city.name} · capital</p>
+        )}
+      </DetailHeader>
 
       {}
       {fireActive && (

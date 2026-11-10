@@ -4,6 +4,7 @@ import type {
   MapIndicatorMeta,
   MapValue,
 } from '@/api/types';
+import { DetailHeader } from '@/components/DetailHeader';
 import { AnimatedText } from '@/components/AnimatedText';
 import { Disclosure } from '@/components/Disclosure';
 import { DrillDownButton } from '@/components/DrillDownButton';
@@ -104,29 +105,11 @@ export function TerritoryPanel({
       aria-label={onClose ? 'Local selecionado' : 'Resumo do território'}
     >
       {onClose && (
-        <header className="detail-header">
-          <div>
-            {name && level ? (
-              <>
-                <p className="detail-kicker">
-                  {levelLabel(level)}
-                  {parentName && ` · ${parentName}`}
-                </p>
-                <AnimatedText as="h2" className="detail-title" text={name} />
-              </>
-            ) : (
-              <span role="status">Carregando local…</span>
-            )}
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            aria-label="Fechar detalhe"
-          >
-            ×
-          </button>
-        </header>
+        <DetailHeader
+          kicker={level && `${levelLabel(level)}${parentName ? ` · ${parentName}` : ''}`}
+          title={level ? name : null}
+          onClose={onClose}
+        />
       )}
       {overview.error && !territory && <ErrorMessage error={overview.error} />}
       {indicator && (

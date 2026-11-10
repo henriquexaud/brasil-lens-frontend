@@ -64,6 +64,8 @@ export type PlanAction =
       label: string;
       detail: string | null;
     }
+  | { type: 'goTo'; destination: Omit<Waypoint, 'key'> }
+  | { type: 'origin'; waypoint: Omit<Waypoint, 'key'> }
   | { type: 'addStop'; waypoint?: Waypoint }
   | { type: 'remove'; index: number }
   | { type: 'reverse' }
@@ -108,6 +110,27 @@ export function planReducer(plan: RoutePlan, action: PlanAction): RoutePlan {
             : item,
         ),
       };
+    case 'goTo': {
+      // "Como chegar": o lugar vira o destino; a partida já escolhida fica, as paradas saem.
+      const origin = waypoints[0]!;
+      return {
+        ...plan,
+        waypoints: [
+          hasPoint(origin) ? origin : emptyWaypoint(),
+          { ...action.destination, key: emptyWaypoint().key },
+        ],
+      };
+    }
+    case 'origin':
+      // A posição do aparelho chega depois: só vale se a partida continuar vazia.
+      return waypoints[0]!.label
+        ? plan
+        : {
+            ...plan,
+            waypoints: waypoints.map((item, i) =>
+              i === 0 ? { ...action.waypoint, key: item.key } : item,
+            ),
+          };
     case 'clear':
       return {
         ...plan,
