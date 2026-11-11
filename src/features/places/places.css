@@ -157,3 +157,15 @@
     align-items: center;
   }
 }
+
+.places-popup-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.places-items .education-institution {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}

@@ -118,11 +118,16 @@ test('Meio ambiente alterna Florestas, Desmatamento e Fogo e desliga a aba ativa
   );
   assert.equal(document.querySelector('.source-tag').textContent, 'INPE');
   assert.equal(document.querySelector('.layer-metadata-unit').textContent, 'km² · ano PRODES');
-  const select = document.querySelector('.indicator-year-select');
+  // O ano é a lista própria do app, não o <select> do sistema.
+  assert.equal(document.querySelector('select'), null);
+  const year = document.querySelector('[role="combobox"][aria-label="Ano de referência"]');
+  assert.equal(year.textContent, '2025 · Último');
+  await act(async () => year.click());
   assert.deepEqual(
-    [...select.options].map((option) => option.textContent),
+    [...document.querySelectorAll('[role="option"]')].map((option) => option.textContent),
     ['2025 · Último', '2025', '2017', '2014'],
   );
+  await act(async () => year.click());
   await act(async () => tab('Perda').click());
   await act(async () => tab('Florestas').click());
   assert.deepEqual(changes, ['none', 'forest']);

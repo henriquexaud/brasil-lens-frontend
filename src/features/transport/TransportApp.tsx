@@ -172,7 +172,7 @@ export default function TransportApp({ contextControl }: { contextControl: React
 
   return (
     <div
-      className="app socioeconomic-app transport-app"
+      className={`app socioeconomic-app transport-app${viewport.zoom >= STREET_CLICK_ZOOM ? ' is-map-close' : ''}`}
       style={{ ['--indicator-accent' as string]: accent }}
     >
       {((!scopeReady && mapLayer.isFetching) ||

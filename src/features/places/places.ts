@@ -20,16 +20,34 @@ export interface PlaceTab {
 interface ContextConfig {
   tabs: PlaceTab[];
   accent: string;
-  /** Do mais claro ao mais escuro: contagem de lugares por território. */
+  /** Dez tons, do mais claro ao mais escuro: contagem de lugares por território. */
   ramp: readonly string[];
   /** As ruas do OpenStreetMap entram de perto, para dar endereço ao ponto. */
   streets?: boolean;
 }
 
+function channel(from: string, to: string, offset: number, t: number): string {
+  const a = parseInt(from.slice(offset, offset + 2), 16);
+  const b = parseInt(to.slice(offset, offset + 2), 16);
+  return Math.round(a + (b - a) * t)
+    .toString(16)
+    .padStart(2, '0');
+}
+
+/** Dez tons a partir dos cinco de referência: a barra da legenda é a mesma dos outros contextos. */
+export function expandRamp(stops: readonly string[], size = 10): string[] {
+  return Array.from({ length: size }, (_, index) => {
+    const position = (index * (stops.length - 1)) / (size - 1);
+    const base = Math.min(stops.length - 2, Math.floor(position));
+    const [from, to] = [stops[base]!, stops[base + 1]!];
+    return `#${[1, 3, 5].map((offset) => channel(from, to, offset, position - base)).join('')}`;
+  });
+}
+
 export const PLACE_CONTEXTS: Record<PlaceContext, ContextConfig> = {
   nature: {
     accent: '#2B7A66',
-    ramp: ['#E0F0EC', '#B5D9D0', '#82BDB0', '#4C9D8D', '#1F776A'],
+    ramp: expandRamp(['#E0F0EC', '#B5D9D0', '#82BDB0', '#4C9D8D', '#1F776A']),
     tabs: [
       {
         key: 'species',
@@ -67,7 +85,7 @@ export const PLACE_CONTEXTS: Record<PlaceContext, ContextConfig> = {
   },
   resources: {
     accent: '#A3613C',
-    ramp: ['#F7E9E0', '#EDCDB9', '#DEA98A', '#C7825E', '#A35C3B'],
+    ramp: expandRamp(['#F7E9E0', '#EDCDB9', '#DEA98A', '#C7825E', '#A35C3B']),
     tabs: [
       {
         key: 'mining',
@@ -103,7 +121,7 @@ export const PLACE_CONTEXTS: Record<PlaceContext, ContextConfig> = {
   },
   sports: {
     accent: '#B8437B',
-    ramp: ['#FBE9F1', '#F4C6DB', '#E99BBF', '#D96A9E', '#B8437B'],
+    ramp: expandRamp(['#FBE9F1', '#F4C6DB', '#E99BBF', '#D96A9E', '#B8437B']),
     streets: true,
     tabs: [
       {

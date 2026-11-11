@@ -562,6 +562,17 @@ body {
   content: none;
 }
 
+.account-menu .ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* De perto o mapa é dos pontos e das ruas: o cartão do município cobriria o popup do lugar. */
+.app.is-map-close .map-tooltip {
+  display: none;
+}
+
 .account-menu__row {
   display: flex;
   align-items: center;
@@ -2912,17 +2923,60 @@ body {
 }
 
 .weather-layer-title > span:first-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   font-weight: 500;
   color: var(--text);
   line-height: 1.25;
 }
 
-.weather-layer-icon {
+/* Listbox (components/Listbox): variações do seletor de contexto. */
+.context-select-list {
+  max-height: min(340px, calc(100vh - 16px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.context-select-trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.context-select-trigger.listbox-inline {
+  width: auto;
+  min-height: 0;
+  gap: 3px;
+  padding: 2px 2px 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.context-select-trigger.listbox-inline:hover,
+.context-select-trigger.listbox-inline[aria-expanded='true'] {
+  color: var(--text);
+}
+
+.context-select-list.listbox-list-inline {
+  font-size: 12.5px;
+}
+
+.context-select-list.listbox-list-inline .context-select-option {
+  min-height: 30px;
+  padding: 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.category-icon {
   flex: none;
-  color: var(--text-faint);
+  color: var(--indicator-accent, var(--accent));
+}
+
+.quantity-row dt > span,
+.quantity-row dt > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 /* Lista de quantidades (components/QuantityList): maior primeiro, barra na proporção da maior. */

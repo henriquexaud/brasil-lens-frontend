@@ -58,6 +58,18 @@ async function settle() { await act(async () => { await new Promise(resolve => s
 async function render() { await act(async () => root.render(h(QueryClientProvider,{client},h(SocioeconomicApp,{contextControl:null})))); await settle(); await settle(); }
 async function click(text) { const button = [...document.querySelectorAll('button')].find(item => item.textContent.includes(text)); assert.ok(button,text); await act(async()=>button.click()); await settle(); }
 
+// Os seletores são a lista própria do app (components/Listbox): abre, lê ou escolhe, fecha.
+async function optionValues(trigger) {
+  await act(async () => trigger.click());
+  const values = [...document.querySelectorAll('[role="option"]')].map((o) => o.dataset.value);
+  await act(async () => trigger.click());
+  return values;
+}
+async function pick(trigger, value) {
+  await act(async () => trigger.click());
+  await act(async () => document.querySelector(`[role="option"][data-value="${value}"]`).click());
+}
+
 test('zero tem cor e texto; ausência fica neutra, sem inventar valor', () => {
   const presentation = presentationFor(response());
   assert.equal(presentation.colors.get('35'),'#EAF6ED');
@@ -116,7 +128,7 @@ test('menu alterna indicador e ano diretamente, sem Ajustes, e só consulta o do
   assert.equal(document.querySelector('.source-tag').title, 'Fonte IBGE');
   const year = document.querySelector('.layer-metadata #year'); assert.ok(year);
   assert.equal(year.getAttribute('aria-label'), 'Ano de referência');
-  await act(async()=>{ year.value='2022'; year.dispatchEvent(new window.Event('change',{bubbles:true})); });
+  await pick(year,'2022');
   await settle();
   assert.ok(calls.some(url=>url.searchParams.get('indicator')==='gdp' && url.searchParams.get('year')==='2022'));
   assert.equal(stored().socioeconomic.year,'2022');

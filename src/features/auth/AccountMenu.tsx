@@ -1,3 +1,4 @@
+import { Glyph } from '@/components/Icon';
 import { useState } from 'react';
 import { useIsMutating } from '@tanstack/react-query';
 import { loadTheme } from '@/app/theme';
@@ -29,6 +30,7 @@ export function AccountMenu() {
           disabled={auth.loggingOut || writes > 0}
           onClick={auth.logout}
         >
+          <Glyph name="logout" size={12} />
           {auth.loggingOut ? 'Saindo…' : 'Sair'}
         </button>
       </div>

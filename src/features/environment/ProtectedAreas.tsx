@@ -67,7 +67,6 @@ export function ProtectedAreasOption({
       <div className="weather-layers-panel">
         <LayerToggle
           label="Áreas protegidas"
-          icon="shield"
           sources={[
             {
               label: 'MMA',

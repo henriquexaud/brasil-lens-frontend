@@ -13,6 +13,7 @@ import { GeoJSON, Pane, Popup, useMap, useMapEvents } from 'react-leaflet';
 import type { Feature } from 'geojson';
 import type { PlaceAreas, PlacePoint } from '@/api/types';
 import { Glyph } from '@/components/Icon';
+import { categoryIcon } from './categoryIcons';
 import { AREA_COLORS, type PlaceTab } from './places';
 import { usePlaceDetail } from './queries';
 
@@ -247,7 +248,10 @@ function PlacePopup({
         </span>
       ) : (
         <>
-          <strong className="fire-popup-title">{place.name ?? kind}</strong>
+          <strong className="fire-popup-title places-popup-title">
+            {categoryIcon(place.layer, place.category, 16)}
+            {place.name ?? kind}
+          </strong>
           <span className="fire-popup-meta">
             {[place.name ? kind : null, where].filter(Boolean).join(' · ')}
           </span>

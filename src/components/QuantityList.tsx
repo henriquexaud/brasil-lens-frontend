@@ -1,6 +1,9 @@
+import type { ReactNode } from 'react';
+
 export interface QuantityRow {
   key: string;
   label: string;
+  icon?: ReactNode;
   /** Valor já formatado. */
   value: string;
   /** Grandeza que ordena a lista e mede a barra; ausente, a linha fica sem barra. */
@@ -26,10 +29,14 @@ export function QuantityList({ rows, label }: { rows: QuantityRow[]; label: stri
           <dt>
             {row.onSelect ? (
               <button type="button" onClick={row.onSelect}>
+                {row.icon}
                 {row.label}
               </button>
             ) : (
-              row.label
+              <span>
+                {row.icon}
+                {row.label}
+              </span>
             )}
           </dt>
           <dd className={row.amount === null ? 'is-missing' : undefined}>{row.value}</dd>

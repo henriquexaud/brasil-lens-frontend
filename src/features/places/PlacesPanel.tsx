@@ -6,6 +6,7 @@ import { ErrorMessage } from '@/components/Feedback';
 import { QuantityList } from '@/components/QuantityList';
 import { ScrollList } from '@/components/ScrollList';
 import { DetailHeader } from '@/features/education/EducationPanel';
+import { categoryIcon } from './categoryIcons';
 import { formatCount, type PlaceTab } from './places';
 
 // Categorias no resumo do painel; o resto fica no filtro.
@@ -97,6 +98,7 @@ export function PlacesPanel({
         rows={breakdown.map((item) => ({
           key: item.key,
           label: item.label,
+          icon: categoryIcon(tab.layer, item.key, 14),
           value: formatCount(item.count),
           amount: item.count,
           onSelect: () => onCategory(item.key),
@@ -114,6 +116,7 @@ export function PlacesPanel({
                   className="education-institution"
                   onClick={() => onSelect(item)}
                 >
+                  {categoryIcon(tab.layer, item.category)}
                   <span className="education-institution-name">
                     {item.name ?? item.categoryLabel ?? tab.one}
                     {item.summary && <small>{item.summary}</small>}

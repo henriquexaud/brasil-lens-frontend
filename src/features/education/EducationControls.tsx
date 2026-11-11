@@ -1,3 +1,4 @@
+import { Listbox } from '@/components/Listbox';
 import type { EducationKind, EducationNetwork, Indicator } from '@/api/types';
 import { LayerMetadata, type DataSource } from '@/components/LayerMetadata';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -179,22 +180,19 @@ export function EducationControls({
         }
       >
         {years.length > 1 ? (
-          <select
+          <Listbox
             id="year"
-            className="indicator-year-select"
-            aria-label="Ano do Censo"
-            value={preferences.year}
-            onChange={(event) => onChange({ ...preferences, year: event.target.value })}
-          >
-            <option value="latest">{latestLabel}</option>
-            {[...years]
-              .sort((a, b) => b - a)
-              .map((year) => (
-                <option key={year} value={String(year)}>
-                  {year}
-                </option>
-              ))}
-          </select>
+            variant="inline"
+            label="Ano do Censo"
+            value={String(preferences.year)}
+            options={[
+              { value: 'latest', label: latestLabel },
+              ...[...years]
+                .sort((a, b) => b - a)
+                .map((item) => ({ value: String(item), label: String(item) })),
+            ]}
+            onChange={(next) => onChange({ ...preferences, year: next })}
+          />
         ) : (
           <span className="indicator-year-label">{years.length ? latestLabel : 'Sem dados'}</span>
         )}

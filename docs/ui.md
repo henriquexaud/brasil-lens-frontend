@@ -70,9 +70,15 @@ No socioeconômico, o resumo do Brasil/UF não repete o cabeçalho territorial j
 **Componentes comuns (desde 2026-11-10).** O que se repete entre contextos sai de `src/components`, não de cópias:
 - `DetailHeader`: cabeçalho de território ou instituição aberto no painel (linha de nível · região, título, linha de apoio opcional e o × desenhado, não o caractere). No Clima, o município segue sem a linha de nível, para não repetir o estado do cabeçalho de escopo.
 - `QuantityList`: lista de quantidades, da maior para a menor, com uma barra fina na cor do contexto na proporção da maior. Usada nas categorias de lugares (a linha filtra ao clicar) e na extensão das rodovias.
-- `Icon`/`Glyph`: os ícones de traço 1,6 em caixa 24 do seletor de contexto. Glifos atuais: `close`, `alert`, `shield`, `waves`, `route`. As camadas opcionais (`LayerToggle`) levam o seu (Alertas, Áreas protegidas, Rios); "Como chegar" é uma pílula com o ícone de rota. Ícone novo entra em `Icon.tsx`, na mesma família.
+- `Listbox`: a lista própria que substitui o `<select>` do sistema em todo o app (padrão "select-only combobox" do WAI-ARIA, com teclado e digitação das primeiras letras). Três variações: `context` (seletor de contexto, que virou só configuração), `field` (campos do painel, via `Select`: visualização da Política, filtro de categoria dos lugares) e `inline` (ano e turno, sem moldura, lista alinhada à direita). Lista longa rola por dentro. Não use `<select>` nativo em tela nova.
+- Ícone por esporte (`features/places/categoryIcons.tsx`): no filtro, na lista de quantidades, na lista de locais e no título do popup. No mapa o ponto continua simples.
+- `Icon`/`Glyph`: os ícones de traço 1,6 em caixa 24 do seletor de contexto. Glifos atuais: `close`, `logout` (botão Sair), `route` ("Como chegar"), `car`, `bike`, `walk` e `swap` (meios e inversão da rota). As camadas opcionais (`LayerToggle`) não levam ícone: o dono testou e preferiu só o texto (2026-11-10). Ícone novo entra em `Icon.tsx`, na mesma família.
 
 No escopo Brasil, o cabeçalho não mostra o botão de voltar: com um estado aberto ele só repetiria o título, e o × do detalhe já fecha a seleção. Dentro de um estado o botão continua (volta ao estado ou ao Brasil).
+
+**Legenda de contagem.** Sequência numérica usa sempre a barra de dez faixas do `ScaleLegend`, também nos lugares (Lavras, Ocorrências, Cavernas, Esportes por estado ou município; a rampa de cinco tons de cada contexto é expandida para dez por `expandRamp`). Chaves avulsas ficam para o que não é número: biomas, tipos de área, tipos de via.
+
+**Cartão do território de perto.** Com os pontos na tela (lugares) ou no nível de rua (Transporte), a raiz do app leva `is-map-close` e o cartão de hover do município some: ele cobria o popup do lugar e não informa nada nessa escala.
 
 **Legenda no recorte.** Dentro de uma UF, as cores do Socioeconômico e da Educação seguem a classificação nacional dos municípios, mas a legenda mostra só as faixas e os números que existem naquela UF (`range` em `socioeconomic/Legend`): o maior valor é o do maior município do estado, não o do país. A lista de espécies rola dentro do painel (`ScrollList`), como as de escolas e lugares.
 

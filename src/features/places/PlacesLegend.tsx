@@ -1,5 +1,6 @@
 import type { PlaceLayerInfo } from '@/api/types';
-import { AREA_COLORS, scaleBands, type CountScale, type PlaceTab } from './places';
+import { ScaleLegend } from '@/components/ScaleLegend';
+import { AREA_COLORS, formatCount, scaleBands, type CountScale, type PlaceTab } from './places';
 
 function Square({ color }: { color: string }) {
   return (
@@ -39,6 +40,31 @@ export function PlacesLegend({
   source: string;
 }) {
   const areas = layer?.hasShapes ?? false;
+  // Contagem por território: a mesma barra de faixas dos outros contextos.
+  if (!areas && !pointsShown && scale) {
+    const bands = scaleBands(scale).map((band) => ({ ...band, name: `${band.label} ${tab.many}` }));
+    const middle = Math.floor(bands.length / 2);
+    return (
+      <ScaleLegend
+        title={`${tab.title} por ${municipal ? 'município' : 'estado'}`}
+        unit={tab.many}
+        bands={bands}
+        ticks={[
+          { label: '1', percent: 0 },
+          ...(bands.length >= 3
+            ? [
+                {
+                  label: formatCount(scale.breaks[middle - 1]! + 1),
+                  percent: (middle / bands.length) * 100,
+                },
+              ]
+            : []),
+          { label: formatCount(scale.breaks[scale.breaks.length - 1]!), percent: 100 },
+        ]}
+        notice={layer?.pointZoom != null ? 'Aproxime o mapa para ver cada local' : undefined}
+      />
+    );
+  }
   const keys = areas
     ? (layer?.categories ?? []).map((item) => ({
         label: item.label,

@@ -328,7 +328,7 @@ export default function PlacesApp({
 
   return (
     <div
-      className="app socioeconomic-app places-app"
+      className={`app socioeconomic-app places-app${pointsShown ? ' is-map-close' : ''}`}
       style={{ ['--indicator-accent' as string]: config.accent }}
     >
       {((!scopeReady && mapLayer.isFetching) ||

@@ -151,6 +151,18 @@ async function render() {
   await settle();
 }
 
+// Os seletores são a lista própria do app (components/Listbox): abre, lê ou escolhe, fecha.
+async function optionValues(trigger) {
+  await act(async () => trigger.click());
+  const values = [...document.querySelectorAll('[role="option"]')].map((o) => o.dataset.value);
+  await act(async () => trigger.click());
+  return values;
+}
+async function pick(trigger, value) {
+  await act(async () => trigger.click());
+  await act(async () => document.querySelector(`[role="option"][data-value="${value}"]`).click());
+}
+
 test('2026 usa somente turno publicado e cargo municipal resolve 2024', () => {
   assert.equal(normalizeSelection({ ...DEFAULT_SELECTION, year: 2026 }, releases).round, 1);
   const municipal = normalizeSelection(
@@ -264,14 +276,14 @@ test('menu abre no pleito mais recente, mantém categorias e não consulta clima
   const year = document.querySelector('[aria-label="Ano da eleição"]');
   assert.equal(year.value, '2026');
   assert.deepEqual(
-    [...year.options].map((o) => o.value),
+    await optionValues(year),
     ['2026', '2022'],
   );
   assert.doesNotMatch(document.body.textContent, /Parcial · em andamento/);
   assert.match(document.querySelector('.source-tag').title, /Resultado parcial/);
   const round = document.querySelector('[aria-label="Turno"]');
   assert.deepEqual(
-    [...round.options].map((o) => o.value),
+    await optionValues(round),
     ['1'],
   );
   const reads = calls.filter(
@@ -281,10 +293,7 @@ test('menu abre no pleito mais recente, mantém categorias e não consulta clima
   assert.ok(reads.every((p) => p.searchParams.get('round') === '1'));
   assert.ok(calls.every((p) => p.pathname.includes('/political/')));
   assert.equal(JSON.parse(window.sessionStorage.getItem(SESSION_STORAGE_KEY)).political.year, 2026);
-  await act(async () => {
-    year.value = '2022';
-    year.dispatchEvent(new window.Event('change', { bubbles: true }));
-  });
+  await pick(year, '2022');
   await settle();
   assert.equal(document.querySelector('[aria-label="Ano da eleição"]').value, '2022');
   assert.equal(document.querySelector('[aria-label="Turno"]').value, '2');

@@ -2,6 +2,7 @@ import type { PlaceCatalog, PlaceLayerInfo } from '@/api/types';
 import { LayerMetadata } from '@/components/LayerMetadata';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Select } from '@/components/Select';
+import { categoryIcon } from './categoryIcons';
 import { formatCount, type PlaceTab } from './places';
 
 // Até aqui as categorias cabem em botões; acima, viram uma lista.
@@ -67,6 +68,7 @@ export function PlacesControls({
               ...categories.map((item) => ({
                 value: item.key,
                 label: `${item.label} · ${formatCount(item.count)}`,
+                icon: categoryIcon(tab.layer, item.key),
               })),
             ]}
             onChange={(value) => onCategory(value || null)}

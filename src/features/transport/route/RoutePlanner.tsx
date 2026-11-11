@@ -1,3 +1,4 @@
+import { Glyph } from '@/components/Icon';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type Dispatch } from 'react';
 import { useTerritorySearch } from '@/api/queries';
 import type { Place, RouteProfile, RouteResult } from '@/api/types';
@@ -95,39 +96,8 @@ function FieldIcon({ role }: { role: 'origin' | 'stop' | 'destination' }) {
 }
 
 function ProfileIcon({ profile }: { profile: RouteProfile }) {
-  const common = {
-    width: 15,
-    height: 15,
-    viewBox: '0 0 20 20',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.4,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    'aria-hidden': true,
-  };
-  if (profile === 'car')
-    return (
-      <svg {...common}>
-        <path d="M3.5 13.5V10l1.6-4.2A1.5 1.5 0 0 1 6.5 4.8h7a1.5 1.5 0 0 1 1.4 1L16.5 10v3.5" />
-        <path d="M3.5 10h13M3.5 13.5h13" />
-        <circle cx="6.5" cy="15.2" r="1.3" />
-        <circle cx="13.5" cy="15.2" r="1.3" />
-      </svg>
-    );
-  if (profile === 'bike')
-    return (
-      <svg {...common}>
-        <circle cx="5" cy="13" r="3" />
-        <circle cx="15" cy="13" r="3" />
-        <path d="M5 13l3-6h5l2 6M8 7l2.5 6H5M12 4.5h2" />
-      </svg>
-    );
   return (
-    <svg {...common}>
-      <circle cx="10.5" cy="3.6" r="1.5" />
-      <path d="M9.5 6.5 7.5 11l2.5 1.5V17M9.5 6.5l3 2.5 2 .5M10 12.5l3 4.5M7.5 11 5.5 10" />
-    </svg>
+    <Glyph name={profile === 'car' ? 'car' : profile === 'bike' ? 'bike' : 'walk'} size={16} />
   );
 }
 
@@ -473,19 +443,7 @@ export function RoutePlanner({
                 dispatch({ type: 'reverse' });
               }}
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M7 3.5v13M7 3.5 4 6.5M7 3.5l3 3M13 16.5v-13M13 16.5l-3-3M13 16.5l3-3" />
-              </svg>
+              <Glyph name="swap" size={15} />
             </button>
           ) : (
             <span className="route-column" aria-hidden="true" />

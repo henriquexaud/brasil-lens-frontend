@@ -1,7 +1,10 @@
+import type { ReactNode } from 'react';
+import { Listbox } from './Listbox';
+
 export interface Option {
   value: string;
   label: string;
-  disabled?: boolean;
+  icon?: ReactNode;
 }
 
 interface Props {
@@ -21,19 +24,14 @@ export function Select({ id, label, value, options, onChange, disabled, hideLabe
       <label className={hideLabel ? 'field-label sr-only' : 'field-label'} htmlFor={id}>
         {label}
       </label>
-      <select
+      <Listbox
         id={id}
-        className="field-control"
+        label={label}
         value={value}
+        options={options}
+        onChange={onChange}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value} disabled={option.disabled}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      />
     </div>
   );
 }

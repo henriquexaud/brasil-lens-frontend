@@ -19,7 +19,6 @@ export function RiversOption({
       <div className="weather-layers-panel">
         <LayerToggle
           label="Rios e corpos d'água"
-          icon="waves"
           sources={[
             {
               label: 'ANA',

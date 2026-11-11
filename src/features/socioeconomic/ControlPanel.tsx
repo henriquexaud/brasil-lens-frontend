@@ -1,3 +1,4 @@
+import { Listbox } from '@/components/Listbox';
 import { useCallback, useMemo, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { valuesOptions } from './queries';
@@ -137,22 +138,19 @@ export function ControlPanel({
         }
       >
         {years.length > 1 ? (
-          <select
+          <Listbox
             id="year"
-            className="indicator-year-select"
-            aria-label="Ano de referência"
-            value={selectedYear}
-            onChange={(event) => onYearChange(event.target.value)}
-          >
-            <option value={LATEST_YEAR}>{latestLabel}</option>
-            {[...years]
-              .sort((a, b) => b - a)
-              .map((year) => (
-                <option key={year} value={String(year)}>
-                  {year}
-                </option>
-              ))}
-          </select>
+            variant="inline"
+            label="Ano de referência"
+            value={String(selectedYear)}
+            options={[
+              { value: LATEST_YEAR, label: latestLabel },
+              ...[...years]
+                .sort((a, b) => b - a)
+                .map((item) => ({ value: String(item), label: String(item) })),
+            ]}
+            onChange={(next) => onYearChange(next)}
+          />
         ) : (
           <span className="indicator-year-label">
             {years.length

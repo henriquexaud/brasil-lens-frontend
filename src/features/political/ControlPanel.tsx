@@ -1,3 +1,4 @@
+import { Listbox } from '@/components/Listbox';
 import type {
   PoliticalMetric,
   PoliticalOffice,
@@ -177,32 +178,22 @@ export function ControlPanel({
         }
       >
         <div className="political-period">
-          <select
-            className="indicator-year-select"
+          <Listbox
+            variant="inline"
+            label="Ano da eleição"
+            value={String(selection.year)}
             disabled={!years.length}
-            aria-label="Ano da eleição"
-            value={selection.year}
-            onChange={(event) => change({ year: Number(event.target.value) })}
-          >
-            {years.map((r) => (
-              <option key={r.year} value={r.year}>
-                {r.year}
-              </option>
-            ))}
-          </select>
+            options={years.map((r) => ({ value: String(r.year), label: String(r.year) }))}
+            onChange={(next) => change({ year: Number(next) })}
+          />
           {selection.category !== 'representation' && rounds.length > 0 && (
-            <select
-              className="indicator-year-select"
-              aria-label="Turno"
-              value={selection.round}
-              onChange={(event) => change({ round: Number(event.target.value) })}
-            >
-              {rounds.map((round) => (
-                <option key={round} value={round}>
-                  {round}º turno
-                </option>
-              ))}
-            </select>
+            <Listbox
+              variant="inline"
+              label="Turno"
+              value={String(selection.round)}
+              options={rounds.map((round) => ({ value: String(round), label: `${round}º turno` }))}
+              onChange={(next) => change({ round: Number(next) })}
+            />
           )}
         </div>
       </LayerMetadata>

@@ -1,3 +1,4 @@
+import { Listbox } from '@/components/Listbox';
 import type { FireHotspotCollection } from '@/api/types';
 import { LayerMetadata } from '@/components/LayerMetadata';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -53,21 +54,18 @@ export function EnvironmentThematicSwitch({
       {indicator && (
         <LayerMetadata sources={[indicator.source]} unit={indicator.unit}>
           {years.length > 1 ? (
-            <select
-              className="indicator-year-select"
-              aria-label="Ano de referência"
-              value={year}
-              onChange={(event) => onYearChange(event.target.value)}
-            >
-              <option value="latest">{latestLabel}</option>
-              {[...years]
-                .sort((a, b) => b - a)
-                .map((item) => (
-                  <option key={item} value={String(item)}>
-                    {item}
-                  </option>
-                ))}
-            </select>
+            <Listbox
+              variant="inline"
+              label="Ano de referência"
+              value={String(year)}
+              options={[
+                { value: 'latest', label: latestLabel },
+                ...[...years]
+                  .sort((a, b) => b - a)
+                  .map((item) => ({ value: String(item), label: String(item) })),
+              ]}
+              onChange={(next) => onYearChange(next)}
+            />
           ) : (
             <span className="indicator-year-label">
               {years.length ? latestLabel : 'Carregando…'}
