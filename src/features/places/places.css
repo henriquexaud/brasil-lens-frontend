@@ -169,3 +169,15 @@
   align-items: center;
   gap: 9px;
 }
+
+/* Bem de perto, o ponto vira o ícone do esporte (PlacesLayers). */
+.place-icon-marker {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: 1.5px solid var(--indicator-accent, var(--accent));
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--indicator-accent, var(--accent));
+  box-shadow: 0 1px 3px rgb(38 55 61 / 22%);
+}

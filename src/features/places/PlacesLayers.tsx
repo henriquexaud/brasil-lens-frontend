@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   canvas,
   circleMarker,
+  divIcon,
+  marker,
   layerGroup,
   type LayerGroup,
   type LeafletMouseEvent,
@@ -13,7 +15,7 @@ import { GeoJSON, Pane, Popup, useMap, useMapEvents } from 'react-leaflet';
 import type { Feature } from 'geojson';
 import type { PlaceAreas, PlacePoint } from '@/api/types';
 import { Glyph } from '@/components/Icon';
-import { categoryIcon } from './categoryIcons';
+import { categoryIcon, categoryIconSvg } from './categoryIcons';
 import { AREA_COLORS, type PlaceTab } from './places';
 import { usePlaceDetail } from './queries';
 
@@ -108,6 +110,9 @@ function AreasLayer({
   );
 }
 
+// Bem de perto são poucos pontos na vista: cada um vira o ícone do seu esporte.
+const ICON_ZOOM = 15;
+const ICON_RADIUS = 11;
 // Folga do toque em volta do ponto, em pixels.
 const PICK_SLACK = 5;
 
@@ -116,22 +121,25 @@ const PICK_SLACK = 5;
 // resolvido aqui, antes dos outros, pelo ponto mais próximo.
 function PointsLayer({
   points,
+  layer: placeLayer,
   accent,
   zoom,
   onPick,
 }: {
   points: PlacePoint[];
+  layer: string;
   accent: string;
   zoom: number;
   onPick: (focus: PlaceFocus | null) => void;
 }) {
   const group = useRef<LayerGroup | null>(null);
   const renderer = useRef<Renderer | null>(null);
+  const icons = zoom >= ICON_ZOOM;
   const radius = zoom >= 13 ? 5 : zoom >= 11 ? 4 : 3;
   const map = useMapEvents({
     preclick(event: LeafletMouseEvent) {
       let nearest: PlacePoint | null = null;
-      let best = (radius + PICK_SLACK) ** 2;
+      let best = ((icons ? ICON_RADIUS : radius) + PICK_SLACK) ** 2;
       for (const point of points) {
         const position = map.latLngToContainerPoint([point.latitude, point.longitude]);
         const distance =
@@ -175,6 +183,20 @@ function PointsLayer({
     if (!layer || !renderer.current) return;
     layer.clearLayers();
     for (const point of points) {
+      const svg = icons ? categoryIconSvg(placeLayer, point.category) : undefined;
+      if (svg) {
+        marker([point.latitude, point.longitude], {
+          pane: POINTS_PANE,
+          interactive: false,
+          keyboard: false,
+          icon: divIcon({
+            className: 'place-icon-marker',
+            html: svg,
+            iconSize: [ICON_RADIUS * 2, ICON_RADIUS * 2],
+          }),
+        }).addTo(layer);
+        continue;
+      }
       circleMarker([point.latitude, point.longitude], {
         renderer: renderer.current,
         pane: POINTS_PANE,
@@ -186,7 +208,7 @@ function PointsLayer({
         interactive: false,
       }).addTo(layer);
     }
-  }, [points, accent, radius]);
+  }, [points, accent, radius, icons, placeLayer]);
   return null;
 }
 
@@ -327,7 +349,13 @@ export function PlacesLayers({
         />
       )}
       {points ? (
-        <PointsLayer points={points} accent={accent} zoom={zoom} onPick={onFocus} />
+        <PointsLayer
+          points={points}
+          layer={tab.layer}
+          accent={accent}
+          zoom={zoom}
+          onPick={onFocus}
+        />
       ) : (
         focus && <ClickAway onClose={() => onFocus(null)} />
       )}
